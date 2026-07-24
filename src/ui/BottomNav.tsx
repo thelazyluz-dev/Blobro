@@ -53,7 +53,7 @@ export function BottomNav() {
   const setTab = useGame((s) => s.setTab);
 
   return (
-    <nav className="flex shrink-0 items-stretch justify-around border-t border-hairline bg-[var(--surface-2)]/80 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+    <nav className="relative z-10 flex shrink-0 items-stretch justify-around border-t border-hairline bg-[var(--surface-2)]/80 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       {ITEMS.map(({ tab, label, Icon }) => {
         const active = tab === activeTab;
         return (

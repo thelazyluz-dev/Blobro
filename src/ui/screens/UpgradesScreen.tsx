@@ -1,9 +1,12 @@
 // Screen 4 — upgrades (§10.4). A data-driven list of upgrades: cost, effect,
 // current level. Each button is disabled when there isn't enough goo.
 
+import { useRef, useState } from 'react';
+import { playError, playPurchase } from '../../audio/sfx';
 import { formatGoo } from '../../game/format';
 import { upgradeCost, upgradeDefs } from '../../game/upgrades';
 import type { UpgradeId } from '../../game/types';
+import { haptic } from '../haptics';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
 
 export function UpgradesScreen() {
@@ -45,13 +48,29 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   const goo = useGame((s) => s.goo);
   const level = useGame((s) => s.upgrades[id]);
   const buy = useGame((s) => s.buyUpgrade);
+  const [shake, setShake] = useState(false);
+  const shakeTimer = useRef<number>();
 
   const cost = upgradeCost(id, level);
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
 
+  const onBuy = () => {
+    const muted = useGame.getState().muted;
+    if (canAfford) {
+      buy(id);
+      playPurchase(muted);
+      haptic(15);
+    } else {
+      playError(muted);
+      setShake(true);
+      window.clearTimeout(shakeTimer.current);
+      shakeTimer.current = window.setTimeout(() => setShake(false), 300);
+    }
+  };
+
   return (
-    <div className="surface rounded-2xl p-4">
+    <div className={`surface rounded-2xl p-4 ${shake ? 'anim-squash' : ''}`}>
       <div className="flex items-center gap-3">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-black/25 text-3xl ring-hairline">
           {def.icon}
@@ -67,10 +86,9 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
 
       <button
         type="button"
-        onClick={() => buy(id)}
-        disabled={!canAfford}
+        onClick={onBuy}
         className={`btn mt-3 w-full py-3 text-lg ${
-          canAfford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/35 ring-hairline'
+          canAfford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
         }`}
       >
         {canAfford ? (

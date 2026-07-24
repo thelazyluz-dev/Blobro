@@ -3,6 +3,7 @@
 // All motion honors reduced-motion.
 
 import { useEffect, useRef, useState } from 'react';
+import { playClick } from '../../audio/sfx';
 import {
   bonusIntervalMaxMs,
   bonusIntervalMinMs,
@@ -11,7 +12,10 @@ import {
 } from '../../game/balance';
 import { formatGoo } from '../../game/format';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
+import { haptic } from '../haptics';
 import { useReducedMotion } from '../useReducedMotion';
+
+const COMBO_WINDOW_MS = 800;
 
 interface Floater {
   id: number;
@@ -47,11 +51,14 @@ export function ClickScreen() {
   const [pop, setPop] = useState(false);
   const [bonus, setBonus] = useState<{ id: number; top: number } | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
+  const [combo, setCombo] = useState(0);
   const blobRef = useRef<HTMLButtonElement>(null);
   const popTimer = useRef<number>();
   const spawnRef = useRef<number>();
   const lifeRef = useRef<number>();
   const scheduleRef = useRef<() => void>(() => {});
+  const comboRef = useRef({ count: 0, last: 0 });
+  const comboTimer = useRef<number>();
 
   const frenzyActive = frenzyUntil > nowTs;
 
@@ -103,6 +110,23 @@ export function ClickScreen() {
 
   const handleClick = (e: React.PointerEvent<HTMLButtonElement>) => {
     const { gain, frenzy } = click();
+
+    // Combo: consecutive rapid taps build up, driving pitch and particle count.
+    const t = performance.now();
+    const c = comboRef.current;
+    c.count = t - c.last < COMBO_WINDOW_MS ? c.count + 1 : 1;
+    c.last = t;
+    setCombo(c.count);
+    window.clearTimeout(comboTimer.current);
+    comboTimer.current = window.setTimeout(() => {
+      comboRef.current.count = 0;
+      setCombo(0);
+    }, COMBO_WINDOW_MS + 150);
+
+    const muted = useGame.getState().muted;
+    playClick(muted, frenzy ? c.count + 8 : c.count);
+    if (frenzy) haptic(12);
+
     if (reduced) return;
 
     setSquash(true);
@@ -116,7 +140,7 @@ export function ClickScreen() {
     setFloaters((prev) => [...prev, { id: fid, x, y, amount: gain, frenzy }]);
     window.setTimeout(() => setFloaters((prev) => prev.filter((f) => f.id !== fid)), 700);
 
-    const count = frenzy ? 9 : 5;
+    const count = (frenzy ? 9 : 5) + Math.min(6, Math.floor(c.count / 3));
     const palette = frenzy ? FRENZY_COLORS : PARTICLE_COLORS;
     const next: Particle[] = [];
     for (let i = 0; i < count; i++) {
@@ -137,6 +161,13 @@ export function ClickScreen() {
 
   return (
     <div className="anim-tab-in relative flex h-full flex-col items-center justify-between overflow-hidden px-6 py-8">
+      {frenzyActive && !reduced && (
+        <div
+          className="anim-vignette pointer-events-none absolute inset-0 z-0"
+          style={{ boxShadow: 'inset 0 0 90px 20px rgba(255,46,136,0.55)' }}
+          aria-hidden
+        />
+      )}
       <header className="mt-2 text-center">
         <div
           className={`font-display text-7xl leading-none tabular text-glow-pop ${
@@ -176,8 +207,16 @@ export function ClickScreen() {
           aria-label="לחיצה על הבלוב"
           className="relative touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-cy"
         >
+          {combo >= 4 && (
+            <span
+              className="anim-count-pop pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-cy px-3 py-0.5 font-display text-sm text-void"
+              style={{ boxShadow: '0 0 16px rgba(0,229,255,0.7)' }}
+            >
+              קוֹמְבּוֹ ×{combo}
+            </span>
+          )}
           <span
-            className={`block ${frenzyActive ? 'glow-hot' : 'glow-goo'} ${
+            className={`block ${frenzyActive ? (reduced ? 'glow-hot' : 'anim-hue-spin') : 'glow-goo'} ${
               squash ? 'anim-squash' : reduced ? '' : 'anim-idle'
             }`}
             style={{ willChange: 'transform' }}

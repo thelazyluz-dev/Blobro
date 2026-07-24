@@ -16,6 +16,13 @@ function getCtx(): AudioContext | null {
   return ctx;
 }
 
+/** Shared accessor so the SFX module can reuse the single AudioContext. */
+export function getAudioContext(): AudioContext | null {
+  const c = getCtx();
+  if (c && c.state === 'suspended') void c.resume();
+  return c;
+}
+
 /**
  * Create/resume the AudioContext from within a user gesture. Browsers block
  * audio until the first interaction; calling this on an early pointerdown means

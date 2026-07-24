@@ -21,6 +21,7 @@ import type { Modifiers, OwnedCharacters, SaveState, UpgradeId, Upgrades } from 
 
 export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades';
 
+export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
 export type ToastTone = 'goo' | 'star' | 'pop';
 export interface Toast {
   id: number;
@@ -49,6 +50,8 @@ interface GameState {
   frenzyUntil: number; // epoch ms; a click frenzy is active until then
   toasts: Toast[];
   achievementsOpen: boolean;
+  confettiBursts: number; // increments to trigger a celebration
+  confettiKind: ConfettiKind;
 
   // --- actions ---
   loadGame: () => Promise<void>;
@@ -65,6 +68,7 @@ interface GameState {
   setAchievementsOpen: (open: boolean) => void;
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
+  triggerConfetti: (kind: ConfettiKind) => void;
 }
 
 let toastId = 0;
@@ -126,6 +130,8 @@ export const useGame = create<GameState>((set, get) => {
     frenzyUntil: 0,
     toasts: [],
     achievementsOpen: false,
+    confettiBursts: 0,
+    confettiKind: 'confetti',
 
     loadGame: async () => {
       const now = Date.now();
@@ -237,6 +243,8 @@ export const useGame = create<GameState>((set, get) => {
 
     pushToast: (t) => set((s) => ({ toasts: [...s.toasts, { ...t, id: ++toastId }] })),
     dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+    triggerConfetti: (kind) =>
+      set((s) => ({ confettiBursts: s.confettiBursts + 1, confettiKind: kind })),
   };
 });
 

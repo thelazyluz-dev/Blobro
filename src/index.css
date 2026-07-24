@@ -290,6 +290,71 @@ body {
   }
 }
 
+@keyframes blorbo-confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(112vh) rotate(var(--spin, 360deg));
+    opacity: 0.85;
+  }
+}
+
+@keyframes blorbo-aurora {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes blorbo-hue-spin {
+  0% {
+    filter: hue-rotate(0deg) drop-shadow(0 0 22px rgba(255, 46, 136, 0.6));
+  }
+  100% {
+    filter: hue-rotate(360deg) drop-shadow(0 0 22px rgba(255, 46, 136, 0.6));
+  }
+}
+
+@keyframes blorbo-vignette {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.anim-confetti {
+  animation-name: blorbo-confetti;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.anim-hue-spin {
+  animation: blorbo-hue-spin 1.6s linear infinite;
+}
+.anim-vignette {
+  animation: blorbo-vignette 0.8s ease-in-out infinite;
+}
+
+/* Slow, hue-shifting decorative background layer. */
+.bg-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  background-image:
+    radial-gradient(60% 50% at 85% 12%, rgba(255, 46, 136, 0.22), transparent 60%),
+    radial-gradient(55% 45% at 12% 88%, rgba(0, 229, 255, 0.2), transparent 60%),
+    radial-gradient(50% 40% at 50% 40%, rgba(163, 255, 18, 0.1), transparent 65%);
+  animation: blorbo-aurora 28s linear infinite;
+}
+
 .anim-bonus-drift {
   animation: blorbo-bonus-drift var(--drift, 9s) linear forwards;
 }
@@ -356,7 +421,11 @@ body {
   .anim-count-pop,
   .anim-bonus-drift,
   .anim-bonus-pulse,
-  .anim-toast-in {
+  .anim-toast-in,
+  .anim-confetti,
+  .anim-hue-spin,
+  .anim-vignette,
+  .bg-aurora {
     animation: none !important;
   }
 }

@@ -11,6 +11,7 @@ import type { HatchOutcome } from '../game/hatching';
 import type { CharId } from '../game/types';
 import { useGame } from '../store';
 import { CharacterBody } from './characters';
+import { haptic } from './haptics';
 import { rarityBackground, rarityColor, rarityLabelHe, isShareworthy } from './rarity';
 import { shareCreature } from './shareCard';
 import { useReducedMotion } from './useReducedMotion';
@@ -34,11 +35,21 @@ export function HatchReveal() {
     return () => window.clearTimeout(t);
   }, [outcome, reduced]);
 
-  // The creature's jingle sounds the moment it's revealed (§7.4 step 4).
-  // muted is read fresh so toggling it mid-reveal never replays the jingle.
+  // The creature's jingle sounds the moment it's revealed (§7.4 step 4), along
+  // with confetti + a haptic buzz that scale with rarity. muted is read fresh so
+  // toggling it mid-reveal never replays the jingle.
   useEffect(() => {
-    if (outcome && stage === 'revealed') {
-      playJingle(charactersById[outcome.charId].sound, useGame.getState().muted);
+    if (!outcome || stage !== 'revealed') return;
+    playJingle(charactersById[outcome.charId].sound, useGame.getState().muted);
+    const r = outcome.rarity;
+    if (r === 'legendary') {
+      useGame.getState().triggerConfetti('rainbow');
+      haptic([0, 60, 40, 60, 40, 90]);
+    } else if (r === 'rare') {
+      useGame.getState().triggerConfetti('confetti');
+      haptic([0, 40, 30, 60]);
+    } else {
+      haptic(30);
     }
   }, [outcome, stage]);
 

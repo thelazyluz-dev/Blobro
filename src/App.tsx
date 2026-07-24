@@ -2,10 +2,13 @@ import { useEffect } from 'react';
 import { unlockAudio } from './audio/synth';
 import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
 import { BottomNav } from './ui/BottomNav';
+import { Confetti } from './ui/Confetti';
+import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
 import { Toaster } from './ui/Toaster';
+import { useFrenzyAudio } from './ui/useFrenzyAudio';
 import { ClickScreen } from './ui/screens/ClickScreen';
 import { CollectionScreen } from './ui/screens/CollectionScreen';
 import { HatchScreen } from './ui/screens/HatchScreen';
@@ -16,6 +19,7 @@ import { useGame } from './store';
 export function App() {
   const loaded = useGameEngine();
   const activeTab = useGame((s) => s.activeTab);
+  useFrenzyAudio();
 
   // Unlock the AudioContext on the first interaction (browser autoplay policy),
   // so jingles scheduled slightly later (e.g. after the egg shake) still play.
@@ -36,9 +40,10 @@ export function App() {
 
   return (
     <div className="relative mx-auto flex h-full max-w-md flex-col">
+      <div className="bg-aurora" aria-hidden />
       <MuteButton />
       <AchievementsButton />
-      <main className="min-h-0 flex-1 overflow-hidden">
+      <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         {activeTab === 'click' && <ClickScreen />}
         {activeTab === 'hatch' && <HatchScreen />}
         {activeTab === 'collection' && <CollectionScreen />}
@@ -47,6 +52,8 @@ export function App() {
 
       <BottomNav />
 
+      <FeedbackController />
+      <Confetti />
       <Toaster />
       <OfflineModal />
       <HatchReveal />
