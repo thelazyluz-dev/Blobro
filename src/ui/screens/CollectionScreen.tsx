@@ -2,14 +2,16 @@
 // silhouette with a question mark; tapping an owned creature shows details.
 
 import { useState } from 'react';
+import { playError, playPurchase } from '../../audio/sfx';
 import { playJingle } from '../../audio/synth';
+import { evolveCostByRarity, maxCharLevel } from '../../game/balance';
 import { charactersById, collectionOrder } from '../../game/characters';
-import { charIncome } from '../../game/economy';
+import { ownedCreatureIncome } from '../../game/economy';
 import { formatGoo } from '../../game/format';
-import { maxCharLevel } from '../../game/balance';
 import type { CharId } from '../../game/types';
 import { useGame } from '../../store';
 import { CharacterBody } from '../characters';
+import { haptic } from '../haptics';
 import { isShareworthy, rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
 import { shareCreature } from '../shareCard';
 
@@ -55,20 +57,28 @@ export function CollectionScreen() {
               </div>
             );
           }
+          const ring = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
           return (
             <button
               key={id}
               type="button"
               onClick={() => open(id)}
-              className="flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
+              className="relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
               style={{
                 backgroundColor: '#170a29',
-                boxShadow: `inset 0 0 0 2px ${rarityColor[def.rarity]}, 0 0 18px -8px ${rarityColor[def.rarity]}`,
+                boxShadow: held.shiny
+                  ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
+                  : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
               }}
             >
+              {held.shiny && <span className="absolute end-1 top-1 text-sm">✨</span>}
               <CharacterBody id={id} className="h-12 w-12" />
-              <span className="mt-1 max-w-full truncate px-1 text-[10px] text-bone/80">{def.nameHe}</span>
-              <span className="text-[10px] text-pop tabular">רמה {held.level}</span>
+              <span className={`mt-1 max-w-full truncate px-1 text-[10px] ${held.shiny ? 'text-pop' : 'text-bone/80'}`}>
+                {def.nameHe}
+              </span>
+              <span className="text-[10px] text-pop tabular">
+                {held.shiny ? '✨ ' : ''}רמה {held.level}
+              </span>
             </button>
           );
         })}
@@ -82,10 +92,27 @@ export function CollectionScreen() {
 function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const def = charactersById[id];
   const held = useGame((s) => s.characters[id]);
+  const goo = useGame((s) => s.goo);
+  const evolveCreature = useGame((s) => s.evolveCreature);
   if (!held) return null;
 
-  const income = charIncome(def.rarity, held.level);
+  const income = ownedCreatureIncome(def.rarity, held);
   const maxed = held.level >= maxCharLevel;
+  const ringColor = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
+  const evolveCost = evolveCostByRarity[def.rarity];
+  const canEvolve = maxed && !held.shiny;
+  const affordEvolve = goo >= evolveCost;
+
+  const onEvolve = () => {
+    const muted = useGame.getState().muted;
+    if (affordEvolve) {
+      evolveCreature(id);
+      playPurchase(muted);
+      haptic([0, 40, 30, 60]);
+    } else {
+      playError(muted);
+    }
+  };
 
   return (
     <div
@@ -95,24 +122,28 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
     >
       <div
         className="surface anim-pop-in w-full max-w-xs rounded-3xl p-6 text-center"
-        style={{ boxShadow: `0 0 0 2px ${rarityColor[def.rarity]}, 0 24px 60px -20px #000` }}
+        style={{ boxShadow: `0 0 0 2px ${ringColor}, 0 24px 60px -20px #000` }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         <div
-          className="mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl"
-          style={{ background: rarityBackground(def.rarity), boxShadow: `0 0 40px -8px ${rarityColor[def.rarity]}` }}
+          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl ${held.shiny ? 'anim-hue-spin' : ''}`}
+          style={{ background: rarityBackground(def.rarity), boxShadow: `0 0 40px -8px ${ringColor}` }}
         >
+          {held.shiny && <span className="absolute -end-1 -top-1 text-2xl">✨</span>}
           <CharacterBody id={id} className="h-24 w-24" />
         </div>
-        <div className="font-display text-3xl text-bone">{def.nameHe}</div>
+        <div className="font-display text-3xl text-bone">
+          {held.shiny ? '✨ ' : ''}
+          {def.nameHe}
+        </div>
         <div className="text-sm text-bone/50">{def.nameLatin}</div>
         <div
           className="mx-auto mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold text-void"
-          style={{ background: rarityBackground(def.rarity) }}
+          style={{ background: held.shiny ? 'linear-gradient(135deg,#FFD84D,#FF2E88)' : rarityBackground(def.rarity) }}
         >
-          {rarityLabelHe[def.rarity]}
+          {held.shiny ? 'מְנַצְנֵץ' : rarityLabelHe[def.rarity]}
         </div>
         <div className="mt-4 text-lg text-pop tabular">
           רמה {held.level}
@@ -132,6 +163,22 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           </svg>
           שִׁיר!
         </button>
+
+        {canEvolve && (
+          <button
+            type="button"
+            onClick={onEvolve}
+            className={`btn mt-3 flex w-full flex-col items-center py-2.5 ${
+              affordEvolve ? 'text-void' : 'text-void/70'
+            }`}
+            style={{ background: 'linear-gradient(135deg,#FFD84D,#FF2E88)' }}
+          >
+            <span className="text-lg">✨ אֶבּוֹלוּצְיָה ✨</span>
+            <span className="text-xs tabular">
+              {affordEvolve ? `${formatGoo(evolveCost)} גּוּ — פי ${3} הכנסה!` : `חסר ${formatGoo(evolveCost - goo)} גּוּ`}
+            </span>
+          </button>
+        )}
 
         {isShareworthy(def.rarity) && <ModalShareButton id={id} />}
 

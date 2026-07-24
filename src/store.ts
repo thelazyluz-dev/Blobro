@@ -7,17 +7,21 @@ import {
   bonusClickEquivalent,
   bonusIncomeSeconds,
   bonusMinGoo,
+  critMultiplier,
+  evolveCostByRarity,
   frenzyDurationMs,
   frenzyMultiplier,
+  maxCharLevel,
 } from './game/balance';
 import { newlyCompleted } from './game/achievements';
+import { charactersById } from './game/characters';
 import { clickPower, eggCost, gooPerSec, modifiersFrom } from './game/economy';
 import { hatch, type HatchOutcome } from './game/hatching';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { loadRaw, persist } from './persistence';
-import type { Modifiers, OwnedCharacters, SaveState, UpgradeId, Upgrades } from './game/types';
+import type { CharId, Modifiers, OwnedCharacters, SaveState, UpgradeId, Upgrades } from './game/types';
 
 export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades';
 
@@ -57,10 +61,12 @@ interface GameState {
   loadGame: () => Promise<void>;
   saveGame: () => Promise<void>;
   setTab: (tab: Tab) => void;
-  click: () => { gain: number; frenzy: boolean };
+  click: () => { gain: number; frenzy: boolean; crit: boolean };
   buyUpgrade: (id: UpgradeId) => void;
   tryHatch: () => void;
+  evolveCreature: (id: CharId) => void;
   collectBonus: () => number;
+  grantGoo: (amount: number) => void;
   dismissHatch: () => void;
   dismissOffline: () => void;
   toggleMute: () => void;
@@ -115,7 +121,7 @@ export const useGame = create<GameState>((set, get) => {
   return {
     goo: 0,
     lifetimeGoo: 0,
-    upgrades: { finger: 0, power: 0, autoTap: 0, nurture: 0 },
+    upgrades: { finger: 0, power: 0, autoTap: 0, nurture: 0, crit: 0, luck: 0 },
     characters: {},
     totalHatches: 0,
     sinceRare: 0,
@@ -166,12 +172,15 @@ export const useGame = create<GameState>((set, get) => {
     setTab: (tab) => set({ activeTab: tab }),
 
     click: () => {
-      const base = clickPower(mods());
+      const m = mods();
+      const crit = Math.random() < m.critChance;
       const frenzy = Date.now() < get().frenzyUntil;
-      const gain = frenzy ? base * frenzyMultiplier : base;
+      let gain = clickPower(m);
+      if (crit) gain *= critMultiplier;
+      if (frenzy) gain *= frenzyMultiplier;
       set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain }));
       syncAchievements();
-      return { gain, frenzy };
+      return { gain, frenzy, crit };
     },
 
     buyUpgrade: (id) => {
@@ -190,6 +199,7 @@ export const useGame = create<GameState>((set, get) => {
         owned: s.characters,
         sinceRare: s.sinceRare,
         totalHatches: s.totalHatches,
+        luck: mods().luck,
       });
 
       const characters: OwnedCharacters = { ...s.characters };
@@ -203,6 +213,27 @@ export const useGame = create<GameState>((set, get) => {
         sinceRare: outcome.nextSinceRare,
         hatchResult: outcome,
       });
+      syncAchievements();
+    },
+
+    evolveCreature: (id) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held || held.level < maxCharLevel || held.shiny) return;
+      const def = charactersById[id];
+      const cost = evolveCostByRarity[def.rarity];
+      if (s.goo < cost) return;
+      set({
+        goo: s.goo - cost,
+        characters: { ...s.characters, [id]: { ...held, shiny: true } },
+      });
+      get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨`, icon: '✨', tone: 'star' });
+      get().triggerConfetti('rainbow');
+    },
+
+    grantGoo: (amount) => {
+      if (amount <= 0) return;
+      set((s) => ({ goo: s.goo + amount, lifetimeGoo: s.lifetimeGoo + amount }));
       syncAchievements();
     },
 
@@ -241,7 +272,8 @@ export const useGame = create<GameState>((set, get) => {
 
     setAchievementsOpen: (open) => set({ achievementsOpen: open }),
 
-    pushToast: (t) => set((s) => ({ toasts: [...s.toasts, { ...t, id: ++toastId }] })),
+    // Keep only the most recent few so a burst of unlocks never floods the screen.
+    pushToast: (t) => set((s) => ({ toasts: [...s.toasts, { ...t, id: ++toastId }].slice(-4) })),
     dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     triggerConfetti: (kind) =>
       set((s) => ({ confettiBursts: s.confettiBursts + 1, confettiKind: kind })),

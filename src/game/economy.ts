@@ -5,10 +5,14 @@ import {
   baseByRarity,
   charIncomeGrowthPerLevel,
   clickBase,
+  critBaseChance,
+  critChanceCap,
   eggCostBase,
   eggCostGrowth,
+  evolveIncomeMultiplier,
   fingerEffectPerLevel,
   globalMultiplier,
+  luckCap,
   starPerAchievement,
   upgradeConfig,
 } from './balance';
@@ -28,6 +32,8 @@ export function modifiersFrom(upgrades: Upgrades, achievementCount: number): Mod
     incomeMultiplier: 1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture,
     autoTapRate: upgradeConfig.autoTap.effectPerLevel * upgrades.autoTap,
     starMultiplier: starMultiplier(achievementCount),
+    critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
+    luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
   };
 }
 
@@ -46,12 +52,18 @@ export function charIncome(rarity: Rarity, level: number): number {
   return baseByRarity[rarity] * (1 + charIncomeGrowthPerLevel * (level - 1));
 }
 
+/** A single owned creature's income, including its shiny (evolved) bonus. */
+export function ownedCreatureIncome(rarity: Rarity, held: { level: number; shiny?: boolean }): number {
+  const base = charIncome(rarity, held.level);
+  return held.shiny ? base * evolveIncomeMultiplier : base;
+}
+
 /** Passive income from creatures alone (nurture + star + global applied). */
 export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
   let sum = 0;
   for (const def of characters) {
     const held = owned[def.id];
-    if (held) sum += charIncome(def.rarity, held.level);
+    if (held) sum += ownedCreatureIncome(def.rarity, held);
   }
   return sum * m.incomeMultiplier * m.starMultiplier * globalMultiplier;
 }

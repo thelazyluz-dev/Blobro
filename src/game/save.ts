@@ -40,9 +40,11 @@ function sanitizeCharacters(raw: unknown): OwnedCharacters {
   const valid = new Set<CharId>(collectionOrder);
   for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!valid.has(key as CharId)) continue;
-    const level = (entry as { level?: unknown } | null)?.level;
-    const clamped = Math.min(maxCharLevel, Math.max(minCharLevel, nonNegInt(level, minCharLevel)));
-    out[key as CharId] = { level: clamped };
+    const e = entry as { level?: unknown; shiny?: unknown } | null;
+    const clamped = Math.min(maxCharLevel, Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel)));
+    // Only a maxed creature can be shiny.
+    const shiny = Boolean(e?.shiny) && clamped >= maxCharLevel;
+    out[key as CharId] = shiny ? { level: clamped, shiny: true } : { level: clamped };
   }
   return out;
 }

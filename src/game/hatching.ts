@@ -4,6 +4,8 @@
 import {
   baseByRarity,
   duplicateGooMultiplier,
+  luckLegendaryShare,
+  luckRareShare,
   maxCharLevel,
   pityLegendaryThreshold,
   pityRareThreshold,
@@ -18,6 +20,19 @@ export interface HatchContext {
   owned: OwnedCharacters;
   sinceRare: number;
   totalHatches: number;
+  luck?: number; // 0..luckCap, shifts odds from common toward rare/legendary
+}
+
+/** Rarity odds after applying luck (mass moves from common to rare+legendary). */
+function luckyChances(luck: number): Record<Rarity, number> {
+  if (luck <= 0) return rarityChances;
+  const shift = Math.min(luck, rarityChances.common);
+  return {
+    common: rarityChances.common - shift,
+    uncommon: rarityChances.uncommon,
+    rare: rarityChances.rare + shift * luckRareShare,
+    legendary: rarityChances.legendary + shift * luckLegendaryShare,
+  };
 }
 
 export function isLegendaryOwned(owned: OwnedCharacters): boolean {
@@ -27,7 +42,7 @@ export function isLegendaryOwned(owned: OwnedCharacters): boolean {
 /** Choose a rarity, applying both pity rules (§7.2). */
 export function rollRarity(
   rng: () => number,
-  ctx: { sinceRare: number; totalHatches: number; legendaryOwned: boolean },
+  ctx: { sinceRare: number; totalHatches: number; legendaryOwned: boolean; luck?: number },
 ): Rarity {
   // Pity 2: guaranteed legendary once totalHatches hits the threshold unowned.
   if (ctx.totalHatches >= pityLegendaryThreshold && !ctx.legendaryOwned) {
@@ -39,11 +54,12 @@ export function rollRarity(
     const legW = rarityChances.legendary;
     return rng() < rareW / (rareW + legW) ? 'rare' : 'legendary';
   }
-  // Normal weighted roll.
+  // Normal weighted roll, biased by luck.
+  const chances = luckyChances(ctx.luck ?? 0);
   const r = rng();
   let acc = 0;
   for (const rarity of rarityOrder) {
-    acc += rarityChances[rarity];
+    acc += chances[rarity];
     if (r < acc) return rarity;
   }
   return 'common';
@@ -78,6 +94,7 @@ export function hatch(rng: () => number, ctx: HatchContext): HatchOutcome {
     sinceRare: ctx.sinceRare,
     totalHatches: ctx.totalHatches,
     legendaryOwned,
+    luck: ctx.luck,
   });
   const charId = pickChar(rng, rarity);
 

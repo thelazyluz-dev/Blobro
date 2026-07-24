@@ -45,6 +45,12 @@ runs fully offline with no third-party network requests.
   overlay and toast notifications.
 - Save schema is now `version: 2` with a v1→v2 migration (old `fingerLevel`
   folds into the upgrades map; new fields default cleanly).
+- **Critical taps** (`crit` upgrade): a chance for a tap to hit for ×8 with a
+  gold flash, big particle burst and a zap sound.
+- **Luck** (`luck` upgrade): shifts hatch odds toward rare/legendary.
+- **Evolution / shiny**: a level-10 creature can evolve into a hue-shifting
+  shiny worth ×3 income, with a ✨ badge in the collection.
+- **Goo rain**: an occasional shower of tappable goo drops on the click screen.
 
 ## Web app / offline
 

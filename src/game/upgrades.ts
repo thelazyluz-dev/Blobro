@@ -16,9 +16,18 @@ export const upgradeDefs: UpgradeDef[] = [
   { id: 'power', nameHe: 'כּוֹחַ עַל', icon: '💥', effectHe: '+25% לעוצמת הנגיעה' },
   { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'לוחצת לבד! +0.4 נגיעות בשנייה' },
   { id: 'nurture', nameHe: 'טִיפּוּחַ', icon: '💚', effectHe: '+12% לכל היצורים' },
+  { id: 'crit', nameHe: 'מַכָּה קְרִיטִית', icon: '⚡', effectHe: '+3% סיכוי למכה ענקית' },
+  { id: 'luck', nameHe: 'מַזָּל', icon: '🍀', effectHe: 'סיכוי גבוה יותר ליצורים נדירים' },
 ];
 
-export const defaultUpgrades: Upgrades = { finger: 0, power: 0, autoTap: 0, nurture: 0 };
+export const defaultUpgrades: Upgrades = {
+  finger: 0,
+  power: 0,
+  autoTap: 0,
+  nurture: 0,
+  crit: 0,
+  luck: 0,
+};
 
 export function upgradeCost(id: UpgradeId, level: number): number {
   const c = upgradeConfig[id];

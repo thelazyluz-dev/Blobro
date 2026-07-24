@@ -89,6 +89,30 @@ export function playError(muted: boolean): void {
   sequence(muted, [220, 165], 0.09, 0.1, { type: 'sawtooth', gain: 0.1, filter: 1400, decay: 0.06 });
 }
 
+/** Punchy zap for a critical tap. */
+export function playCrit(muted: boolean): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  voice(ctx, 1500, now, 0.05, { type: 'sawtooth', gain: 0.2, filter: 7000, decay: 0.06 });
+  voice(ctx, 500, now + 0.03, 0.08, { type: 'square', gain: 0.2, filter: 4000, decay: 0.1 });
+  voice(ctx, 1000, now + 0.03, 0.08, { type: 'sine', gain: 0.1, filter: 8000, decay: 0.1 });
+}
+
+/** Soft plink when a goo-rain drop is tapped. */
+export function playRainDrop(muted: boolean): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  voice(ctx, 760 + Math.random() * 500, ctx.currentTime, 0.05, {
+    type: 'sine',
+    gain: 0.09,
+    filter: 8000,
+    decay: 0.05,
+  });
+}
+
 // A cheerful major arpeggio, rotated each call, looped during a frenzy.
 const FRENZY_ARP = [523, 659, 784, 1047, 784, 659];
 export function playFrenzyStep(muted: boolean, step: number): void {

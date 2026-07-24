@@ -3,12 +3,18 @@
 // All motion honors reduced-motion.
 
 import { useEffect, useRef, useState } from 'react';
-import { playClick } from '../../audio/sfx';
+import { playClick, playCrit, playRainDrop } from '../../audio/sfx';
 import {
   bonusIntervalMaxMs,
   bonusIntervalMinMs,
   bonusLifetimeMs,
   frenzyMultiplier,
+  rainDropCount,
+  rainDropIncomeSeconds,
+  rainDropMinGoo,
+  rainDurationMs,
+  rainIntervalMaxMs,
+  rainIntervalMinMs,
 } from '../../game/balance';
 import { formatGoo } from '../../game/format';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
@@ -23,6 +29,14 @@ interface Floater {
   y: number;
   amount: number;
   frenzy: boolean;
+  crit: boolean;
+}
+interface RainDrop {
+  id: number;
+  left: number;
+  fall: number;
+  delay: number;
+  reward: number;
 }
 interface Particle {
   id: number;
@@ -42,6 +56,7 @@ export function ClickScreen() {
   const perClick = useGame(selectClickPower);
   const click = useGame((s) => s.click);
   const collectBonus = useGame((s) => s.collectBonus);
+  const grantGoo = useGame((s) => s.grantGoo);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   const reduced = useReducedMotion();
 
@@ -50,6 +65,8 @@ export function ClickScreen() {
   const [squash, setSquash] = useState(false);
   const [pop, setPop] = useState(false);
   const [bonus, setBonus] = useState<{ id: number; top: number } | null>(null);
+  const [rain, setRain] = useState<RainDrop[]>([]);
+  const [critFlash, setCritFlash] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [combo, setCombo] = useState(0);
   const blobRef = useRef<HTMLButtonElement>(null);
@@ -57,8 +74,16 @@ export function ClickScreen() {
   const spawnRef = useRef<number>();
   const lifeRef = useRef<number>();
   const scheduleRef = useRef<() => void>(() => {});
+  const rainTimer = useRef<number>();
+  const rainClear = useRef<number>();
+  const critFlashTimer = useRef<number>();
   const comboRef = useRef({ count: 0, last: 0 });
   const comboTimer = useRef<number>();
+  // Latest income values, read when a rain event spawns.
+  const rateRef = useRef(rate);
+  const clickRef = useRef(perClick);
+  rateRef.current = rate;
+  clickRef.current = perClick;
 
   const frenzyActive = frenzyUntil > nowTs;
 
@@ -108,8 +133,45 @@ export function ClickScreen() {
     scheduleRef.current();
   };
 
+  // Goo-rain event: a burst of tappable drops falls down the screen.
+  useEffect(() => {
+    const schedule = () => {
+      const wait = rainIntervalMinMs + Math.random() * (rainIntervalMaxMs - rainIntervalMinMs);
+      rainTimer.current = window.setTimeout(() => {
+        const reward = Math.max(
+          Math.round(rateRef.current * rainDropIncomeSeconds),
+          Math.round(clickRef.current * 2),
+          rainDropMinGoo,
+        );
+        const drops: RainDrop[] = Array.from({ length: rainDropCount }, () => ({
+          id: ++uid,
+          left: 6 + Math.random() * 88,
+          fall: (rainDurationMs / 1000) * (0.7 + Math.random() * 0.5),
+          delay: Math.random() * (rainDurationMs / 1000) * 0.7,
+          reward,
+        }));
+        setRain(drops);
+        rainClear.current = window.setTimeout(() => {
+          setRain([]);
+          schedule();
+        }, rainDurationMs + 1500);
+      }, wait);
+    };
+    schedule();
+    return () => {
+      window.clearTimeout(rainTimer.current);
+      window.clearTimeout(rainClear.current);
+    };
+  }, []);
+
+  const onDrop = (id: number, reward: number) => {
+    setRain((prev) => prev.filter((d) => d.id !== id));
+    grantGoo(reward);
+    playRainDrop(useGame.getState().muted);
+  };
+
   const handleClick = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const { gain, frenzy } = click();
+    const { gain, frenzy, crit } = click();
 
     // Combo: consecutive rapid taps build up, driving pitch and particle count.
     const t = performance.now();
@@ -124,10 +186,21 @@ export function ClickScreen() {
     }, COMBO_WINDOW_MS + 150);
 
     const muted = useGame.getState().muted;
-    playClick(muted, frenzy ? c.count + 8 : c.count);
-    if (frenzy) haptic(12);
+    if (crit) {
+      playCrit(muted);
+      haptic([0, 30, 20, 50]);
+    } else {
+      playClick(muted, frenzy ? c.count + 8 : c.count);
+      if (frenzy) haptic(12);
+    }
 
     if (reduced) return;
+
+    if (crit) {
+      setCritFlash(true);
+      window.clearTimeout(critFlashTimer.current);
+      critFlashTimer.current = window.setTimeout(() => setCritFlash(false), 300);
+    }
 
     setSquash(true);
     window.setTimeout(() => setSquash(false), 180);
@@ -137,15 +210,15 @@ export function ClickScreen() {
     const y = rect ? e.clientY - rect.top : 0;
 
     const fid = ++uid;
-    setFloaters((prev) => [...prev, { id: fid, x, y, amount: gain, frenzy }]);
-    window.setTimeout(() => setFloaters((prev) => prev.filter((f) => f.id !== fid)), 700);
+    setFloaters((prev) => [...prev, { id: fid, x, y, amount: gain, frenzy, crit }]);
+    window.setTimeout(() => setFloaters((prev) => prev.filter((f) => f.id !== fid)), crit ? 900 : 700);
 
-    const count = (frenzy ? 9 : 5) + Math.min(6, Math.floor(c.count / 3));
-    const palette = frenzy ? FRENZY_COLORS : PARTICLE_COLORS;
+    const count = (frenzy ? 9 : 5) + (crit ? 8 : 0) + Math.min(6, Math.floor(c.count / 3));
+    const palette = crit ? ['#FFD84D', '#FFF4E0', '#FF2E88'] : frenzy ? FRENZY_COLORS : PARTICLE_COLORS;
     const next: Particle[] = [];
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.8 - 0.4;
-      const dist = 70 + Math.random() * (frenzy ? 90 : 55);
+      const dist = 70 + Math.random() * (crit ? 130 : frenzy ? 90 : 55);
       next.push({
         id: ++uid,
         dx: Math.cos(angle) * dist,
@@ -168,6 +241,35 @@ export function ClickScreen() {
           aria-hidden
         />
       )}
+      {critFlash && !reduced && (
+        <div
+          className="anim-crit-flash pointer-events-none absolute inset-0 z-10"
+          style={{ background: 'radial-gradient(circle, rgba(255,216,77,0.6), transparent 70%)' }}
+          aria-hidden
+        />
+      )}
+
+      {/* Goo rain: tappable drops fall down the whole screen. */}
+      {rain.map((d) => (
+        <button
+          key={d.id}
+          type="button"
+          aria-label="טיפת גּוּ"
+          onPointerDown={() => onDrop(d.id, d.reward)}
+          className="absolute top-0 z-20 -translate-x-1/2"
+          style={{ left: `${d.left}%` }}
+        >
+          <span
+            className={reduced ? 'block' : 'anim-rain-fall block'}
+            style={{ '--fall': `${d.fall}s`, animationDelay: `${d.delay}s` } as React.CSSProperties}
+          >
+            <svg viewBox="0 0 40 52" width="34" height="44" aria-hidden style={{ filter: 'drop-shadow(0 0 8px rgba(163,255,18,0.7))' }}>
+              <path d="M20 2 C20 2 4 24 4 34 a16 16 0 0 0 32 0 C36 24 20 2 20 2 Z" fill="#A3FF12" stroke="#3A1F10" strokeWidth="3" strokeLinejoin="round" />
+              <ellipse cx="14" cy="28" rx="4" ry="6" fill="#FFF4E0" opacity="0.6" />
+            </svg>
+          </span>
+        </button>
+      ))}
       <header className="mt-2 text-center">
         <div
           className={`font-display text-7xl leading-none tabular text-glow-pop ${
@@ -253,12 +355,16 @@ export function ClickScreen() {
           {floaters.map((f) => (
             <span
               key={f.id}
-              className={`anim-float-up pointer-events-none absolute font-display tabular text-glow-pop ${
-                f.frenzy ? 'text-4xl text-hot' : 'text-3xl text-pop'
+              className={`anim-float-up pointer-events-none absolute whitespace-nowrap font-display tabular text-glow-pop ${
+                f.crit
+                  ? 'text-5xl text-pop'
+                  : f.frenzy
+                    ? 'text-4xl text-hot'
+                    : 'text-3xl text-pop'
               }`}
               style={{ left: f.x, top: f.y }}
             >
-              +{formatGoo(f.amount)}
+              {f.crit ? 'קְרִיטִי! ' : ''}+{formatGoo(f.amount)}
             </span>
           ))}
         </button>

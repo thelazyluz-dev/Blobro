@@ -29,10 +29,14 @@ export interface CharacterDef {
   sound: SoundParams;
 }
 
-/** Only owned characters appear here. */
-export type OwnedCharacters = Partial<Record<CharId, { level: number }>>;
+/** Only owned characters appear here. `shiny` = evolved variant. */
+export interface OwnedCharacter {
+  level: number;
+  shiny?: boolean;
+}
+export type OwnedCharacters = Partial<Record<CharId, OwnedCharacter>>;
 
-export type UpgradeId = 'finger' | 'power' | 'autoTap' | 'nurture';
+export type UpgradeId = 'finger' | 'power' | 'autoTap' | 'nurture' | 'crit' | 'luck';
 export type Upgrades = Record<UpgradeId, number>; // level per upgrade, default 0
 
 export type AchievementId = string;
@@ -58,4 +62,6 @@ export interface Modifiers {
   incomeMultiplier: number; // from the "nurture" upgrade (creatures only)
   autoTapRate: number; // taps/sec from the "autoTap" upgrade
   starMultiplier: number; // from achievements — applies to everything
+  critChance: number; // 0..1, chance a tap crits
+  luck: number; // 0..luckCap, hatch-odds shift toward rare/legendary
 }

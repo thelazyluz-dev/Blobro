@@ -45,7 +45,39 @@ export const upgradeConfig: Record<UpgradeId, UpgradeConfig> = {
   autoTap: { costBase: 300, costGrowth: 1.95, effectPerLevel: 0.4 },
   // +12% to all creature income per level.
   nurture: { costBase: 250, costGrowth: 1.8, effectPerLevel: 0.12 },
+  // +3% chance for a critical tap per level.
+  crit: { costBase: 800, costGrowth: 2.15, effectPerLevel: 0.03 },
+  // shifts hatch odds toward rare/legendary per level.
+  luck: { costBase: 1200, costGrowth: 2.25, effectPerLevel: 0.02 },
 };
+
+// --- Critical taps -----------------------------------------------------------
+export const critBaseChance = 0.02; // before any upgrade
+export const critChanceCap = 0.6;
+export const critMultiplier = 8; // a crit tap is worth this many normal taps
+
+// --- Luck (hatch odds shift) -------------------------------------------------
+export const luckCap = 0.35; // max fraction shifted from common → rare/legendary
+export const luckRareShare = 0.7; // of the shifted mass, this goes to rare…
+export const luckLegendaryShare = 0.3; // …and this to legendary
+
+// --- Evolution (shiny creatures) ---------------------------------------------
+// A level-10 creature can evolve into a shiny variant worth much more.
+export const evolveIncomeMultiplier = 3;
+export const evolveCostByRarity: Record<Rarity, number> = {
+  common: 2_500,
+  uncommon: 12_000,
+  rare: 60_000,
+  legendary: 400_000,
+};
+
+// --- Goo rain event ----------------------------------------------------------
+export const rainIntervalMinMs = 70_000;
+export const rainIntervalMaxMs = 150_000;
+export const rainDurationMs = 6_000;
+export const rainDropCount = 14;
+export const rainDropIncomeSeconds = 3; // each drop ≈ this many seconds of income
+export const rainDropMinGoo = 5;
 
 // --- Eggs --------------------------------------------------------------------
 // eggCost(n) = round(eggCostBase × eggCostGrowth ^ n)   // n = eggs already hatched

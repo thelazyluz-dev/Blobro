@@ -355,6 +355,33 @@ body {
   animation: blorbo-aurora 28s linear infinite;
 }
 
+@keyframes blorbo-rain-fall {
+  0% {
+    transform: translateY(-12vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(94vh) rotate(140deg);
+    opacity: 1;
+  }
+}
+
+@keyframes blorbo-crit-flash {
+  0% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.anim-rain-fall {
+  animation: blorbo-rain-fall var(--fall, 4s) linear forwards;
+}
+.anim-crit-flash {
+  animation: blorbo-crit-flash 0.3s ease-out forwards;
+}
+
 .anim-bonus-drift {
   animation: blorbo-bonus-drift var(--drift, 9s) linear forwards;
 }
@@ -425,6 +452,8 @@ body {
   .anim-confetti,
   .anim-hue-spin,
   .anim-vignette,
+  .anim-rain-fall,
+  .anim-crit-flash,
   .bg-aurora {
     animation: none !important;
   }
