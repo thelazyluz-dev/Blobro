@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { unlockAudio } from './audio/synth';
+import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
 import { BottomNav } from './ui/BottomNav';
 import { HatchReveal } from './ui/HatchReveal';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
+import { Toaster } from './ui/Toaster';
 import { ClickScreen } from './ui/screens/ClickScreen';
 import { CollectionScreen } from './ui/screens/CollectionScreen';
 import { HatchScreen } from './ui/screens/HatchScreen';
@@ -35,6 +37,7 @@ export function App() {
   return (
     <div className="relative mx-auto flex h-full max-w-md flex-col">
       <MuteButton />
+      <AchievementsButton />
       <main className="min-h-0 flex-1 overflow-hidden">
         {activeTab === 'click' && <ClickScreen />}
         {activeTab === 'hatch' && <HatchScreen />}
@@ -44,8 +47,10 @@ export function App() {
 
       <BottomNav />
 
+      <Toaster />
       <OfflineModal />
       <HatchReveal />
+      <AchievementsOverlay />
     </div>
   );
 }

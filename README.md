@@ -33,6 +33,19 @@ runs fully offline with no third-party network requests.
 7. **Share card** — a 1080×1920 PNG drawn on-canvas for rare/legendary creatures,
    saved via the Web Share API or a download. Never uploaded.
 
+### Depth & pull (post-milestone polish)
+
+- **Four upgrades** (data-driven in `balance.ts` + `game/upgrades.ts`): stronger
+  finger, a click-power multiplier, a robot hand that auto-taps, and a nurture
+  boost to all creature income.
+- **Golden bonus + frenzy**: a golden blob drifts across the click screen every
+  ~40–90s; tapping it pays out and starts a ×8 click frenzy.
+- **Achievements**: collection, lifetime-goo, and hatch milestones that
+  auto-unlock, each adding a permanent income "star" bonus, with a progress
+  overlay and toast notifications.
+- Save schema is now `version: 2` with a v1→v2 migration (old `fingerLevel`
+  folds into the upgrades map; new fields default cleanly).
+
 ## Web app / offline
 
 - Installable PWA: `public/manifest.webmanifest` + an SVG icon.

@@ -1,66 +1,84 @@
-// Screen 4 — upgrades (§10.4). The "finger" upgrade: cost, effect, current
-// level. Button disabled when there isn't enough goo.
+// Screen 4 — upgrades (§10.4). A data-driven list of upgrades: cost, effect,
+// current level. Each button is disabled when there isn't enough goo.
 
-import { fingerEffectPerLevel } from '../../game/balance';
 import { formatGoo } from '../../game/format';
-import { selectClickPower, selectFingerCost, useGame } from '../../store';
+import { upgradeCost, upgradeDefs } from '../../game/upgrades';
+import type { UpgradeId } from '../../game/types';
+import { selectClickPower, selectGooPerSec, useGame } from '../../store';
 
 export function UpgradesScreen() {
-  const goo = useGame((s) => s.goo);
-  const fingerLevel = useGame((s) => s.fingerLevel);
-  const cost = useGame(selectFingerCost);
-  const perClick = useGame(selectClickPower);
-  const buyFinger = useGame((s) => s.buyFinger);
+  const clickP = useGame(selectClickPower);
+  const rate = useGame(selectGooPerSec);
 
+  return (
+    <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
+      <header className="mb-4 text-center">
+        <h1 className="font-display text-4xl text-bone">שְׁדְרוּגִים</h1>
+        <p className="mt-2 text-sm text-bone/60">מחזקים את הנגיעה ואת היצורים</p>
+      </header>
+
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <Stat label="לכל נגיעה" value={`${formatGoo(clickP)} גּוּ`} color="text-goo" />
+        <Stat label="לשנייה" value={`${formatGoo(rate)} גּוּ`} color="text-cy" />
+      </div>
+
+      <div className="flex flex-col gap-3 pb-4">
+        {upgradeDefs.map((def) => (
+          <UpgradeCard key={def.id} id={def.id} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="surface rounded-2xl px-4 py-3 text-center">
+      <div className="text-xs text-bone/50">{label}</div>
+      <div className={`font-display text-xl tabular ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+function UpgradeCard({ id }: { id: UpgradeId }) {
+  const def = upgradeDefs.find((d) => d.id === id)!;
+  const goo = useGame((s) => s.goo);
+  const level = useGame((s) => s.upgrades[id]);
+  const buy = useGame((s) => s.buyUpgrade);
+
+  const cost = upgradeCost(id, level);
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
 
   return (
-    <div className="anim-tab-in flex h-full flex-col px-5 py-6">
-      <header className="mb-5 text-center">
-        <h1 className="font-display text-4xl text-bone">שְׁדְרוּגִים</h1>
-        <p className="mt-2 text-sm text-bone/60">מחזקים את הנגיעה</p>
-      </header>
-
-      <div className="surface rounded-3xl p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-goo/15 text-3xl ring-hairline">
-              👆
-            </span>
-            <div>
-              <div className="font-display text-2xl text-bone">אֶצְבַּע חֲזָקָה</div>
-              <div className="text-sm text-bone/55 tabular">רמה {fingerLevel}</div>
-            </div>
+    <div className="surface rounded-2xl p-4">
+      <div className="flex items-center gap-3">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-black/25 text-3xl ring-hairline">
+          {def.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="font-display text-xl text-bone">{def.nameHe}</div>
+            <div className="shrink-0 text-sm text-pop tabular">רמה {level}</div>
           </div>
-          <div className="text-end">
-            <div className="text-xs text-bone/50">כל נגיעה</div>
-            <div className="text-xl text-goo tabular">{formatGoo(perClick)} גּוּ</div>
-          </div>
+          <div className="text-sm text-cy">{def.effectHe}</div>
         </div>
-
-        <div className="mt-4 rounded-xl bg-black/20 px-3 py-2 text-sm text-cy ring-hairline">
-          שדרוג: +{fingerEffectPerLevel} לכל נגיעה
-        </div>
-
-        <button
-          type="button"
-          onClick={buyFinger}
-          disabled={!canAfford}
-          className={`btn mt-4 w-full py-4 text-2xl ${
-            canAfford ? 'bg-goo text-void glow-goo' : 'bg-surface text-bone/35 ring-hairline'
-          }`}
-        >
-          שַׁדְרֵג — {formatGoo(cost)} גּוּ
-        </button>
-        {!canAfford && (
-          <p className="mt-3 text-center text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>
-        )}
       </div>
 
-      <p className="mt-auto pt-6 text-center text-xs text-bone/40">
-        עוד שדרוגים יגיעו בקרוב…
-      </p>
+      <button
+        type="button"
+        onClick={() => buy(id)}
+        disabled={!canAfford}
+        className={`btn mt-3 w-full py-3 text-lg ${
+          canAfford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/35 ring-hairline'
+        }`}
+      >
+        {canAfford ? (
+          <>שַׁדְרֵג — {formatGoo(cost)} גּוּ</>
+        ) : (
+          <span className="tabular">חסר {formatGoo(missing)} גּוּ</span>
+        )}
+      </button>
     </div>
   );
 }

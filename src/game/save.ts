@@ -1,21 +1,26 @@
-// Serialize / migrate save state (§12). Pure — the actual IndexedDB I/O
-// lives in src/persistence.ts so this module never touches `window`.
+// Serialize / migrate save state. Pure — the actual IndexedDB I/O lives in
+// src/persistence.ts so this module never touches `window`. Testers are real
+// kids with real progress, so migration must never throw a save away.
 
-import { collectionOrder } from './characters';
 import { maxCharLevel, minCharLevel } from './balance';
-import type { CharId, OwnedCharacters, SaveState } from './types';
+import { collectionOrder } from './characters';
+import { achievements } from './achievements';
+import { defaultUpgrades } from './upgrades';
+import type { CharId, OwnedCharacters, SaveState, UpgradeId, Upgrades } from './types';
 
-export const CURRENT_VERSION = 1 as const;
+export const CURRENT_VERSION = 2 as const;
 
 export function defaultSaveState(now: number): SaveState {
   return {
     version: CURRENT_VERSION,
     goo: 0,
     lifetimeGoo: 0,
-    fingerLevel: 0,
+    upgrades: { ...defaultUpgrades },
     characters: {},
     totalHatches: 0,
     sinceRare: 0,
+    bonusesCollected: 0,
+    achievements: [],
     lastSeen: now,
     muted: false,
   };
@@ -26,8 +31,7 @@ function num(value: unknown, fallback: number): number {
 }
 
 function nonNegInt(value: unknown, fallback: number): number {
-  const n = num(value, fallback);
-  return Math.max(0, Math.floor(n));
+  return Math.max(0, Math.floor(num(value, fallback)));
 }
 
 function sanitizeCharacters(raw: unknown): OwnedCharacters {
@@ -43,25 +47,43 @@ function sanitizeCharacters(raw: unknown): OwnedCharacters {
   return out;
 }
 
+function sanitizeUpgrades(raw: unknown, legacyFinger: unknown): Upgrades {
+  const out: Upgrades = { ...defaultUpgrades };
+  if (raw && typeof raw === 'object') {
+    for (const id of Object.keys(out) as UpgradeId[]) {
+      out[id] = nonNegInt((raw as Record<string, unknown>)[id], out[id]);
+    }
+  }
+  // v1 stored a single fingerLevel — carry it into the upgrades map.
+  const finger = nonNegInt(legacyFinger, 0);
+  if (finger > out.finger) out.finger = finger;
+  return out;
+}
+
+function sanitizeAchievements(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set(achievements.map((a) => a.id));
+  return raw.filter((id): id is string => typeof id === 'string' && valid.has(id));
+}
+
 /**
  * Coerce arbitrary persisted data into a valid current-version SaveState.
- * Add version-specific migration steps here as the schema evolves; testers are
- * real kids with real progress, so this must never throw away a save.
+ * Handles v1 (single fingerLevel, no upgrades/achievements) → v2.
  */
 export function migrate(raw: unknown, now: number): SaveState {
   if (!raw || typeof raw !== 'object') return defaultSaveState(now);
   const data = raw as Record<string, unknown>;
 
-  // Future: switch on data.version to run step-by-step migrations.
-
   return {
     version: CURRENT_VERSION,
     goo: Math.max(0, num(data.goo, 0)),
     lifetimeGoo: Math.max(0, num(data.lifetimeGoo, 0)),
-    fingerLevel: nonNegInt(data.fingerLevel, 0),
+    upgrades: sanitizeUpgrades(data.upgrades, data.fingerLevel),
     characters: sanitizeCharacters(data.characters),
     totalHatches: nonNegInt(data.totalHatches, 0),
     sinceRare: nonNegInt(data.sinceRare, 0),
+    bonusesCollected: nonNegInt(data.bonusesCollected, 0),
+    achievements: sanitizeAchievements(data.achievements),
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
   };

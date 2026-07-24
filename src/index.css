@@ -256,6 +256,50 @@ body {
   }
 }
 
+/* Golden bonus drifts across the click screen; tap it before it leaves. */
+@keyframes blorbo-bonus-drift {
+  0% {
+    transform: translateX(42vw) translateY(0) rotate(-8deg);
+  }
+  50% {
+    transform: translateX(0) translateY(-18px) rotate(6deg);
+  }
+  100% {
+    transform: translateX(-42vw) translateY(0) rotate(-8deg);
+  }
+}
+
+@keyframes blorbo-bonus-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes blorbo-toast-in {
+  0% {
+    transform: translateY(-16px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.anim-bonus-drift {
+  animation: blorbo-bonus-drift var(--drift, 9s) linear forwards;
+}
+.anim-bonus-pulse {
+  animation: blorbo-bonus-pulse 0.7s ease-in-out infinite;
+}
+.anim-toast-in {
+  animation: blorbo-toast-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .anim-idle {
   animation: blorbo-idle 3.2s ease-in-out infinite;
 }
@@ -309,7 +353,10 @@ body {
   .anim-particle,
   .anim-pop-in,
   .anim-tab-in,
-  .anim-count-pop {
+  .anim-count-pop,
+  .anim-bonus-drift,
+  .anim-bonus-pulse,
+  .anim-toast-in {
     animation: none !important;
   }
 }
