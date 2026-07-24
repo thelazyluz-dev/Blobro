@@ -8,9 +8,11 @@ import { playJingle } from '../audio/synth';
 import { charactersById } from '../game/characters';
 import { formatGoo } from '../game/format';
 import type { HatchOutcome } from '../game/hatching';
+import type { CharId } from '../game/types';
 import { useGame } from '../store';
 import { CharacterBody } from './characters';
-import { rarityBackground, rarityColor, rarityLabelHe } from './rarity';
+import { rarityBackground, rarityColor, rarityLabelHe, isShareworthy } from './rarity';
+import { shareCreature } from './shareCard';
 import { useReducedMotion } from './useReducedMotion';
 
 const SHAKE_MS = 950;
@@ -48,61 +50,107 @@ export function HatchReveal() {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 p-6 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-black/88 p-6 ${
         showBurst && !reduced ? 'anim-screen-shake' : ''
       }`}
     >
       {stage === 'shaking' ? (
         <div className="flex flex-col items-center">
-          <svg viewBox="0 0 120 150" width="160" height="200" className={reduced ? '' : 'anim-egg-shake'} aria-hidden>
+          <svg viewBox="0 0 120 150" width="176" height="220" className={`glow-goo ${reduced ? '' : 'anim-egg-shake'}`} aria-hidden>
             <ellipse cx="60" cy="82" rx="46" ry="58" fill="#FFF4E0" stroke="#3A1F10" strokeWidth="6" strokeLinejoin="round" />
             <path d="M30 78 l10 -10 l8 10 l10 -12 l9 12 l9 -10 l9 10" fill="none" stroke="#A3FF12" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+            <ellipse cx="45" cy="58" rx="9" ry="13" fill="#A3FF12" opacity="0.4" />
           </svg>
-          <p className="mt-6 font-display text-xl text-bone/80">הביצה זזה…</p>
+          <p className="mt-8 font-display text-2xl text-bone/85">הביצה זזה…</p>
         </div>
       ) : (
         <div className="flex flex-col items-center text-center">
-          <div className="relative flex h-56 w-56 items-center justify-center">
+          <div className="relative flex h-64 w-64 items-center justify-center">
             {!reduced && (
-              <span
-                className="anim-burst absolute inset-0 rounded-full"
-                style={{ background: rarityBackground(outcome.rarity), opacity: legendary ? 0.9 : 0.7 }}
-              />
+              <>
+                <span
+                  className="anim-burst absolute inset-0 rounded-full"
+                  style={{ background: rarityBackground(outcome.rarity), opacity: legendary ? 0.95 : 0.7 }}
+                />
+                <span
+                  className="anim-ring-out absolute inset-0 rounded-full"
+                  style={{ boxShadow: `0 0 0 6px ${rarityColor[outcome.rarity]}` }}
+                />
+              </>
             )}
             <div
-              className="relative flex h-44 w-44 items-center justify-center rounded-3xl"
-              style={{ background: rarityBackground(outcome.rarity) }}
+              className="relative flex h-48 w-48 items-center justify-center rounded-[2rem]"
+              style={{ background: rarityBackground(outcome.rarity), boxShadow: `0 0 60px -8px ${rarityColor[outcome.rarity]}` }}
             >
-              <CharacterBody id={outcome.charId} className={`h-36 w-36 ${reduced ? '' : 'anim-drop-in'}`} />
+              <CharacterBody id={outcome.charId} className={`h-40 w-40 ${reduced ? '' : 'anim-drop-in'}`} />
             </div>
           </div>
 
           <div
-            className="mt-6 inline-block rounded-full px-4 py-1 text-sm font-bold text-void"
+            className="mt-7 inline-block rounded-full px-5 py-1.5 text-sm font-bold text-void"
             style={{ background: rarityBackground(outcome.rarity) }}
           >
             {rarityLabelHe[outcome.rarity]}
           </div>
 
           <h2
-            className="mt-3 font-display text-4xl"
-            style={{ color: legendary ? '#FFD84D' : rarityColor[outcome.rarity] }}
+            className="mt-3 font-display text-5xl"
+            style={{
+              color: legendary ? '#FFD84D' : rarityColor[outcome.rarity],
+              textShadow: `0 0 24px ${rarityColor[outcome.rarity]}66`,
+            }}
           >
             {def.nameHe}
           </h2>
 
           <RevealMessage outcome={outcome} />
 
+          {isShareworthy(outcome.rarity) && <ShareButton id={outcome.charId} />}
+
           <button
             type="button"
             onClick={dismiss}
-            className="mt-8 rounded-2xl bg-cy px-10 py-4 font-display text-xl text-void active:scale-95"
+            className="btn mt-6 bg-cy px-12 py-4 text-xl text-void"
           >
             יֵשׁ!
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+function ShareButton({ id }: { id: CharId }) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const onShare = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await shareCreature(id);
+      setDone(true);
+      window.setTimeout(() => setDone(false), 2500);
+    } catch {
+      /* ignore — user can try again */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onShare}
+      disabled={busy}
+      className="btn mt-6 flex items-center gap-2 bg-hot px-8 py-3 text-lg text-bone glow-hot"
+    >
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#FFF4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="9" width="18" height="12" rx="2" />
+        <path d="M12 15V3M12 3l-4 4M12 3l4 4" />
+      </svg>
+      {done ? 'נשמר!' : busy ? 'רגע…' : 'שמור תמונה'}
+    </button>
   );
 }
 

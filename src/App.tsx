@@ -25,8 +25,9 @@ export function App() {
 
   if (!loaded) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="anim-idle font-display text-4xl text-goo">בלורבו…</div>
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <div className="anim-idle glow-goo font-display text-5xl text-goo">בלורבו</div>
+        <div className="anim-breathe text-sm text-bone/50">טוען…</div>
       </div>
     );
   }

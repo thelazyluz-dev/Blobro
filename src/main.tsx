@@ -14,3 +14,14 @@ createRoot(rootEl).render(
     <App />
   </StrictMode>,
 );
+
+// Register the offline service worker in production. Skipped inside an iframe
+// (e.g. the artifact preview) where SW registration isn't meaningful.
+if (import.meta.env.PROD && 'serviceWorker' in navigator && window.top === window.self) {
+  window.addEventListener('load', () => {
+    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+    navigator.serviceWorker.register(swUrl).catch(() => {
+      /* offline support is best-effort */
+    });
+  });
+}

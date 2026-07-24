@@ -16,25 +16,30 @@ export function UpgradesScreen() {
   const missing = Math.max(0, cost - goo);
 
   return (
-    <div className="flex h-full flex-col px-5 py-6">
-      <header className="mb-4 text-center">
-        <h1 className="font-display text-3xl text-bone">שְׁדְרוּגִים</h1>
-        <p className="mt-1 text-sm text-bone/60">מחזקים את הנגיעה</p>
+    <div className="anim-tab-in flex h-full flex-col px-5 py-6">
+      <header className="mb-5 text-center">
+        <h1 className="font-display text-4xl text-bone">שְׁדְרוּגִים</h1>
+        <p className="mt-2 text-sm text-bone/60">מחזקים את הנגיעה</p>
       </header>
 
-      <div className="rounded-3xl bg-black/30 p-5 ring-1 ring-bone/10">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-display text-xl text-bone">אֶצְבַּע חֲזָקָה</div>
-            <div className="text-sm text-bone/60 tabular">רמה {fingerLevel}</div>
+      <div className="surface rounded-3xl p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-goo/15 text-3xl ring-hairline">
+              👆
+            </span>
+            <div>
+              <div className="font-display text-2xl text-bone">אֶצְבַּע חֲזָקָה</div>
+              <div className="text-sm text-bone/55 tabular">רמה {fingerLevel}</div>
+            </div>
           </div>
           <div className="text-end">
-            <div className="text-xs text-bone/50">כל נגיעה נותנת</div>
-            <div className="text-lg text-goo tabular">{formatGoo(perClick)} גּוּ</div>
+            <div className="text-xs text-bone/50">כל נגיעה</div>
+            <div className="text-xl text-goo tabular">{formatGoo(perClick)} גּוּ</div>
           </div>
         </div>
 
-        <div className="mt-3 text-sm text-cy">
+        <div className="mt-4 rounded-xl bg-black/20 px-3 py-2 text-sm text-cy ring-hairline">
           שדרוג: +{fingerEffectPerLevel} לכל נגיעה
         </div>
 
@@ -42,10 +47,8 @@ export function UpgradesScreen() {
           type="button"
           onClick={buyFinger}
           disabled={!canAfford}
-          className={`mt-4 w-full rounded-2xl py-4 font-display text-xl transition ${
-            canAfford
-              ? 'bg-goo text-void active:scale-95'
-              : 'cursor-not-allowed bg-void/60 text-bone/40 ring-2 ring-bone/10'
+          className={`btn mt-4 w-full py-4 text-2xl ${
+            canAfford ? 'bg-goo text-void glow-goo' : 'bg-surface text-bone/35 ring-hairline'
           }`}
         >
           שַׁדְרֵג — {formatGoo(cost)} גּוּ
@@ -54,6 +57,10 @@ export function UpgradesScreen() {
           <p className="mt-3 text-center text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>
         )}
       </div>
+
+      <p className="mt-auto pt-6 text-center text-xs text-bone/40">
+        עוד שדרוגים יגיעו בקרוב…
+      </p>
     </div>
   );
 }

@@ -4,6 +4,16 @@
 
 :root {
   color-scheme: dark;
+  --void: #1a0b2e;
+  --goo: #a3ff12;
+  --hot: #ff2e88;
+  --pop: #ffd84d;
+  --cy: #00e5ff;
+  --bone: #fff4e0;
+  /* Chosen neutral: a violet-biased surface, not a flat grey. */
+  --surface: #241238;
+  --surface-2: #170a29;
+  --hairline: rgba(255, 244, 224, 0.1);
 }
 
 html,
@@ -14,26 +24,75 @@ body,
 
 body {
   margin: 0;
-  background-color: #1a0b2e;
-  color: #fff4e0;
+  color: var(--bone);
   font-family: Rubik, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
   user-select: none;
+  /* Deep violet ground with two ambient corner glows — the "void" with life. */
+  background-color: var(--void);
+  background-image:
+    radial-gradient(120% 80% at 100% 0%, rgba(255, 46, 136, 0.16), transparent 55%),
+    radial-gradient(120% 80% at 0% 100%, rgba(0, 229, 255, 0.14), transparent 55%),
+    radial-gradient(90% 60% at 50% 50%, rgba(163, 255, 18, 0.05), transparent 70%);
+  background-attachment: fixed;
 }
 
-/* All numeric displays use tabular figures so the counter never jitters. */
+/* All numeric displays use tabular figures so counters never jitter. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-@layer utilities {
+@layer components {
   .font-display {
     font-family: 'Suez One', serif;
+    letter-spacing: 0.01em;
+  }
+
+  /* A raised, slightly glassy surface for cards and panels. */
+  .surface {
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--hairline);
+    box-shadow:
+      0 1px 0 rgba(255, 244, 224, 0.06) inset,
+      0 12px 30px -18px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Chunky, tactile primary button. Color is set per-use via inline style/vars. */
+  .btn {
+    position: relative;
+    border-radius: 1rem;
+    font-family: 'Suez One', serif;
+    transition:
+      transform 0.08s ease,
+      filter 0.15s ease,
+      opacity 0.15s ease;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(2px) scale(0.98);
+  }
+  .btn:disabled {
+    opacity: 1;
   }
 }
 
-/* ---- Animations (§7.4, §11). All disabled under reduced-motion. ---- */
+@layer utilities {
+  .glow-goo {
+    filter: drop-shadow(0 0 18px rgba(163, 255, 18, 0.55));
+  }
+  .glow-hot {
+    filter: drop-shadow(0 0 22px rgba(255, 46, 136, 0.6));
+  }
+  .text-glow-pop {
+    text-shadow: 0 0 18px rgba(255, 216, 77, 0.45);
+  }
+  .ring-hairline {
+    box-shadow: 0 0 0 1px var(--hairline);
+  }
+}
+
+/* ------------------------------- Animations -------------------------------- */
+/* §7.4, §11. Everything here is disabled under prefers-reduced-motion. */
 
 @keyframes blorbo-idle {
   0%,
@@ -45,12 +104,24 @@ body {
   }
 }
 
+@keyframes blorbo-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
 @keyframes blorbo-squash {
   0% {
     transform: scale(1, 1);
   }
   40% {
-    transform: scale(1.12, 0.86);
+    transform: scale(1.14, 0.84);
   }
   100% {
     transform: scale(1, 1);
@@ -98,6 +169,17 @@ body {
   }
 }
 
+@keyframes blorbo-ring-out {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
 @keyframes blorbo-screen-shake {
   0%,
   100% {
@@ -123,7 +205,19 @@ body {
     opacity: 1;
   }
   100% {
-    transform: translate(-50%, -70px) scale(1.3);
+    transform: translate(-50%, -80px) scale(1.35);
+    opacity: 0;
+  }
+}
+
+/* Goo droplet flung from the blob on tap (§6 juice). Uses per-particle vars. */
+@keyframes blorbo-particle {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.2);
     opacity: 0;
   }
 }
@@ -139,8 +233,34 @@ body {
   }
 }
 
+@keyframes blorbo-tab-in {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes blorbo-count-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .anim-idle {
   animation: blorbo-idle 3.2s ease-in-out infinite;
+}
+.anim-breathe {
+  animation: blorbo-breathe 3.2s ease-in-out infinite;
 }
 .anim-squash {
   animation: blorbo-squash 0.18s ease-out;
@@ -154,25 +274,42 @@ body {
 .anim-burst {
   animation: blorbo-burst 0.5s ease-out forwards;
 }
+.anim-ring-out {
+  animation: blorbo-ring-out 0.6s ease-out forwards;
+}
 .anim-screen-shake {
   animation: blorbo-screen-shake 0.4s ease-in-out;
 }
 .anim-float-up {
   animation: blorbo-float-up 0.7s ease-out forwards;
 }
+.anim-particle {
+  animation: blorbo-particle 0.6s ease-out forwards;
+}
 .anim-pop-in {
   animation: blorbo-pop-in 0.25s ease-out;
+}
+.anim-tab-in {
+  animation: blorbo-tab-in 0.28s ease-out;
+}
+.anim-count-pop {
+  animation: blorbo-count-pop 0.2s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .anim-idle,
+  .anim-breathe,
   .anim-squash,
   .anim-egg-shake,
   .anim-drop-in,
   .anim-burst,
+  .anim-ring-out,
   .anim-screen-shake,
   .anim-float-up,
-  .anim-pop-in {
+  .anim-particle,
+  .anim-pop-in,
+  .anim-tab-in,
+  .anim-count-pop {
     animation: none !important;
   }
 }

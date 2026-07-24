@@ -53,7 +53,7 @@ export function BottomNav() {
   const setTab = useGame((s) => s.setTab);
 
   return (
-    <nav className="flex shrink-0 items-stretch justify-around border-t border-bone/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
+    <nav className="flex shrink-0 items-stretch justify-around border-t border-hairline bg-[var(--surface-2)]/80 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       {ITEMS.map(({ tab, label, Icon }) => {
         const active = tab === activeTab;
         return (
@@ -66,7 +66,7 @@ export function BottomNav() {
           >
             <span
               className={`flex h-11 w-11 items-center justify-center rounded-2xl transition ${
-                active ? 'bg-cy' : 'bg-transparent'
+                active ? 'bg-cy shadow-[0_0_20px_-4px_#00E5FF]' : 'bg-transparent'
               }`}
             >
               <Icon active={active} />

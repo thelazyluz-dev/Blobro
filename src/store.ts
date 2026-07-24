@@ -152,6 +152,11 @@ export const useGame = create<GameState>((set, get) => ({
   },
 }));
 
+// Dev-only handle for tuning/manual testing in the console (stripped in prod).
+if (import.meta.env.DEV) {
+  (window as unknown as { __game?: typeof useGame }).__game = useGame;
+}
+
 // Convenience selectors used across screens.
 export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters);
 export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);

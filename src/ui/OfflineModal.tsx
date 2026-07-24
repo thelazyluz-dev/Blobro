@@ -21,7 +21,7 @@ export function OfflineModal() {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-6">
-      <div className="anim-pop-in w-full max-w-xs rounded-3xl bg-void p-7 text-center ring-2 ring-goo">
+      <div className="surface anim-pop-in w-full max-w-xs rounded-3xl p-7 text-center" style={{ boxShadow: '0 0 0 2px #A3FF12, 0 24px 60px -20px #000' }}>
         <div className="text-5xl">👋</div>
         <h2 className="mt-2 font-display text-3xl text-bone">חָזַרְתָּ!</h2>
         <p className="mt-2 text-sm text-bone/60">
@@ -34,7 +34,7 @@ export function OfflineModal() {
         <button
           type="button"
           onClick={dismiss}
-          className="mt-6 w-full rounded-2xl bg-goo py-4 font-display text-xl text-void active:scale-95"
+          className="btn mt-6 w-full bg-goo py-4 text-xl text-void glow-goo"
         >
           מְעוּלֶה!
         </button>
