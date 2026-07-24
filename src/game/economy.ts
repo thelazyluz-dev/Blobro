@@ -13,25 +13,23 @@ import {
   fingerEffectPerLevel,
   globalMultiplier,
   luckCap,
-  starPerAchievement,
   upgradeConfig,
 } from './balance';
 import { characters } from './characters';
 import type { Modifiers, OwnedCharacters, Rarity, Upgrades } from './types';
 
-/** The achievement income star: 1 + starPerAchievement × claimedCount. */
-export function starMultiplier(claimedCount: number): number {
-  return 1 + starPerAchievement * claimedCount;
-}
-
-/** Derive all active modifiers from the upgrades map and achievement count. */
-export function modifiersFrom(upgrades: Upgrades, achievementCount: number): Modifiers {
+/**
+ * Derive all active modifiers from the upgrades map and the summed achievement
+ * income bonus (each claimed achievement contributes a bonus scaled by its
+ * difficulty — see game/achievements.ts).
+ */
+export function modifiersFrom(upgrades: Upgrades, achievementStarBonus: number): Modifiers {
   return {
     fingerLevel: upgrades.finger,
     clickMultiplier: 1 + upgradeConfig.power.effectPerLevel * upgrades.power,
     incomeMultiplier: 1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture,
     autoTapRate: upgradeConfig.autoTap.effectPerLevel * upgrades.autoTap,
-    starMultiplier: starMultiplier(achievementCount),
+    starMultiplier: 1 + achievementStarBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
   };

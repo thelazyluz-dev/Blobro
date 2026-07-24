@@ -117,11 +117,23 @@ export const frenzyMultiplier = 8; // tap power during a frenzy
 export const frenzyDurationMs = 9000;
 
 // --- Achievements ------------------------------------------------------------
-// Each claimed achievement adds starPerAchievement to a global income star.
-export const starPerAchievement = 0.04; // +4% to everything, per achievement
-export const achievementCollectionGoals = [3, 6, 10];
-export const achievementLifetimeGoals = [1_000, 50_000, 1_000_000];
-export const achievementHatchGoals = [10, 30, 75];
+// Many escalating tiers per category so there's always another goal. Each
+// achievement's reward scales with its tier (difficulty): a permanent income
+// bonus (star) plus a one-time goo grant.
+export const achievementStarPerTier = 0.02; // +2% income per difficulty tier
+export const achievementGooBase = 150; // tier-1 goo grant…
+export const achievementGooGrowth = 5; // …× this per tier
+
+export const achievementGoals = {
+  // capped at the 10 creatures / 10 evolutions
+  collection: [3, 6, 10],
+  shinies: [1, 3, 5, 10],
+  // open-ended, up to 100 trillion lifetime goo
+  lifetime: [1e3, 1e4, 5e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14],
+  hatches: [10, 30, 75, 150, 350, 750, 1500, 3000, 6000, 12000],
+  clicks: [100, 500, 2000, 8000, 25000, 75000, 200000, 600000],
+  bonuses: [5, 20, 60, 150, 400],
+} as const;
 
 // --- Offline income ----------------------------------------------------------
 export const offlineMinSeconds = 60; // must be away longer than this to earn

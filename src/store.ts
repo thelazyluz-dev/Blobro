@@ -15,7 +15,7 @@ import {
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
 } from './game/balance';
-import { newlyCompleted } from './game/achievements';
+import { newlyCompleted, starBonusFor } from './game/achievements';
 import { charactersById } from './game/characters';
 import { clickPower, eggCost, gooPerSec, modifiersFrom } from './game/economy';
 import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
@@ -119,23 +119,36 @@ function snapshot(s: GameState, now: number): SaveState {
 export const useGame = create<GameState>((set, get) => {
   const mods = (): Modifiers => {
     const s = get();
-    return modifiersFrom(s.upgrades, s.achievements.length);
+    return modifiersFrom(s.upgrades, starBonusFor(s.achievements));
   };
 
-  // Auto-claim any achievements now complete and toast them. Returns the number
-  // of achievements newly unlocked (adding them raises the income star).
+  // Auto-claim any achievements now complete: grant each one's goo reward,
+  // raise the permanent income star, and toast it.
   const syncAchievements = () => {
     const s = get();
     const claimed = new Set(s.achievements);
+    const shinyCount = Object.values(s.characters).filter((c) => c?.shiny).length;
     const fresh = newlyCompleted(claimed, {
       collectionCount: Object.keys(s.characters).length,
+      shinyCount,
       lifetimeGoo: s.lifetimeGoo,
       totalHatches: s.totalHatches,
+      clicks: s.clicks,
+      bonusesCollected: s.bonusesCollected,
     });
     if (fresh.length === 0) return;
-    set({ achievements: [...s.achievements, ...fresh.map((a) => a.id)] });
+    const gooGrant = fresh.reduce((sum, a) => sum + a.gooReward, 0);
+    set({
+      achievements: [...s.achievements, ...fresh.map((a) => a.id)],
+      goo: s.goo + gooGrant,
+      lifetimeGoo: s.lifetimeGoo + gooGrant,
+    });
     for (const a of fresh) {
-      get().pushToast({ text: `הישג! ${a.nameHe}`, icon: a.icon, tone: 'star' });
+      get().pushToast({
+        text: `הישג! ${a.nameHe} · +${Math.round(a.starReward * 100)}%`,
+        icon: a.icon,
+        tone: 'star',
+      });
     }
   };
 
@@ -169,7 +182,7 @@ export const useGame = create<GameState>((set, get) => {
       const raw = await loadRaw();
       const save = raw ? migrate(raw, now) : defaultSaveState(now);
 
-      const m = modifiersFrom(save.upgrades, save.achievements.length);
+      const m = modifiersFrom(save.upgrades, starBonusFor(save.achievements));
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
       const report = computeOffline(gooPerSec(save.characters, m), secondsAway);
 
@@ -323,7 +336,7 @@ export const useGame = create<GameState>((set, get) => {
 
     tick: (dtSeconds) => {
       const s = get();
-      const rate = gooPerSec(s.characters, modifiersFrom(s.upgrades, s.achievements.length));
+      const rate = gooPerSec(s.characters, modifiersFrom(s.upgrades, starBonusFor(s.achievements)));
       if (rate <= 0) return;
       const gain = rate * dtSeconds;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
@@ -365,7 +378,7 @@ if (import.meta.env.DEV) {
 }
 
 // Convenience selectors used across screens.
-const modsOf = (s: GameState) => modifiersFrom(s.upgrades, s.achievements.length);
+const modsOf = (s: GameState) => modifiersFrom(s.upgrades, starBonusFor(s.achievements));
 export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(s));
 export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);
 export const selectClickPower = (s: GameState) => clickPower(modsOf(s));

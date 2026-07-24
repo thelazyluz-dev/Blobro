@@ -59,7 +59,13 @@ export function LeaderboardOverlay() {
         aria-modal="true"
       >
         <div className="text-center font-display text-3xl text-bone">🏅 טַבְלַת מוֹבִילִים</div>
-        <div className="mb-3 text-center text-xs text-bone/50">לפי מספר לחיצות · נשמר במכשיר בלבד</div>
+        <div className="mb-2 text-center text-xs text-bone/50">נשמר במכשיר בלבד</div>
+
+        <div className="mb-1 flex items-center gap-3 px-3 text-[11px] font-bold text-bone/55">
+          <span className="w-7 shrink-0 text-center">#</span>
+          <span className="flex-1">שֵׁם</span>
+          <span className="shrink-0">לְחִיצוֹת 👆</span>
+        </div>
 
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pe-1">
           {rows.map((r, i) => (
