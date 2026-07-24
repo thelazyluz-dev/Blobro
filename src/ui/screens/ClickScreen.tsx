@@ -16,7 +16,7 @@ import {
   rainIntervalMaxMs,
   rainIntervalMinMs,
 } from '../../game/balance';
-import { formatGoo } from '../../game/format';
+import { formatExact, formatGoo } from '../../game/format';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { useReducedMotion } from '../useReducedMotion';
@@ -279,7 +279,12 @@ export function ClickScreen() {
           {formatGoo(goo)}
         </div>
         <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
-        <div className="mt-4 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
+        {goo >= 1000 && (
+          <div className="mt-0.5 text-sm text-bone/45 tabular" dir="ltr">
+            {formatExact(goo)}
+          </div>
+        )}
+        <div className="mt-3 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
           {formatGoo(rate)} גּוּ/שנייה
         </div>
       </header>

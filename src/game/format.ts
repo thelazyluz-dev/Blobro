@@ -12,6 +12,14 @@ function trimTrailingZero(s: string): string {
   return s.replace(/\.0$/, '');
 }
 
+/** Full number with thousands separators — e.g. 1_234_567 → "1,234,567".
+ * Used as a fine-grained indicator under the compact counter so big totals
+ * visibly tick up (compact form barely changes between, say, 1M and 1.1M). */
+export function formatExact(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return Math.floor(Math.max(0, value)).toLocaleString('en-US');
+}
+
 /** e.g. 950 → "950", 1200 → "1.2K", 4_700_000 → "4.7M", 2.1e9 → "2.1B" */
 export function formatGoo(value: number): string {
   if (!Number.isFinite(value)) return '0';
