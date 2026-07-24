@@ -25,6 +25,7 @@ export interface CharacterDef {
   id: CharId;
   nameHe: string;
   nameLatin: string;
+  descHe: string; // short personality / "species" blurb for the collection
   rarity: Rarity;
   sound: SoundParams;
 }

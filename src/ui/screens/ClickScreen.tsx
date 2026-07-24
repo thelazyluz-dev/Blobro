@@ -323,16 +323,41 @@ export function ClickScreen() {
             }`}
             style={{ willChange: 'transform' }}
           >
-            <svg viewBox="0 0 200 200" width="248" height="248" aria-hidden>
-              <ellipse cx="100" cy="110" rx="84" ry="78" fill="#A3FF12" stroke="#3A1F10" strokeWidth="7" strokeLinejoin="round" />
-              <ellipse cx="74" cy="72" rx="20" ry="12" fill="#FFF4E0" opacity="0.25" />
-              <circle cx="76" cy="96" r="14" fill="#1A0B2E" />
-              <circle cx="128" cy="92" r="14" fill="#1A0B2E" />
-              <circle cx="81" cy="91" r="4.5" fill="#FFF4E0" />
-              <circle cx="133" cy="87" r="4.5" fill="#FFF4E0" />
-              <path d="M70 132 Q100 158 132 130" fill="none" stroke="#1A0B2E" strokeWidth="7" strokeLinecap="round" />
-              <ellipse cx="60" cy="132" rx="9" ry="6" fill="#FF2E88" opacity="0.55" />
-              <ellipse cx="142" cy="130" rx="9" ry="6" fill="#FF2E88" opacity="0.55" />
+            <svg viewBox="0 0 200 200" width="252" height="252" aria-hidden>
+              {/* antenna with a goo droplet */}
+              <path d="M104 34 Q112 16 128 12" fill="none" stroke="#2A1508" strokeWidth="7" strokeLinecap="round" />
+              <circle cx="132" cy="11" r="10" fill="#A3FF12" stroke="#2A1508" strokeWidth="6" />
+              <circle cx="129" cy="8" r="2.6" fill="#FFF4E0" />
+              {/* little nub arms */}
+              <path d="M26 116 q-16 2 -20 16" fill="none" stroke="#A3FF12" strokeWidth="15" strokeLinecap="round" />
+              <path d="M174 116 q16 2 20 16" fill="none" stroke="#A3FF12" strokeWidth="15" strokeLinecap="round" />
+              <path d="M26 116 q-16 2 -20 16" fill="none" stroke="#2A1508" strokeWidth="6" strokeLinecap="round" />
+              <path d="M174 116 q16 2 20 16" fill="none" stroke="#2A1508" strokeWidth="6" strokeLinecap="round" />
+              {/* goo body with a drippy bottom */}
+              <path
+                d="M100 30 C150 30 176 68 176 108 C176 140 160 160 140 170 Q142 184 130 182 Q124 180 122 172 Q112 176 106 172 Q98 178 90 172 Q84 180 78 174 Q66 176 66 166 C44 156 24 138 24 108 C24 68 50 30 100 30 Z"
+                fill="#A3FF12"
+                stroke="#2A1508"
+                strokeWidth="7"
+                strokeLinejoin="round"
+              />
+              {/* flat belly shadow + top highlight */}
+              <path d="M40 128 Q100 156 160 128 Q100 150 40 138 Z" fill="#7FCC0E" />
+              <ellipse cx="72" cy="70" rx="26" ry="15" fill="#C6FF6E" />
+              {/* eyes */}
+              <ellipse cx="76" cy="98" rx="18" ry="21" fill="#FFF4E0" stroke="#2A1508" strokeWidth="4" />
+              <ellipse cx="126" cy="96" rx="18" ry="21" fill="#FFF4E0" stroke="#2A1508" strokeWidth="4" />
+              <circle cx="80" cy="102" r="9" fill="#150A22" />
+              <circle cx="122" cy="100" r="9" fill="#150A22" />
+              <circle cx="84" cy="98" r="3" fill="#FFF4E0" />
+              <circle cx="126" cy="96" r="3" fill="#FFF4E0" />
+              {/* cheeky grin with tongue + tooth */}
+              <path d="M74 132 Q100 164 130 130 Q102 146 74 132 Z" fill="#2A1508" stroke="#2A1508" strokeWidth="6" strokeLinejoin="round" />
+              <path d="M90 142 Q102 154 116 142 Q104 150 90 142 Z" fill="#FF2E88" />
+              <rect x="98" y="131" width="8" height="7" rx="2" fill="#FFF4E0" />
+              {/* blush */}
+              <ellipse cx="54" cy="120" rx="11" ry="7" fill="#FF7AB0" opacity="0.6" />
+              <ellipse cx="148" cy="118" rx="11" ry="7" fill="#FF7AB0" opacity="0.6" />
             </svg>
           </span>
 

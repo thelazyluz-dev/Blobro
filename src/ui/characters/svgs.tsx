@@ -1,6 +1,6 @@
 // Inline SVG bodies for the 10 characters. viewBox 0 0 100 100, flat shapes
 // and thick strokes only — no gradients, filters, or drop shadows on bodies.
-// Acceptance test: identifiable at 64×64. Proportions are intentionally wrong.
+// Flat highlight/shadow shapes give depth. Identifiable at 64×64.
 
 import type { FC } from 'react';
 import type { CharId } from '../../game/types';
@@ -9,130 +9,178 @@ interface BodyProps {
   className?: string;
 }
 
+const OUT = '#2A1508'; // shared outline color
 const S = { strokeLinejoin: 'round', strokeLinecap: 'round' } as const;
 
-// 1. Blombo — potato with sunglasses and one giant foot.
+// 1. Blombo — potato with cool sunglasses and one giant sneaker.
 const Blombo: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <ellipse cx="52" cy="40" rx="30" ry="26" fill="#C89B5A" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <rect x="26" y="34" width="52" height="12" rx="6" fill="#1A0B2E" stroke="#000" strokeWidth="3" {...S} />
-    <circle cx="40" cy="40" r="6" fill="#00E5FF" />
-    <circle cx="64" cy="40" r="6" fill="#00E5FF" />
-    <path d="M40 64 Q46 92 74 88 L78 78 Q56 82 52 62 Z" fill="#C89B5A" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <path d="M30 54 q-4 6 0 12" fill="none" stroke="#3A1F10" strokeWidth="4" {...S} />
+    <path d="M22 40 Q20 20 44 18 Q78 16 82 40 Q86 66 60 70 Q30 74 24 54 Z" fill="#C99A5B" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M24 48 Q45 58 78 48 Q50 56 24 52 Z" fill="#A87F45" />
+    <ellipse cx="38" cy="30" rx="4" ry="3" fill="#A87F45" />
+    <ellipse cx="66" cy="52" rx="5" ry="3" fill="#A87F45" />
+    <circle cx="52" cy="46" r="2.5" fill="#A87F45" />
+    <rect x="26" y="34" width="52" height="13" rx="6" fill="#150A22" stroke="#000" strokeWidth="3" {...S} />
+    <rect x="30" y="37" width="16" height="6" rx="3" fill="#00E5FF" />
+    <rect x="56" y="37" width="16" height="6" rx="3" fill="#00E5FF" />
+    <rect x="31" y="38" width="5" height="2" rx="1" fill="#FFF4E0" />
+    <path d="M44 58 q8 4 16 -1" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M40 70 Q42 92 72 88 Q84 86 82 78 Q60 82 52 66 Z" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M46 84 h30" stroke="#FF2E88" strokeWidth="4" {...S} />
+    <path d="M30 66 q-3 8 1 13" fill="none" stroke={OUT} strokeWidth="4" {...S} />
   </svg>
 );
 
-// 2. Fizzik Fizzik — soda can with frog eyes.
+// 2. Fizzik Fizzik — fizzy soda can with frog eyes.
 const Fizzik: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <rect x="34" y="30" width="34" height="52" rx="8" fill="#FF2E88" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <rect x="34" y="46" width="34" height="8" fill="#FFD84D" />
-    <circle cx="40" cy="22" r="11" fill="#A3FF12" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="64" cy="20" r="11" fill="#A3FF12" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="41" cy="23" r="4" fill="#1A0B2E" />
-    <circle cx="65" cy="21" r="4" fill="#1A0B2E" />
-    <ellipse cx="51" cy="30" rx="6" ry="3" fill="#8A8A8A" />
+    <circle cx="66" cy="18" r="2.5" fill="#A3FF12" />
+    <circle cx="40" cy="12" r="2" fill="#00E5FF" />
+    <circle cx="54" cy="8" r="1.6" fill="#FFD84D" />
+    <rect x="33" y="30" width="36" height="54" rx="9" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
+    <rect x="33" y="30" width="10" height="54" rx="6" fill="#FF63A6" />
+    <rect x="33" y="46" width="36" height="7" fill="#FFD84D" />
+    <ellipse cx="51" cy="30" rx="18" ry="4" fill="#C0C6D0" stroke={OUT} strokeWidth="3" />
+    <circle cx="51" cy="30" r="3" fill="#8A8F98" />
+    <circle cx="40" cy="22" r="11" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="64" cy="20" r="11" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="41" cy="23" r="4.5" fill="#150A22" />
+    <circle cx="65" cy="21" r="4.5" fill="#150A22" />
+    <circle cx="43" cy="21" r="1.6" fill="#FFF4E0" />
+    <circle cx="67" cy="19" r="1.6" fill="#FFF4E0" />
+    <path d="M44 64 q7 6 14 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
   </svg>
 );
 
-// 3. Nono Bango — upside-down banana with a tiny hat.
+// 3. Nono Bango — upside-down banana with a tiny top hat.
 const Nono: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M28 30 Q22 78 60 84 Q78 86 78 74 Q56 74 44 44 Q40 30 34 28 Z" fill="#FFD84D" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="42" cy="54" r="4" fill="#1A0B2E" />
-    <circle cx="54" cy="60" r="4" fill="#1A0B2E" />
-    <path d="M40 66 q8 6 16 2" fill="none" stroke="#3A1F10" strokeWidth="3" {...S} />
-    <rect x="26" y="18" width="22" height="8" rx="2" fill="#FF2E88" stroke="#3A1F10" strokeWidth="3" {...S} />
-    <rect x="31" y="10" width="12" height="10" rx="2" fill="#FF2E88" stroke="#3A1F10" strokeWidth="3" {...S} />
+    <path d="M30 32 Q22 80 60 86 Q80 88 80 74 Q58 76 46 46 Q42 32 36 30 Z" fill="#FFD84D" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M34 36 Q28 74 58 80" fill="none" stroke="#F2C230" strokeWidth="4" {...S} />
+    <path d="M78 74 q4 2 4 5" fill="none" stroke="#7A5A12" strokeWidth="4" {...S} />
+    <circle cx="44" cy="56" r="4" fill="#150A22" />
+    <circle cx="57" cy="62" r="4" fill="#150A22" />
+    <circle cx="45.5" cy="54.5" r="1.4" fill="#FFF4E0" />
+    <path d="M42 68 q8 6 16 1" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
+    <ellipse cx="48" cy="66" rx="4" ry="2.5" fill="#FF8FBF" opacity="0.7" />
+    <rect x="24" y="18" width="24" height="8" rx="2" fill="#FF2E88" stroke={OUT} strokeWidth="3" {...S} />
+    <rect x="29" y="8" width="14" height="11" rx="2" fill="#FF2E88" stroke={OUT} strokeWidth="3" {...S} />
+    <rect x="29" y="15" width="14" height="3" fill="#00E5FF" />
   </svg>
 );
 
-// 4. Grumpolo — grumpy cloud with tiny arms.
+// 4. Grumpolo — grumpy storm cloud with tiny arms.
 const Grumpolo: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M26 62 Q14 62 18 50 Q10 38 26 36 Q30 22 48 30 Q62 20 72 34 Q88 34 84 50 Q92 62 76 64 Z" fill="#9AA7C7" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <path d="M34 46 l12 4" stroke="#1A0B2E" strokeWidth="4" {...S} />
-    <path d="M66 46 l-12 4" stroke="#1A0B2E" strokeWidth="4" {...S} />
-    <circle cx="42" cy="52" r="3.5" fill="#1A0B2E" />
-    <circle cx="60" cy="52" r="3.5" fill="#1A0B2E" />
-    <path d="M42 62 q9 -6 18 0" fill="none" stroke="#1A0B2E" strokeWidth="4" {...S} />
-    <path d="M20 58 l-8 6" stroke="#9AA7C7" strokeWidth="5" {...S} />
-    <path d="M82 58 l8 6" stroke="#9AA7C7" strokeWidth="5" {...S} />
+    <path d="M26 60 Q12 60 16 47 Q8 34 26 33 Q30 18 49 26 Q64 15 74 31 Q90 30 85 47 Q94 60 76 62 Z" fill="#9AA7C7" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M26 60 Q40 66 76 62 Q80 60 82 55 Q60 60 30 55 Z" fill="#7E8CAE" />
+    <path d="M33 44 l14 5" stroke={OUT} strokeWidth="4.5" {...S} />
+    <path d="M67 44 l-14 5" stroke={OUT} strokeWidth="4.5" {...S} />
+    <circle cx="42" cy="52" r="4" fill="#150A22" />
+    <circle cx="60" cy="52" r="4" fill="#150A22" />
+    <path d="M42 63 q9 -7 18 0" fill="none" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M18 56 l-8 7" stroke="#9AA7C7" strokeWidth="6" {...S} />
+    <path d="M84 56 l8 7" stroke="#9AA7C7" strokeWidth="6" {...S} />
+    <path d="M48 70 l-4 9 l6 -2 l-3 8" fill="none" stroke="#FFD84D" strokeWidth="3.5" {...S} />
   </svg>
 );
 
-// 5. Skwibbly Dop — spring with a duck beak.
+// 5. Skwibbly Dop — springy coil with a duck beak.
 const Skwibbly: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M32 84 h36 M30 74 q20 -8 40 0 M30 62 q20 -8 40 0 M30 50 q20 -8 40 0 M32 40 q18 -8 36 0" fill="none" stroke="#00E5FF" strokeWidth="5" {...S} />
-    <circle cx="50" cy="30" r="16" fill="#A3FF12" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="45" cy="27" r="4" fill="#1A0B2E" />
-    <circle cx="57" cy="27" r="4" fill="#1A0B2E" />
-    <path d="M40 34 q10 12 22 0 Z" fill="#FFD84D" stroke="#3A1F10" strokeWidth="3" {...S} />
+    <path d="M34 86 h34 M31 76 q19 -9 38 0 M31 64 q19 -9 38 0 M32 52 q18 -9 36 0" fill="none" stroke="#00E5FF" strokeWidth="6" {...S} />
+    <path d="M34 86 h34 M31 76 q19 -9 38 0 M31 64 q19 -9 38 0 M32 52 q18 -9 36 0" fill="none" stroke="#66F0FF" strokeWidth="2" {...S} />
+    <circle cx="50" cy="30" r="17" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="43" cy="23" rx="6" ry="4" fill="#C6FF6E" />
+    <circle cx="44" cy="27" r="4.5" fill="#150A22" />
+    <circle cx="57" cy="27" r="4.5" fill="#150A22" />
+    <circle cx="45.5" cy="25.5" r="1.5" fill="#FFF4E0" />
+    <circle cx="58.5" cy="25.5" r="1.5" fill="#FFF4E0" />
+    <path d="M40 34 q10 13 22 0 q-11 5 -22 0 Z" fill="#FFD84D" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
 
-// 6. Tikko Takko — clock on chicken legs.
+// 6. Tikko Takko — alarm clock on chicken legs.
 const Tikko: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <circle cx="50" cy="38" r="26" fill="#FFF4E0" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="43" cy="34" r="4" fill="#1A0B2E" />
-    <circle cx="57" cy="34" r="4" fill="#1A0B2E" />
-    <path d="M50 38 l0 -12 M50 38 l10 4" stroke="#FF2E88" strokeWidth="4" {...S} />
-    <path d="M42 50 q8 6 16 0" fill="none" stroke="#3A1F10" strokeWidth="3" {...S} />
-    <path d="M40 64 l-6 14 m6 -14 l0 14 m0 -14 l6 14" stroke="#FFD84D" strokeWidth="4" {...S} />
-    <path d="M60 64 l-6 14 m6 -14 l0 14 m0 -14 l6 14" stroke="#FFD84D" strokeWidth="4" {...S} />
+    <circle cx="35" cy="16" r="7" fill="#FFD84D" stroke={OUT} strokeWidth="3.5" {...S} />
+    <circle cx="65" cy="16" r="7" fill="#FFD84D" stroke={OUT} strokeWidth="3.5" {...S} />
+    <circle cx="50" cy="40" r="27" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="50" cy="40" r="27" fill="none" stroke="#FF2E88" strokeWidth="2" opacity="0.5" />
+    <path d="M50 18 v4 M72 40 h-4 M50 62 v-4 M28 40 h4" stroke={OUT} strokeWidth="2.5" {...S} />
+    <circle cx="43" cy="35" r="4" fill="#150A22" />
+    <circle cx="57" cy="35" r="4" fill="#150A22" />
+    <circle cx="44.5" cy="33.5" r="1.4" fill="#FFF4E0" />
+    <path d="M42 48 q8 6 16 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M50 40 l0 -11 M50 40 l9 5" stroke="#FF2E88" strokeWidth="3.5" {...S} />
+    <circle cx="50" cy="40" r="2.5" fill="#FF2E88" />
+    <path d="M41 66 l-6 15 m6 -15 l0 15 m0 -15 l6 15" stroke="#FFD84D" strokeWidth="4" {...S} />
+    <path d="M59 66 l-6 15 m6 -15 l0 15 m0 -15 l6 15" stroke="#FFD84D" strokeWidth="4" {...S} />
   </svg>
 );
 
-// 7. Mumbo Flomp — mushroom with a mustache.
+// 7. Mumbo Flomp — mushroom with a fancy mustache.
 const Mumbo: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M20 48 Q20 20 50 20 Q80 20 80 48 Z" fill="#FF2E88" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="38" cy="36" r="4" fill="#FFF4E0" />
-    <circle cx="62" cy="34" r="6" fill="#FFF4E0" />
-    <rect x="38" y="48" width="24" height="34" rx="10" fill="#FFF4E0" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="45" cy="58" r="3" fill="#1A0B2E" />
-    <circle cx="55" cy="58" r="3" fill="#1A0B2E" />
-    <path d="M40 66 q10 8 20 0" fill="none" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <path d="M40 66 q-6 -2 -8 -6 M60 66 q6 -2 8 -6" fill="none" stroke="#3A1F10" strokeWidth="4" {...S} />
+    <path d="M18 50 Q18 18 50 18 Q82 18 82 50 Q50 60 18 50 Z" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M18 50 Q50 58 82 50 Q50 54 18 50 Z" fill="#C71E68" />
+    <circle cx="36" cy="34" r="5" fill="#FFF4E0" />
+    <circle cx="62" cy="30" r="7" fill="#FFF4E0" />
+    <circle cx="50" cy="44" r="4" fill="#FFF4E0" />
+    <path d="M37 50 h26 v20 a13 13 0 0 1 -26 0 Z" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="45" cy="58" r="3.2" fill="#150A22" />
+    <circle cx="55" cy="58" r="3.2" fill="#150A22" />
+    <path d="M40 66 q10 8 20 0 M40 66 q-6 -3 -9 -7 M60 66 q6 -3 9 -7" fill="none" stroke={OUT} strokeWidth="4" {...S} />
   </svg>
 );
 
 // 8. Zapparoo — lightning bolt with kangaroo legs.
 const Zapparoo: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M56 14 L30 52 H46 L40 78 L72 40 H54 Z" fill="#FFD84D" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="48" cy="36" r="3.5" fill="#1A0B2E" />
-    <circle cx="58" cy="34" r="3.5" fill="#1A0B2E" />
-    <path d="M40 78 Q34 90 50 90 Q46 82 50 76" fill="#FF2E88" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <path d="M56 72 Q64 88 76 84 L74 78 Q64 80 60 70" fill="#FF2E88" stroke="#3A1F10" strokeWidth="4" {...S} />
+    <path d="M58 10 L28 52 H46 L38 74 L74 36 H54 Z" fill="#FFD84D" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M55 16 L36 44 H48" fill="none" stroke="#FFF08A" strokeWidth="3" {...S} />
+    <circle cx="47" cy="34" r="4" fill="#150A22" />
+    <circle cx="58" cy="32" r="4" fill="#150A22" />
+    <circle cx="48.5" cy="32.5" r="1.4" fill="#FFF4E0" />
+    <path d="M50 42 q6 4 11 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M40 72 Q32 90 50 90 Q45 82 50 74" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M54 68 Q64 88 78 82 L75 76 Q64 80 60 66" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M64 60 q16 6 20 20" fill="none" stroke="#FF2E88" strokeWidth="6" {...S} />
   </svg>
 );
 
-// 9. Chompolino — giant tooth with fins.
+// 9. Chompolino — giant grinning tooth with fins.
 const Chompolino: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M30 30 Q30 18 50 18 Q70 18 70 30 L64 82 Q60 74 56 82 Q52 74 48 82 Q44 74 40 82 Q36 74 36 82 Z" fill="#FFF4E0" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="43" cy="38" r="4" fill="#1A0B2E" />
-    <circle cx="57" cy="38" r="4" fill="#1A0B2E" />
-    <path d="M40 50 q10 10 20 0" fill="none" stroke="#FF2E88" strokeWidth="4" {...S} />
-    <path d="M30 40 L14 34 L28 52 Z" fill="#00E5FF" stroke="#3A1F10" strokeWidth="3" {...S} />
-    <path d="M70 40 L86 34 L72 52 Z" fill="#00E5FF" stroke="#3A1F10" strokeWidth="3" {...S} />
+    <path d="M28 32 Q28 18 50 18 Q72 18 72 32 L66 84 Q61 74 56 84 Q51 74 46 84 Q41 74 36 84 Q31 74 34 62 Z" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M34 30 Q50 24 66 30" fill="none" stroke="#E7DCC2" strokeWidth="3" {...S} />
+    <circle cx="43" cy="40" r="4.5" fill="#150A22" />
+    <circle cx="58" cy="40" r="4.5" fill="#150A22" />
+    <circle cx="44.5" cy="38" r="1.6" fill="#FFF4E0" />
+    <path d="M39 52 q11 12 23 0 q-11 6 -23 0 Z" fill="#FF2E88" stroke={OUT} strokeWidth="3.5" {...S} />
+    <rect x="42" y="52" width="4" height="5" fill="#FFF4E0" />
+    <rect x="54" y="52" width="4" height="5" fill="#FFF4E0" />
+    <path d="M30 40 L12 32 L28 54 Z" fill="#00E5FF" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M70 40 L88 32 L72 54 Z" fill="#00E5FF" stroke={OUT} strokeWidth="3.5" {...S} />
   </svg>
 );
 
 // 10. Gigablorf — one giant eye on a tower of wobbling blobs.
 const Gigablorf: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <ellipse cx="50" cy="86" rx="26" ry="10" fill="#7A18C7" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <ellipse cx="50" cy="70" rx="20" ry="10" fill="#A3FF12" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <ellipse cx="50" cy="55" rx="15" ry="9" fill="#FF2E88" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="50" cy="32" r="24" fill="#FFF4E0" stroke="#3A1F10" strokeWidth="4" {...S} />
-    <circle cx="50" cy="32" r="12" fill="#00E5FF" stroke="#3A1F10" strokeWidth="3" {...S} />
-    <circle cx="50" cy="32" r="5" fill="#1A0B2E" />
-    <circle cx="54" cy="28" r="2" fill="#FFF4E0" />
+    <path d="M8 24 l3 5 M92 24 l-3 5 M14 14 l4 3 M86 14 l-4 3" stroke="#FFD84D" strokeWidth="2.5" {...S} />
+    <ellipse cx="50" cy="88" rx="27" ry="9" fill="#7A18C7" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="50" cy="88" rx="27" ry="9" fill="#7A18C7" />
+    <ellipse cx="50" cy="72" rx="21" ry="10" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="43" cy="69" rx="7" ry="3" fill="#C6FF6E" />
+    <ellipse cx="50" cy="56" rx="15" ry="9" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="45" cy="53" rx="5" ry="2.5" fill="#FF7AB0" />
+    <circle cx="50" cy="32" r="23" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="50" cy="32" r="13" fill="#00E5FF" stroke={OUT} strokeWidth="3" {...S} />
+    <circle cx="50" cy="32" r="6" fill="#150A22" />
+    <circle cx="54" cy="27" r="2.5" fill="#FFF4E0" />
+    <circle cx="45" cy="36" r="1.4" fill="#FFF4E0" />
+    <path d="M35 16 q15 -8 30 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
 

@@ -139,6 +139,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           {def.nameHe}
         </div>
         <div className="text-sm text-bone/50">{def.nameLatin}</div>
+        <p className="mx-auto mt-2 max-w-[16rem] text-sm text-bone/75">{def.descHe}</p>
         <div
           className="mx-auto mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold text-void"
           style={{ background: held.shiny ? 'linear-gradient(135deg,#FFD84D,#FF2E88)' : rarityBackground(def.rarity) }}
