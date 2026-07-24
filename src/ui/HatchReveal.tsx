@@ -4,6 +4,7 @@
 // Duplicates are never framed as a loss (§7.3). Honors reduced-motion.
 
 import { useEffect, useState } from 'react';
+import { playJingle } from '../audio/synth';
 import { charactersById } from '../game/characters';
 import { formatGoo } from '../game/format';
 import type { HatchOutcome } from '../game/hatching';
@@ -30,6 +31,14 @@ export function HatchReveal() {
     const t = window.setTimeout(() => setStage('revealed'), SHAKE_MS);
     return () => window.clearTimeout(t);
   }, [outcome, reduced]);
+
+  // The creature's jingle sounds the moment it's revealed (§7.4 step 4).
+  // muted is read fresh so toggling it mid-reveal never replays the jingle.
+  useEffect(() => {
+    if (outcome && stage === 'revealed') {
+      playJingle(charactersById[outcome.charId].sound, useGame.getState().muted);
+    }
+  }, [outcome, stage]);
 
   if (!outcome) return null;
 

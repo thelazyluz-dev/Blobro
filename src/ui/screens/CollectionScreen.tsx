@@ -2,6 +2,7 @@
 // silhouette with a question mark; tapping an owned creature shows details.
 
 import { useState } from 'react';
+import { playJingle } from '../../audio/synth';
 import { charactersById, collectionOrder } from '../../game/characters';
 import { charIncome } from '../../game/economy';
 import { formatGoo } from '../../game/format';
@@ -16,6 +17,12 @@ export function CollectionScreen() {
   const [selected, setSelected] = useState<CharId | null>(null);
 
   const ownedCount = collectionOrder.filter((id) => owned[id]).length;
+
+  // Tapping an owned creature opens its details and plays its jingle (§10.3).
+  const open = (id: CharId) => {
+    setSelected(id);
+    playJingle(charactersById[id].sound, useGame.getState().muted);
+  };
 
   return (
     <div className="h-full overflow-y-auto px-5 py-6">
@@ -42,7 +49,7 @@ export function CollectionScreen() {
             <button
               key={id}
               type="button"
-              onClick={() => setSelected(id)}
+              onClick={() => open(id)}
               className="flex aspect-square flex-col items-center justify-center rounded-2xl p-1 ring-2 active:scale-95"
               style={{ backgroundColor: '#100722', borderColor: rarityColor[def.rarity], boxShadow: `inset 0 0 0 2px ${rarityColor[def.rarity]}` }}
             >
@@ -100,8 +107,20 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         <div className="text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
         <button
           type="button"
+          onClick={() => playJingle(def.sound, useGame.getState().muted)}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-hot py-3 font-display text-lg text-bone active:scale-95"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#FFF4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M4 9v6h4l5 4V5L8 9H4z" fill="#FFF4E0" />
+            <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+            <path d="M19 6a8 8 0 0 1 0 12" />
+          </svg>
+          שִׁיר!
+        </button>
+        <button
+          type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-2xl bg-cy py-3 font-display text-lg text-void active:scale-95"
+          className="mt-3 w-full rounded-2xl bg-cy py-3 font-display text-lg text-void active:scale-95"
         >
           סְגוֹר
         </button>
