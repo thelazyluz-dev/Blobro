@@ -15,7 +15,13 @@ import {
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
 } from './game/balance';
-import { newlyCompleted, starBonusFor } from './game/achievements';
+import {
+  achievements as achievementDefs,
+  isComplete,
+  newlyCompleted,
+  starBonusFor,
+  type AchievementContext,
+} from './game/achievements';
 import { charactersById } from './game/characters';
 import { clickPower, eggCost, gooPerSec, modifiersFrom } from './game/economy';
 import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
@@ -88,6 +94,8 @@ interface GameState {
   toggleMute: () => void;
   tick: (dtSeconds: number) => void;
   setAchievementsOpen: (open: boolean) => void;
+  claimAchievement: (id: string) => void;
+  claimAllAchievements: () => void;
   setLeaderboardOpen: (open: boolean) => void;
   addToLeaderboard: (name: string) => void;
   resetClicks: () => void;
@@ -97,6 +105,26 @@ interface GameState {
 }
 
 let toastId = 0;
+
+const achievementsById = new Map(achievementDefs.map((a) => [a.id, a]));
+
+/** Build the achievement-progress context from the persistent state fields. */
+function achContextOf(s: {
+  characters: OwnedCharacters;
+  lifetimeGoo: number;
+  totalHatches: number;
+  clicks: number;
+  bonusesCollected: number;
+}): AchievementContext {
+  return {
+    collectionCount: Object.keys(s.characters).length,
+    shinyCount: Object.values(s.characters).filter((c) => c?.shiny).length,
+    lifetimeGoo: s.lifetimeGoo,
+    totalHatches: s.totalHatches,
+    clicks: s.clicks,
+    bonusesCollected: s.bonusesCollected,
+  };
+}
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
@@ -120,36 +148,6 @@ export const useGame = create<GameState>((set, get) => {
   const mods = (): Modifiers => {
     const s = get();
     return modifiersFrom(s.upgrades, starBonusFor(s.achievements));
-  };
-
-  // Auto-claim any achievements now complete: grant each one's goo reward,
-  // raise the permanent income star, and toast it.
-  const syncAchievements = () => {
-    const s = get();
-    const claimed = new Set(s.achievements);
-    const shinyCount = Object.values(s.characters).filter((c) => c?.shiny).length;
-    const fresh = newlyCompleted(claimed, {
-      collectionCount: Object.keys(s.characters).length,
-      shinyCount,
-      lifetimeGoo: s.lifetimeGoo,
-      totalHatches: s.totalHatches,
-      clicks: s.clicks,
-      bonusesCollected: s.bonusesCollected,
-    });
-    if (fresh.length === 0) return;
-    const gooGrant = fresh.reduce((sum, a) => sum + a.gooReward, 0);
-    set({
-      achievements: [...s.achievements, ...fresh.map((a) => a.id)],
-      goo: s.goo + gooGrant,
-      lifetimeGoo: s.lifetimeGoo + gooGrant,
-    });
-    for (const a of fresh) {
-      get().pushToast({
-        text: `הישג! ${a.nameHe} · +${Math.round(a.starReward * 100)}%`,
-        icon: a.icon,
-        tone: 'star',
-      });
-    }
   };
 
   return {
@@ -219,7 +217,6 @@ export const useGame = create<GameState>((set, get) => {
       if (crit) gain *= critMultiplier;
       if (frenzy) gain *= frenzyMultiplier;
       set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1 }));
-      syncAchievements();
       return { gain, frenzy, crit };
     },
 
@@ -259,7 +256,6 @@ export const useGame = create<GameState>((set, get) => {
         sinceRare: outcome.nextSinceRare,
         hatchResult: outcome,
       });
-      syncAchievements();
     },
 
     hatchMany: (maxCount) => {
@@ -284,7 +280,6 @@ export const useGame = create<GameState>((set, get) => {
         sinceRare: result.sinceRare,
         multiHatchResult: result,
       });
-      syncAchievements();
     },
 
     dismissMultiHatch: () => set({ multiHatchResult: null }),
@@ -307,7 +302,6 @@ export const useGame = create<GameState>((set, get) => {
     grantGoo: (amount) => {
       if (amount <= 0) return;
       set((s) => ({ goo: s.goo + amount, lifetimeGoo: s.lifetimeGoo + amount }));
-      syncAchievements();
     },
 
     collectBonus: () => {
@@ -326,7 +320,6 @@ export const useGame = create<GameState>((set, get) => {
         frenzyUntil: Date.now() + frenzyDurationMs,
       });
       get().pushToast({ text: `בּוֹנוּס! +${Math.round(reward)}`, icon: '⭐', tone: 'pop' });
-      syncAchievements();
       return reward;
     },
 
@@ -340,10 +333,43 @@ export const useGame = create<GameState>((set, get) => {
       if (rate <= 0) return;
       const gain = rate * dtSeconds;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
-      syncAchievements();
     },
 
     setAchievementsOpen: (open) => set({ achievementsOpen: open }),
+
+    // Achievements are collected by hand: the player opens the trophy panel and
+    // taps each finished badge to claim its permanent income star + goo grant.
+    claimAchievement: (id) => {
+      const s = get();
+      if (s.achievements.includes(id)) return;
+      const def = achievementsById.get(id);
+      if (!def || !isComplete(def, achContextOf(s))) return;
+      set({
+        achievements: [...s.achievements, id],
+        goo: s.goo + def.gooReward,
+        lifetimeGoo: s.lifetimeGoo + def.gooReward,
+      });
+      get().pushToast({
+        text: `${def.nameHe} · +${Math.round(def.starReward * 100)}% הכנסה!`,
+        icon: def.icon,
+        tone: 'star',
+      });
+    },
+
+    // Convenience: sweep up every badge that's ready right now.
+    claimAllAchievements: () => {
+      const s = get();
+      const ready = newlyCompleted(new Set(s.achievements), achContextOf(s));
+      if (ready.length === 0) return;
+      const grant = ready.reduce((sum, a) => sum + a.gooReward, 0);
+      set({
+        achievements: [...s.achievements, ...ready.map((a) => a.id)],
+        goo: s.goo + grant,
+        lifetimeGoo: s.lifetimeGoo + grant,
+      });
+      get().pushToast({ text: `אספת ${ready.length} הישגים! 🏆`, icon: '🏆', tone: 'star' });
+    },
+
     setLeaderboardOpen: (open) => set({ leaderboardOpen: open }),
 
     // Save the current player's click count under a nickname. Local only — this
@@ -383,3 +409,7 @@ export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(
 export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);
 export const selectClickPower = (s: GameState) => clickPower(modsOf(s));
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);
+export const selectAchContext = (s: GameState): AchievementContext => achContextOf(s);
+/** Ids of achievements finished but not yet claimed — the "ready to collect" set. */
+export const selectClaimableIds = (s: GameState): Set<string> =>
+  new Set(newlyCompleted(new Set(s.achievements), achContextOf(s)).map((a) => a.id));

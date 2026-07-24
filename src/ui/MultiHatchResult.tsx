@@ -5,6 +5,7 @@ import { useEffect, useMemo } from 'react';
 import { playAchievement, playBonus } from '../audio/sfx';
 import { speakName } from '../audio/speech';
 import { charactersById } from '../game/characters';
+import { ownedCreatureIncome } from '../game/economy';
 import { formatGoo } from '../game/format';
 import type { CharId, Rarity } from '../game/types';
 import { useGame } from '../store';
@@ -54,6 +55,18 @@ export function MultiHatchResult() {
 
   const totalLevels = Object.values(result.levelUps).reduce((a, b) => a + (b ?? 0), 0);
   const newSet = new Set(result.newIds);
+
+  // Extra passive income this batch bought — each creature's gain from the
+  // levels (or first appearance) it got here, so the payoff is visible.
+  const incomeGained = (Object.keys(result.charTally) as CharId[]).reduce((sum, id) => {
+    const held = result.owned[id];
+    if (!held) return sum;
+    const rarity = charactersById[id].rarity;
+    const gainedLevels = (result.levelUps[id] ?? 0) + (newSet.has(id) ? 1 : 0);
+    const prevLevel = held.level - gainedLevels;
+    const before = prevLevel >= 1 ? ownedCreatureIncome(rarity, { level: prevLevel, shiny: held.shiny }) : 0;
+    return sum + (ownedCreatureIncome(rarity, held) - before);
+  }, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6">
@@ -108,8 +121,8 @@ export function MultiHatchResult() {
         {/* summary numbers */}
         <div className="mt-3 space-y-1 text-sm">
           {totalLevels > 0 && <div className="text-cy tabular">היצורים עלו {totalLevels} רמות</div>}
-          {result.gooFromDupes > 0 && (
-            <div className="text-pop tabular">+{formatGoo(result.gooFromDupes)} גּוּ מכפילויות</div>
+          {incomeGained > 0 && (
+            <div className="text-goo tabular">+{formatGoo(incomeGained)} גּוּ/שנייה נוֹסָף</div>
           )}
           <div className="text-bone/50 tabular">עלות: {formatGoo(result.spent)} גּוּ</div>
         </div>

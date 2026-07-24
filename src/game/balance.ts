@@ -25,7 +25,12 @@ export const baseByRarity: Record<Rarity, number> = {
   rare: 30,
   legendary: 200,
 };
-export const charIncomeGrowthPerLevel = 0.3; // +30% of base income per level — leveling keeps paying, so income never flatlines
+export const charIncomeGrowthPerLevel = 0.34; // +34% of base income per level — leveling keeps paying, so income never flatlines
+// The robot hand is its OWN automation engine (independent of taps). Its output
+// COMPOUNDS per level — autoTapIncome = base × (growth^level − 1) — so it stays
+// a meaningful share of passive income instead of a 1-2% trap upgrade.
+export const autoTapIncomeBase = 8;
+export const autoTapIncomeGrowth = 1.28;
 export const minCharLevel = 1;
 // No maximum — creatures level up forever, giving more each level (§ user request).
 export const evolveLevel = 10; // a creature can evolve into a shiny from this level
@@ -42,8 +47,9 @@ export const upgradeConfig: Record<UpgradeId, UpgradeConfig> = {
   finger: { costBase: 15, costGrowth: 1.5, effectPerLevel: 1 },
   // +25% tap power per level (multiplier).
   power: { costBase: 200, costGrowth: 2.05, effectPerLevel: 0.25 },
-  // +2 goo/sec of automatic income per level (its own income, NOT tied to taps).
-  autoTap: { costBase: 300, costGrowth: 1.9, effectPerLevel: 2 },
+  // The robot hand's cost curve. Its income is NOT linear-per-level — see
+  // autoTapIncomeBase/Growth below — so effectPerLevel here is unused for income.
+  autoTap: { costBase: 240, costGrowth: 1.95, effectPerLevel: 0 },
   // +12% to all creature income per level.
   nurture: { costBase: 250, costGrowth: 1.8, effectPerLevel: 0.12 },
   // +3% chance for a critical tap per level.
@@ -118,8 +124,9 @@ export const frenzyDurationMs = 9000;
 // achievement's reward scales with its tier (difficulty): a permanent income
 // bonus (star) plus a one-time goo grant.
 export const achievementStarPerTier = 0.02; // +2% income per difficulty tier
-export const achievementGooBase = 150; // tier-1 goo grant…
-export const achievementGooGrowth = 5; // …× this per tier
+export const achievementGooBase = 200; // tier-1 goo grant…
+export const achievementGooGrowth = 3; // …× this per tier (kept modest so a single
+// claim never bombs the economy and completions stay spread out, not bursty)
 
 // Ladders are tuned so a new badge pops every few minutes across a whole
 // session — never a front-loaded rush then silence. The action-paced ladders

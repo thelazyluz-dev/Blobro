@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { formatGoo } from '../../game/format';
-import { upgradeCost, upgradeDefs, upgradeTotalHe } from '../../game/upgrades';
+import { upgradeCost, upgradeDefs, upgradeGainHe, upgradeTotalHe } from '../../game/upgrades';
 import type { UpgradeId } from '../../game/types';
 import { haptic } from '../haptics';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
@@ -50,6 +50,8 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   const buy = useGame((s) => s.buyUpgrade);
   const [shake, setShake] = useState(false);
   const shakeTimer = useRef<number>();
+  // Floating "+X" that pops on each purchase, showing exactly what was gained.
+  const [gain, setGain] = useState<{ text: string; key: number } | null>(null);
 
   const cost = upgradeCost(id, level);
   const canAfford = goo >= cost;
@@ -61,6 +63,7 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
       buy(id);
       playPurchase(muted);
       haptic(15);
+      setGain({ text: upgradeGainHe(id, level + 1), key: Date.now() });
     } else {
       playError(muted);
       setShake(true);
@@ -70,7 +73,17 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   };
 
   return (
-    <div className={`surface rounded-2xl p-4 ${shake ? 'anim-squash' : ''}`}>
+    <div className={`surface relative rounded-2xl p-4 ${shake ? 'anim-squash' : ''}`}>
+      {gain && (
+        <span
+          key={gain.key}
+          className="anim-float-up pointer-events-none absolute left-1/2 top-8 z-10 whitespace-nowrap font-display text-lg text-goo"
+          style={{ textShadow: '0 2px 10px #000' }}
+          onAnimationEnd={() => setGain(null)}
+        >
+          {gain.text}
+        </span>
+      )}
       <div className="flex items-center gap-3">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-black/25 text-3xl ring-hairline">
           {def.icon}

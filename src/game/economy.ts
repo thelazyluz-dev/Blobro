@@ -2,6 +2,8 @@
 // the prestige hook — and through the achievement "star" where relevant.
 
 import {
+  autoTapIncomeBase,
+  autoTapIncomeGrowth,
   baseByRarity,
   charIncomeGrowthPerLevel,
   clickBase,
@@ -28,7 +30,7 @@ export function modifiersFrom(upgrades: Upgrades, achievementStarBonus: number):
     fingerLevel: upgrades.finger,
     clickMultiplier: 1 + upgradeConfig.power.effectPerLevel * upgrades.power,
     incomeMultiplier: 1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture,
-    autoTapIncome: upgradeConfig.autoTap.effectPerLevel * upgrades.autoTap,
+    autoTapIncome: autoTapIncome(upgrades.autoTap),
     starMultiplier: 1 + achievementStarBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
@@ -45,7 +47,16 @@ export function clickPower(m: Modifiers): number {
   );
 }
 
-/** charIncome = baseByRarity × (1 + 0.25 × (level − 1)) */
+/**
+ * The robot hand's raw goo/sec at a given upgrade level, before star/prestige.
+ * Compounds per level so automation stays relevant: base × (growth^level − 1),
+ * which is 0 at level 0 and accelerates as you invest.
+ */
+export function autoTapIncome(level: number): number {
+  return autoTapIncomeBase * (Math.pow(autoTapIncomeGrowth, level) - 1);
+}
+
+/** charIncome = baseByRarity × (1 + 0.34 × (level − 1)) */
 export function charIncome(rarity: Rarity, level: number): number {
   return baseByRarity[rarity] * (1 + charIncomeGrowthPerLevel * (level - 1));
 }
