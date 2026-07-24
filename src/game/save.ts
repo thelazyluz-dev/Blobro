@@ -2,13 +2,20 @@
 // src/persistence.ts so this module never touches `window`. Testers are real
 // kids with real progress, so migration must never throw a save away.
 
-import { maxCharLevel, minCharLevel } from './balance';
+import { leaderboardMaxEntries, leaderboardNameMaxLen, maxCharLevel, minCharLevel } from './balance';
 import { collectionOrder } from './characters';
 import { achievements } from './achievements';
 import { defaultUpgrades } from './upgrades';
-import type { CharId, OwnedCharacters, SaveState, UpgradeId, Upgrades } from './types';
+import type {
+  CharId,
+  LeaderboardEntry,
+  OwnedCharacters,
+  SaveState,
+  UpgradeId,
+  Upgrades,
+} from './types';
 
-export const CURRENT_VERSION = 2 as const;
+export const CURRENT_VERSION = 3 as const;
 
 export function defaultSaveState(now: number): SaveState {
   return {
@@ -20,6 +27,8 @@ export function defaultSaveState(now: number): SaveState {
     totalHatches: 0,
     sinceRare: 0,
     bonusesCollected: 0,
+    clicks: 0,
+    leaderboard: [],
     achievements: [],
     lastSeen: now,
     muted: false,
@@ -68,9 +77,23 @@ function sanitizeAchievements(raw: unknown): string[] {
   return raw.filter((id): id is string => typeof id === 'string' && valid.has(id));
 }
 
+function sanitizeLeaderboard(raw: unknown): LeaderboardEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((e) => {
+      const rec = e as { name?: unknown; clicks?: unknown } | null;
+      const name = typeof rec?.name === 'string' ? rec.name.trim().slice(0, leaderboardNameMaxLen) : '';
+      return { name, clicks: nonNegInt(rec?.clicks, 0) };
+    })
+    .filter((e) => e.name.length > 0)
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, leaderboardMaxEntries);
+}
+
 /**
  * Coerce arbitrary persisted data into a valid current-version SaveState.
- * Handles v1 (single fingerLevel, no upgrades/achievements) → v2.
+ * Additive across versions (v1 single fingerLevel → v2 upgrades/achievements →
+ * v3 clicks/leaderboard); missing fields default cleanly, so progress is kept.
  */
 export function migrate(raw: unknown, now: number): SaveState {
   if (!raw || typeof raw !== 'object') return defaultSaveState(now);
@@ -85,6 +108,8 @@ export function migrate(raw: unknown, now: number): SaveState {
     totalHatches: nonNegInt(data.totalHatches, 0),
     sinceRare: nonNegInt(data.sinceRare, 0),
     bonusesCollected: nonNegInt(data.bonusesCollected, 0),
+    clicks: nonNegInt(data.clicks, 0),
+    leaderboard: sanitizeLeaderboard(data.leaderboard),
     achievements: sanitizeAchievements(data.achievements),
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),

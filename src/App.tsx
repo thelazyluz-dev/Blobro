@@ -5,6 +5,7 @@ import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
 import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
+import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
@@ -44,6 +45,7 @@ export function App() {
       <div className="bg-aurora" aria-hidden />
       <MuteButton />
       <AchievementsButton />
+      <LeaderboardButton />
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         {activeTab === 'click' && <ClickScreen />}
         {activeTab === 'hatch' && <HatchScreen />}
@@ -60,6 +62,7 @@ export function App() {
       <HatchReveal />
       <MultiHatchResult />
       <AchievementsOverlay />
+      <LeaderboardOverlay />
     </div>
   );
 }

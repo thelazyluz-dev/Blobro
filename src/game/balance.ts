@@ -128,5 +128,9 @@ export const offlineMinSeconds = 60; // must be away longer than this to earn
 export const offlineCapSeconds = 14400; // 4 hours
 export const offlineRate = 0.5; // 50%
 
+// --- Local leaderboard -------------------------------------------------------
+export const leaderboardMaxEntries = 20; // keep the top N on the device
+export const leaderboardNameMaxLen = 12;
+
 // --- Persistence -------------------------------------------------------------
 export const saveIntervalMs = 5000;

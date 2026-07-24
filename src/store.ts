@@ -12,6 +12,8 @@ import {
   evolveLevel,
   frenzyDurationMs,
   frenzyMultiplier,
+  leaderboardMaxEntries,
+  leaderboardNameMaxLen,
 } from './game/balance';
 import { newlyCompleted } from './game/achievements';
 import { charactersById } from './game/characters';
@@ -21,7 +23,15 @@ import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { loadRaw, persist } from './persistence';
-import type { CharId, Modifiers, OwnedCharacters, SaveState, UpgradeId, Upgrades } from './game/types';
+import type {
+  CharId,
+  LeaderboardEntry,
+  Modifiers,
+  OwnedCharacters,
+  SaveState,
+  UpgradeId,
+  Upgrades,
+} from './game/types';
 
 export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades';
 
@@ -43,12 +53,15 @@ interface GameState {
   totalHatches: number;
   sinceRare: number;
   bonusesCollected: number;
+  clicks: number;
+  leaderboard: LeaderboardEntry[];
   achievements: string[];
   muted: boolean;
 
   // --- transient UI / session ---
   loaded: boolean;
   activeTab: Tab;
+  leaderboardOpen: boolean;
   hatchResult: HatchOutcome | null;
   multiHatchResult: BatchResult | null;
   offlineReport: OfflineReport | null;
@@ -75,6 +88,9 @@ interface GameState {
   toggleMute: () => void;
   tick: (dtSeconds: number) => void;
   setAchievementsOpen: (open: boolean) => void;
+  setLeaderboardOpen: (open: boolean) => void;
+  addToLeaderboard: (name: string) => void;
+  resetClicks: () => void;
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
   triggerConfetti: (kind: ConfettiKind) => void;
@@ -84,7 +100,7 @@ let toastId = 0;
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 2,
+    version: 3,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
@@ -92,6 +108,8 @@ function snapshot(s: GameState, now: number): SaveState {
     totalHatches: s.totalHatches,
     sinceRare: s.sinceRare,
     bonusesCollected: s.bonusesCollected,
+    clicks: s.clicks,
+    leaderboard: s.leaderboard,
     achievements: s.achievements,
     lastSeen: now,
     muted: s.muted,
@@ -129,11 +147,14 @@ export const useGame = create<GameState>((set, get) => {
     totalHatches: 0,
     sinceRare: 0,
     bonusesCollected: 0,
+    clicks: 0,
+    leaderboard: [],
     achievements: [],
     muted: false,
 
     loaded: false,
     activeTab: 'click',
+    leaderboardOpen: false,
     hatchResult: null,
     multiHatchResult: null,
     offlineReport: null,
@@ -160,6 +181,8 @@ export const useGame = create<GameState>((set, get) => {
         totalHatches: save.totalHatches,
         sinceRare: save.sinceRare,
         bonusesCollected: save.bonusesCollected,
+        clicks: save.clicks,
+        leaderboard: save.leaderboard,
         achievements: save.achievements,
         muted: save.muted,
         loaded: true,
@@ -182,7 +205,7 @@ export const useGame = create<GameState>((set, get) => {
       let gain = clickPower(m);
       if (crit) gain *= critMultiplier;
       if (frenzy) gain *= frenzyMultiplier;
-      set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain }));
+      set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1 }));
       syncAchievements();
       return { gain, frenzy, crit };
     },
@@ -308,6 +331,25 @@ export const useGame = create<GameState>((set, get) => {
     },
 
     setAchievementsOpen: (open) => set({ achievementsOpen: open }),
+    setLeaderboardOpen: (open) => set({ leaderboardOpen: open }),
+
+    // Save the current player's click count under a nickname. Local only — this
+    // list lives in IndexedDB and is never uploaded anywhere.
+    addToLeaderboard: (name) => {
+      const clean = name.trim().slice(0, leaderboardNameMaxLen);
+      if (!clean) return;
+      const s = get();
+      const entry: LeaderboardEntry = { name: clean, clicks: s.clicks };
+      const leaderboard = [...s.leaderboard, entry]
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, leaderboardMaxEntries);
+      set({ leaderboard });
+      get().pushToast({ text: `${clean} נכנס לטבלה! 🏅`, icon: '🏅', tone: 'star' });
+    },
+
+    // Start a fresh run for the next player (resets the click tally only —
+    // the game's goo and creatures are untouched).
+    resetClicks: () => set({ clicks: 0 }),
 
     // Keep only the most recent few so a burst of unlocks never floods the screen.
     pushToast: (t) => set((s) => ({ toasts: [...s.toasts, { ...t, id: ++toastId }].slice(-4) })),

@@ -42,8 +42,14 @@ export type Upgrades = Record<UpgradeId, number>; // level per upgrade, default 
 
 export type AchievementId = string;
 
+/** One row in the on-device click leaderboard. Stays local — never uploaded. */
+export interface LeaderboardEntry {
+  name: string;
+  clicks: number;
+}
+
 export interface SaveState {
-  version: 2;
+  version: 3;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;
@@ -51,6 +57,8 @@ export interface SaveState {
   totalHatches: number;
   sinceRare: number;
   bonusesCollected: number;
+  clicks: number; // manual taps by the current player (for the leaderboard)
+  leaderboard: LeaderboardEntry[]; // local-only, on-device
   achievements: AchievementId[]; // claimed achievement ids
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
