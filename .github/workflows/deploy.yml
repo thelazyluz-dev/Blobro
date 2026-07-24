@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # Deploys from the repository's default branch. `main` is listed for when
+    # the project moves there; the current default is claude/new-session-6f5k8n.
+    branches: [main, claude/new-session-6f5k8n]
   workflow_dispatch:
 
 permissions:
