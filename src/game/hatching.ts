@@ -88,6 +88,91 @@ export interface HatchOutcome {
  * Perform one hatch. Returns the outcome plus the updated pity counters.
  * Does NOT mutate anything — the caller (store) applies the result.
  */
+export interface BatchInput {
+  rng: () => number;
+  goo: number;
+  owned: OwnedCharacters;
+  sinceRare: number;
+  totalHatches: number;
+  luck: number;
+  maxCount: number;
+  eggCost: (n: number) => number;
+}
+
+export interface BatchResult {
+  count: number; // eggs actually hatched
+  spent: number; // goo spent on eggs
+  gooFromDupes: number; // goo earned back from maxed duplicates
+  goo: number; // resulting goo (after spend + dupe refunds)
+  owned: OwnedCharacters; // updated (new object)
+  sinceRare: number;
+  totalHatches: number;
+  rarityTally: Record<Rarity, number>;
+  newIds: CharId[]; // creatures obtained for the first time (unique, in order)
+  levelUps: Partial<Record<CharId, number>>; // charId → levels gained
+  bestRarity: Rarity | null; // rarest pull in the batch
+}
+
+const rarityRank: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
+
+/**
+ * Hatch up to `maxCount` eggs in one go, stopping when goo runs out. Pure —
+ * returns the aggregated result and the updated state for the store to apply.
+ */
+export function hatchBatch(input: BatchInput): BatchResult {
+  let { goo, sinceRare, totalHatches } = input;
+  const owned: OwnedCharacters = { ...input.owned };
+  const rarityTally: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 };
+  const newIds: CharId[] = [];
+  const levelUps: Partial<Record<CharId, number>> = {};
+  let count = 0;
+  let spent = 0;
+  let gooFromDupes = 0;
+  let bestRarity: Rarity | null = null;
+
+  for (let i = 0; i < input.maxCount; i++) {
+    const cost = input.eggCost(totalHatches);
+    if (goo < cost) break;
+
+    goo -= cost;
+    spent += cost;
+
+    const outcome = hatch(input.rng, { owned, sinceRare, totalHatches, luck: input.luck });
+    const existing = owned[outcome.charId];
+    owned[outcome.charId] = existing
+      ? { ...existing, level: outcome.level }
+      : { level: outcome.level };
+
+    if (outcome.kind === 'new') newIds.push(outcome.charId);
+    else if (outcome.kind === 'levelup') levelUps[outcome.charId] = (levelUps[outcome.charId] ?? 0) + 1;
+    if (outcome.gooReward > 0) {
+      gooFromDupes += outcome.gooReward;
+      goo += outcome.gooReward;
+    }
+
+    rarityTally[outcome.rarity]++;
+    if (!bestRarity || rarityRank[outcome.rarity] > rarityRank[bestRarity]) bestRarity = outcome.rarity;
+
+    sinceRare = outcome.nextSinceRare;
+    totalHatches = outcome.nextTotalHatches;
+    count++;
+  }
+
+  return {
+    count,
+    spent,
+    gooFromDupes,
+    goo,
+    owned,
+    sinceRare,
+    totalHatches,
+    rarityTally,
+    newIds,
+    levelUps,
+    bestRarity,
+  };
+}
+
 export function hatch(rng: () => number, ctx: HatchContext): HatchOutcome {
   const legendaryOwned = isLegendaryOwned(ctx.owned);
   const rarity = rollRarity(rng, {

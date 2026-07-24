@@ -5,6 +5,7 @@ import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
 import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
+import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
 import { Toaster } from './ui/Toaster';
@@ -57,6 +58,7 @@ export function App() {
       <Toaster />
       <OfflineModal />
       <HatchReveal />
+      <MultiHatchResult />
       <AchievementsOverlay />
     </div>
   );

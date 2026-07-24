@@ -84,6 +84,10 @@ export const rainDropMinGoo = 5;
 export const eggCostBase = 45;
 export const eggCostGrowth = 1.11;
 
+// --- Bulk hatching -----------------------------------------------------------
+export const bulkHatchTen = 10;
+export const bulkHatchMax = 100; // safety cap for "hatch all" in one press
+
 // --- Hatching odds -----------------------------------------------------------
 export const rarityChances: Record<Rarity, number> = {
   common: 0.6,

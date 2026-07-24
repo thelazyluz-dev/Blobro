@@ -16,7 +16,7 @@ import {
 import { newlyCompleted } from './game/achievements';
 import { charactersById } from './game/characters';
 import { clickPower, eggCost, gooPerSec, modifiersFrom } from './game/economy';
-import { hatch, type HatchOutcome } from './game/hatching';
+import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
@@ -50,6 +50,7 @@ interface GameState {
   loaded: boolean;
   activeTab: Tab;
   hatchResult: HatchOutcome | null;
+  multiHatchResult: BatchResult | null;
   offlineReport: OfflineReport | null;
   frenzyUntil: number; // epoch ms; a click frenzy is active until then
   toasts: Toast[];
@@ -64,9 +65,11 @@ interface GameState {
   click: () => { gain: number; frenzy: boolean; crit: boolean };
   buyUpgrade: (id: UpgradeId) => void;
   tryHatch: () => void;
+  hatchMany: (maxCount: number) => void;
   evolveCreature: (id: CharId) => void;
   collectBonus: () => number;
   grantGoo: (amount: number) => void;
+  dismissMultiHatch: () => void;
   dismissHatch: () => void;
   dismissOffline: () => void;
   toggleMute: () => void;
@@ -132,6 +135,7 @@ export const useGame = create<GameState>((set, get) => {
     loaded: false,
     activeTab: 'click',
     hatchResult: null,
+    multiHatchResult: null,
     offlineReport: null,
     frenzyUntil: 0,
     toasts: [],
@@ -202,8 +206,14 @@ export const useGame = create<GameState>((set, get) => {
         luck: mods().luck,
       });
 
-      const characters: OwnedCharacters = { ...s.characters };
-      characters[outcome.charId] = { level: outcome.level };
+      // Spread the existing entry so an evolved (shiny) creature keeps its shine.
+      const existing = s.characters[outcome.charId];
+      const characters: OwnedCharacters = {
+        ...s.characters,
+        [outcome.charId]: existing
+          ? { ...existing, level: outcome.level }
+          : { level: outcome.level },
+      };
 
       set({
         goo: s.goo - cost + outcome.gooReward,
@@ -215,6 +225,33 @@ export const useGame = create<GameState>((set, get) => {
       });
       syncAchievements();
     },
+
+    hatchMany: (maxCount) => {
+      const s = get();
+      const result = hatchBatch({
+        rng: Math.random,
+        goo: s.goo,
+        owned: s.characters,
+        sinceRare: s.sinceRare,
+        totalHatches: s.totalHatches,
+        luck: mods().luck,
+        maxCount,
+        eggCost,
+      });
+      if (result.count === 0) return; // couldn't afford even one
+
+      set({
+        goo: result.goo,
+        lifetimeGoo: s.lifetimeGoo + result.gooFromDupes,
+        characters: result.owned,
+        totalHatches: result.totalHatches,
+        sinceRare: result.sinceRare,
+        multiHatchResult: result,
+      });
+      syncAchievements();
+    },
+
+    dismissMultiHatch: () => set({ multiHatchResult: null }),
 
     evolveCreature: (id) => {
       const s = get();
