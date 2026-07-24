@@ -28,7 +28,7 @@ export function modifiersFrom(upgrades: Upgrades, achievementStarBonus: number):
     fingerLevel: upgrades.finger,
     clickMultiplier: 1 + upgradeConfig.power.effectPerLevel * upgrades.power,
     incomeMultiplier: 1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture,
-    autoTapRate: upgradeConfig.autoTap.effectPerLevel * upgrades.autoTap,
+    autoTapIncome: upgradeConfig.autoTap.effectPerLevel * upgrades.autoTap,
     starMultiplier: 1 + achievementStarBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
@@ -66,9 +66,13 @@ export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
   return sum * m.incomeMultiplier * m.starMultiplier * globalMultiplier;
 }
 
-/** Total goo per second: creatures + the robot hand's automatic taps. */
+/**
+ * Total goo per second: creatures + the robot hand's own income. The robot
+ * hand is independent of the click upgrades (finger/power/crit) — those only
+ * affect manual taps. Both passive sources get the achievement star + prestige.
+ */
 export function gooPerSec(owned: OwnedCharacters, m: Modifiers): number {
-  return creatureIncome(owned, m) + m.autoTapRate * clickPower(m);
+  return creatureIncome(owned, m) + m.autoTapIncome * m.starMultiplier * globalMultiplier;
 }
 
 /** eggCost(n) = round(45 × 1.11 ^ n), n = eggs already hatched */

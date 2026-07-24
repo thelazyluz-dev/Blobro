@@ -6,7 +6,6 @@ import {
   evolveLevel,
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
-  maxCharLevel,
   minCharLevel,
 } from './balance';
 import { collectionOrder } from './characters';
@@ -56,7 +55,7 @@ function sanitizeCharacters(raw: unknown): OwnedCharacters {
   for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!valid.has(key as CharId)) continue;
     const e = entry as { level?: unknown; shiny?: unknown } | null;
-    const clamped = Math.min(maxCharLevel, Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel)));
+    const clamped = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
     // A creature can be shiny (evolved) from the evolve level onward — it keeps
     // levelling afterwards, so don't strip shine below the max level.
     const shiny = Boolean(e?.shiny) && clamped >= evolveLevel;

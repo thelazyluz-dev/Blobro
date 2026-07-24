@@ -25,9 +25,9 @@ export const baseByRarity: Record<Rarity, number> = {
   rare: 30,
   legendary: 200,
 };
-export const charIncomeGrowthPerLevel = 0.25;
-export const maxCharLevel = 20; // creatures now level up to 20
+export const charIncomeGrowthPerLevel = 0.25; // +25% of base income per level
 export const minCharLevel = 1;
+// No maximum — creatures level up forever, giving more each level (§ user request).
 export const evolveLevel = 10; // a creature can evolve into a shiny from this level
 
 // --- Upgrades ----------------------------------------------------------------
@@ -42,8 +42,8 @@ export const upgradeConfig: Record<UpgradeId, UpgradeConfig> = {
   finger: { costBase: 15, costGrowth: 1.5, effectPerLevel: 1 },
   // +25% tap power per level (multiplier).
   power: { costBase: 200, costGrowth: 2.05, effectPerLevel: 0.25 },
-  // +0.4 automatic taps/sec per level.
-  autoTap: { costBase: 300, costGrowth: 1.95, effectPerLevel: 0.4 },
+  // +2 goo/sec of automatic income per level (its own income, NOT tied to taps).
+  autoTap: { costBase: 300, costGrowth: 1.9, effectPerLevel: 2 },
   // +12% to all creature income per level.
   nurture: { costBase: 250, costGrowth: 1.8, effectPerLevel: 0.12 },
   // +3% chance for a critical tap per level.
@@ -100,9 +100,6 @@ export const rarityChances: Record<Rarity, number> = {
 // --- Pity --------------------------------------------------------------------
 export const pityRareThreshold = 15; // sinceRare → guaranteed rare/legendary
 export const pityLegendaryThreshold = 60; // totalHatches → guaranteed legendary if unowned
-
-// --- Duplicates --------------------------------------------------------------
-export const duplicateGooMultiplier = 300; // maxed dup → baseByRarity × this
 
 // --- Golden bonus (the pull mechanic) ----------------------------------------
 // A golden blob drifts across the click screen; tapping it pays out and starts

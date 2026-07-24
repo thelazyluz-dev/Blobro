@@ -8,7 +8,6 @@ import { playCharge, playCrack } from '../audio/sfx';
 import { speakName } from '../audio/speech';
 import { playJingle } from '../audio/synth';
 import { charactersById } from '../game/characters';
-import { formatGoo } from '../game/format';
 import type { HatchOutcome } from '../game/hatching';
 import type { CharId, Rarity } from '../game/types';
 import { useGame } from '../store';
@@ -257,16 +256,9 @@ function RevealMessage({ outcome }: { outcome: HatchOutcome }) {
   if (outcome.kind === 'new') {
     return <p className="mt-3 text-lg text-goo">יצור חדש הצטרף לאוסף!</p>;
   }
-  if (outcome.kind === 'levelup') {
-    return (
-      <p className="mt-3 text-lg text-goo tabular">
-        {def.nameHe} התחזק! רמה {outcome.level}
-      </p>
-    );
-  }
   return (
-    <p className="mt-3 text-lg text-pop tabular">
-      {def.nameHe} במקסימום — קיבלת {formatGoo(outcome.gooReward)} גּוּ
+    <p className="mt-3 text-lg text-goo tabular">
+      {def.nameHe} התחזק! רמה {outcome.level}
     </p>
   );
 }

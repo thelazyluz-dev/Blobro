@@ -2,11 +2,8 @@
 // can be tested deterministically.
 
 import {
-  baseByRarity,
-  duplicateGooMultiplier,
   luckLegendaryShare,
   luckRareShare,
-  maxCharLevel,
   pityLegendaryThreshold,
   pityRareThreshold,
   rarityChances,
@@ -72,14 +69,14 @@ export function pickChar(rng: () => number, rarity: Rarity): CharId {
   return pool[idx].id;
 }
 
-export type HatchKind = 'new' | 'levelup' | 'maxed';
+export type HatchKind = 'new' | 'levelup';
 
 export interface HatchOutcome {
   charId: CharId;
   rarity: Rarity;
   kind: HatchKind;
-  level: number; // resulting level (maxCharLevel when maxed)
-  gooReward: number; // >0 only when maxed (§7.3)
+  level: number; // resulting level (creatures level up forever)
+  gooReward: number; // reserved (0) — duplicates now always level up
   nextSinceRare: number;
   nextTotalHatches: number;
 }
@@ -191,22 +188,11 @@ export function hatch(rng: () => number, ctx: HatchContext): HatchOutcome {
   const nextSinceRare = gotRareOrBetter ? 0 : ctx.sinceRare + 1;
   const nextTotalHatches = ctx.totalHatches + 1;
 
+  // Creatures level up forever — a duplicate always makes the creature stronger
+  // (§ user request: "דמויות יכולות להגיע עד אין סוף רמות").
   const existing = ctx.owned[charId];
-  let kind: HatchKind;
-  let level: number;
-  let gooReward = 0;
+  const kind: HatchKind = existing ? 'levelup' : 'new';
+  const level = existing ? existing.level + 1 : 1;
 
-  if (!existing) {
-    kind = 'new';
-    level = 1;
-  } else if (existing.level < maxCharLevel) {
-    kind = 'levelup';
-    level = existing.level + 1;
-  } else {
-    kind = 'maxed';
-    level = maxCharLevel;
-    gooReward = baseByRarity[rarity] * duplicateGooMultiplier;
-  }
-
-  return { charId, rarity, kind, level, gooReward, nextSinceRare, nextTotalHatches };
+  return { charId, rarity, kind, level, gooReward: 0, nextSinceRare, nextTotalHatches };
 }

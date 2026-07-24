@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
-import { evolveCostByRarity, evolveLevel, maxCharLevel } from '../../game/balance';
+import { evolveCostByRarity, evolveLevel } from '../../game/balance';
 import { charactersById, collectionOrder } from '../../game/characters';
 import { ownedCreatureIncome } from '../../game/economy';
 import { formatGoo } from '../../game/format';
@@ -78,7 +78,7 @@ export function CollectionScreen() {
                 {def.nameHe}
               </span>
               <span className="text-[10px] text-pop tabular">
-                {held.shiny ? '✨ ' : ''}רמה {held.level}/{maxCharLevel}
+                {held.shiny ? '✨ ' : ''}רמה {held.level}
               </span>
             </button>
           );
@@ -98,7 +98,6 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   if (!held) return null;
 
   const income = ownedCreatureIncome(def.rarity, held);
-  const maxed = held.level >= maxCharLevel;
   const ringColor = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
   const evolveCost = evolveCostByRarity[def.rarity];
   const canEvolve = held.level >= evolveLevel && !held.shiny;
@@ -147,13 +146,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         >
           {held.shiny ? 'מְנַצְנֵץ' : rarityLabelHe[def.rarity]}
         </div>
-        <div className="mt-4 text-lg text-pop tabular">
-          רמה {held.level} / {maxCharLevel}
-          {maxed ? ' 🌟' : ''}
-        </div>
-        {!maxed && (
-          <div className="text-xs text-bone/50">בּוֹקְעִים עוֹד {def.nameHe} כְּדֵי לְחַזֵּק!</div>
-        )}
+        <div className="mt-4 text-lg text-pop tabular">רמה {held.level}</div>
+        <div className="text-xs text-bone/50">בּוֹקְעִים עוֹד {def.nameHe} כְּדֵי לְחַזֵּק!</div>
         <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
 
         <button

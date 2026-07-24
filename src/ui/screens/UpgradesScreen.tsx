@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { formatGoo } from '../../game/format';
-import { upgradeCost, upgradeDefs } from '../../game/upgrades';
+import { upgradeCost, upgradeDefs, upgradeTotalHe } from '../../game/upgrades';
 import type { UpgradeId } from '../../game/types';
 import { haptic } from '../haptics';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
@@ -81,6 +81,9 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
             <div className="shrink-0 text-sm text-pop tabular">רמה {level}</div>
           </div>
           <div className="text-sm text-cy">{def.effectHe}</div>
+          {level > 0 && (
+            <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level)}</div>
+          )}
         </div>
       </div>
 

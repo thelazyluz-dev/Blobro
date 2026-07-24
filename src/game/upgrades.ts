@@ -1,6 +1,6 @@
 // Upgrade definitions and pure cost/effect math. Numbers come from balance.ts.
 
-import { upgradeConfig } from './balance';
+import { critBaseChance, critChanceCap, luckCap, upgradeConfig } from './balance';
 import type { UpgradeId, Upgrades } from './types';
 
 export interface UpgradeDef {
@@ -14,7 +14,7 @@ export interface UpgradeDef {
 export const upgradeDefs: UpgradeDef[] = [
   { id: 'finger', nameHe: 'אֶצְבַּע חֲזָקָה', icon: '👆', effectHe: '+1 גּוּ לכל נגיעה' },
   { id: 'power', nameHe: 'כּוֹחַ עַל', icon: '💥', effectHe: '+25% לעוצמת הנגיעה' },
-  { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'לוחצת לבד! +0.4 נגיעות בשנייה' },
+  { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: `אוֹסֶפֶת לְבַד! +${upgradeConfig.autoTap.effectPerLevel} גּוּ בשנייה` },
   { id: 'nurture', nameHe: 'טִיפּוּחַ', icon: '💚', effectHe: '+12% לכל היצורים' },
   { id: 'crit', nameHe: 'מַכָּה קְרִיטִית', icon: '⚡', effectHe: '+3% סיכוי למכה ענקית' },
   { id: 'luck', nameHe: 'מַזָּל', icon: '🍀', effectHe: 'סיכוי גבוה יותר ליצורים נדירים' },
@@ -36,4 +36,31 @@ export function upgradeCost(id: UpgradeId, level: number): number {
 
 export function upgradeEffectPerLevel(id: UpgradeId): number {
   return upgradeConfig[id].effectPerLevel;
+}
+
+/**
+ * The upgrade's TOTAL current contribution at `level` — the running sum of
+ * everything bought so far, so the player sees "how much is this giving me
+ * altogether" next to each upgrade (§ user request).
+ */
+export function upgradeTotalHe(id: UpgradeId, level: number): string {
+  const per = upgradeConfig[id].effectPerLevel;
+  switch (id) {
+    case 'finger':
+      return `סה״כ +${level * per} גּוּ לכל נגיעה`;
+    case 'power':
+      return `סה״כ +${Math.round(level * per * 100)}% לעוצמת הנגיעה`;
+    case 'autoTap':
+      return `סה״כ +${level * per} גּוּ בשנייה`;
+    case 'nurture':
+      return `סה״כ +${Math.round(level * per * 100)}% לכל היצורים`;
+    case 'crit': {
+      const chance = Math.min(critChanceCap, critBaseChance + per * level);
+      return `סה״כ ${Math.round(chance * 100)}% סיכוי למכה קריטית`;
+    }
+    case 'luck': {
+      const luck = Math.min(luckCap, per * level);
+      return `סה״כ +${Math.round(luck * 100)}% מזל ליצורים נדירים`;
+    }
+  }
 }
