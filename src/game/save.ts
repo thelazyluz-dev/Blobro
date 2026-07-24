@@ -2,7 +2,13 @@
 // src/persistence.ts so this module never touches `window`. Testers are real
 // kids with real progress, so migration must never throw a save away.
 
-import { leaderboardMaxEntries, leaderboardNameMaxLen, maxCharLevel, minCharLevel } from './balance';
+import {
+  evolveLevel,
+  leaderboardMaxEntries,
+  leaderboardNameMaxLen,
+  maxCharLevel,
+  minCharLevel,
+} from './balance';
 import { collectionOrder } from './characters';
 import { achievements } from './achievements';
 import { defaultUpgrades } from './upgrades';
@@ -51,8 +57,9 @@ function sanitizeCharacters(raw: unknown): OwnedCharacters {
     if (!valid.has(key as CharId)) continue;
     const e = entry as { level?: unknown; shiny?: unknown } | null;
     const clamped = Math.min(maxCharLevel, Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel)));
-    // Only a maxed creature can be shiny.
-    const shiny = Boolean(e?.shiny) && clamped >= maxCharLevel;
+    // A creature can be shiny (evolved) from the evolve level onward — it keeps
+    // levelling afterwards, so don't strip shine below the max level.
+    const shiny = Boolean(e?.shiny) && clamped >= evolveLevel;
     out[key as CharId] = shiny ? { level: clamped, shiny: true } : { level: clamped };
   }
   return out;

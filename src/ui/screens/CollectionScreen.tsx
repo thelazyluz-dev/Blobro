@@ -78,7 +78,7 @@ export function CollectionScreen() {
                 {def.nameHe}
               </span>
               <span className="text-[10px] text-pop tabular">
-                {held.shiny ? '✨ ' : ''}רמה {held.level}
+                {held.shiny ? '✨ ' : ''}רמה {held.level}/{maxCharLevel}
               </span>
             </button>
           );
@@ -148,10 +148,13 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           {held.shiny ? 'מְנַצְנֵץ' : rarityLabelHe[def.rarity]}
         </div>
         <div className="mt-4 text-lg text-pop tabular">
-          רמה {held.level}
-          {maxed ? ' — מקסימום!' : ''}
+          רמה {held.level} / {maxCharLevel}
+          {maxed ? ' 🌟' : ''}
         </div>
-        <div className="text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
+        {!maxed && (
+          <div className="text-xs text-bone/50">בּוֹקְעִים עוֹד {def.nameHe} כְּדֵי לְחַזֵּק!</div>
+        )}
+        <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
 
         <button
           type="button"
