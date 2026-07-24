@@ -25,7 +25,7 @@ export const baseByRarity: Record<Rarity, number> = {
   rare: 30,
   legendary: 200,
 };
-export const charIncomeGrowthPerLevel = 0.25; // +25% of base income per level
+export const charIncomeGrowthPerLevel = 0.3; // +30% of base income per level — leveling keeps paying, so income never flatlines
 export const minCharLevel = 1;
 // No maximum — creatures level up forever, giving more each level (§ user request).
 export const evolveLevel = 10; // a creature can evolve into a shiny from this level
@@ -121,15 +121,19 @@ export const achievementStarPerTier = 0.02; // +2% income per difficulty tier
 export const achievementGooBase = 150; // tier-1 goo grant…
 export const achievementGooGrowth = 5; // …× this per tier
 
+// Ladders are tuned so a new badge pops every few minutes across a whole
+// session — never a front-loaded rush then silence. The action-paced ladders
+// (clicks/hatches/bonuses/shinies) advance with play, so they carry the
+// mid-and-late-game cadence; lifetime-goo stays open-ended for the long haul.
 export const achievementGoals = {
   // capped at the 10 creatures / 10 evolutions
   collection: [3, 6, 10],
-  shinies: [1, 3, 5, 10],
-  // open-ended, up to 100 trillion lifetime goo
-  lifetime: [1e3, 1e4, 5e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14],
-  hatches: [10, 30, 75, 150, 350, 750, 1500, 3000, 6000, 12000],
-  clicks: [100, 500, 2000, 8000, 25000, 75000, 200000, 600000],
-  bonuses: [5, 20, 60, 150, 400],
+  shinies: [1, 2, 3, 4, 5, 7, 10],
+  // open-ended, up to 100 trillion lifetime goo (with ~half-step tiers)
+  lifetime: [1e3, 5e3, 2e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7, 1e8, 3e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14],
+  hatches: [10, 25, 50, 90, 150, 250, 400, 650, 1000, 1600, 2500, 4000, 6500, 10000],
+  clicks: [100, 300, 700, 1500, 3000, 5500, 9000, 14000, 22000, 35000, 60000, 100000, 200000, 400000],
+  bonuses: [5, 15, 30, 50, 80, 120, 180, 280, 450, 700],
 } as const;
 
 // --- Offline income ----------------------------------------------------------
