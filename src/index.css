@@ -355,6 +355,41 @@ body {
   animation: blorbo-aurora 28s linear infinite;
 }
 
+@keyframes blorbo-charge {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.12;
+  }
+  70% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0.92;
+  }
+}
+
+@keyframes blorbo-spark-in {
+  0% {
+    transform: translate(var(--sx, 0), var(--sy, 0)) scale(1);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(0.2);
+    opacity: 0.9;
+  }
+}
+
+.anim-charge {
+  animation: blorbo-charge var(--chg, 1.2s) ease-in forwards;
+}
+.anim-spark-in {
+  animation: blorbo-spark-in 0.7s ease-in infinite;
+}
+
 @keyframes blorbo-rain-fall {
   0% {
     transform: translateY(-12vh) rotate(0deg);
@@ -454,6 +489,8 @@ body {
   .anim-vignette,
   .anim-rain-fall,
   .anim-crit-flash,
+  .anim-charge,
+  .anim-spark-in,
   .bg-aurora {
     animation: none !important;
   }

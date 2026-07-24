@@ -108,6 +108,7 @@ export interface BatchResult {
   sinceRare: number;
   totalHatches: number;
   rarityTally: Record<Rarity, number>;
+  charTally: Partial<Record<CharId, number>>; // every creature pulled → how many times
   newIds: CharId[]; // creatures obtained for the first time (unique, in order)
   levelUps: Partial<Record<CharId, number>>; // charId → levels gained
   bestRarity: Rarity | null; // rarest pull in the batch
@@ -123,6 +124,7 @@ export function hatchBatch(input: BatchInput): BatchResult {
   let { goo, sinceRare, totalHatches } = input;
   const owned: OwnedCharacters = { ...input.owned };
   const rarityTally: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 };
+  const charTally: Partial<Record<CharId, number>> = {};
   const newIds: CharId[] = [];
   const levelUps: Partial<Record<CharId, number>> = {};
   let count = 0;
@@ -143,6 +145,7 @@ export function hatchBatch(input: BatchInput): BatchResult {
       ? { ...existing, level: outcome.level }
       : { level: outcome.level };
 
+    charTally[outcome.charId] = (charTally[outcome.charId] ?? 0) + 1;
     if (outcome.kind === 'new') newIds.push(outcome.charId);
     else if (outcome.kind === 'levelup') levelUps[outcome.charId] = (levelUps[outcome.charId] ?? 0) + 1;
     if (outcome.gooReward > 0) {
@@ -167,6 +170,7 @@ export function hatchBatch(input: BatchInput): BatchResult {
     sinceRare,
     totalHatches,
     rarityTally,
+    charTally,
     newIds,
     levelUps,
     bestRarity,

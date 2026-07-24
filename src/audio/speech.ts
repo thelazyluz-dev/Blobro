@@ -1,0 +1,46 @@
+// Speaks a creature's name aloud via the browser's built-in Web Speech API.
+// No files and no network requests from us — the platform provides the voice.
+// A no-op when muted or unsupported.
+
+let voice: SpeechSynthesisVoice | null = null;
+let triedVoice = false;
+
+function pickVoice(): SpeechSynthesisVoice | null {
+  if (triedVoice) return voice;
+  triedVoice = true;
+  const synth = window.speechSynthesis;
+  if (!synth) return null;
+  const voices = synth.getVoices();
+  // Prefer a Hebrew voice; fall back to anything.
+  voice = voices.find((v) => v.lang?.toLowerCase().startsWith('he')) ?? voices[0] ?? null;
+  return voice;
+}
+
+// Voices may load asynchronously; refresh once they're available.
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    triedVoice = false;
+    pickVoice();
+  };
+}
+
+const NIKUD = /[֑-ׇ]/g;
+
+/** Speak a Hebrew name. Nikud is stripped so the voice reads it cleanly. */
+export function speakName(nameHe: string, muted: boolean): void {
+  if (muted) return;
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  try {
+    const synth = window.speechSynthesis;
+    synth.cancel(); // don't stack utterances
+    const u = new SpeechSynthesisUtterance(nameHe.replace(NIKUD, '').trim());
+    u.lang = 'he-IL';
+    u.rate = 0.95;
+    u.pitch = 1.15; // a touch playful for kids
+    const v = pickVoice();
+    if (v) u.voice = v;
+    synth.speak(u);
+  } catch {
+    /* speech is a nicety — ignore failures */
+  }
+}

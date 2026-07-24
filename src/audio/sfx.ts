@@ -89,6 +89,63 @@ export function playError(muted: boolean): void {
   sequence(muted, [220, 165], 0.09, 0.1, { type: 'sawtooth', gain: 0.1, filter: 1400, decay: 0.06 });
 }
 
+/**
+ * A rising "charge" sweep for the egg-shake suspense. Pitch and length grow
+ * with rarityLevel (0..3) so a legendary buildup sounds bigger. Returns a stop
+ * function for cleanup.
+ */
+export function playCharge(muted: boolean, durationMs: number, rarityLevel: number): () => void {
+  if (muted) return () => {};
+  const ctx = getAudioContext();
+  if (!ctx) return () => {};
+  const now = ctx.currentTime;
+  const dur = durationMs / 1000;
+  const top = 300 + rarityLevel * 260;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(90, now);
+  osc.frequency.exponentialRampToValueAtTime(top, now + dur);
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(500, now);
+  lp.frequency.exponentialRampToValueAtTime(4000, now + dur);
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, now);
+  env.gain.exponentialRampToValueAtTime(0.12, now + dur * 0.8);
+  env.gain.exponentialRampToValueAtTime(0.22, now + dur);
+
+  osc.connect(lp);
+  lp.connect(env);
+  env.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + dur + 0.05);
+
+  return () => {
+    try {
+      env.gain.cancelScheduledValues(ctx.currentTime);
+      env.gain.setValueAtTime(0.0001, ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.02);
+    } catch {
+      /* already stopped */
+    }
+  };
+}
+
+/** A big impact when the egg finally cracks open. */
+export function playCrack(muted: boolean, rarityLevel: number): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  voice(ctx, 120, now, 0.16, { type: 'square', gain: 0.24, filter: 1400, decay: 0.2 });
+  voice(ctx, 60, now, 0.2, { type: 'sine', gain: 0.24, filter: 800, decay: 0.24 });
+  const notes = [523, 659, 784, 1047].slice(0, 2 + rarityLevel);
+  notes.forEach((f, i) => voice(ctx, f, now + 0.05 + i * 0.05, 0.1, { type: 'triangle', gain: 0.14, filter: 7000, decay: 0.14 }));
+}
+
 /** Punchy zap for a critical tap. */
 export function playCrit(muted: boolean): void {
   if (muted) return;

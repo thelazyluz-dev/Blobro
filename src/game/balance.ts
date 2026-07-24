@@ -26,8 +26,9 @@ export const baseByRarity: Record<Rarity, number> = {
   legendary: 200,
 };
 export const charIncomeGrowthPerLevel = 0.25;
-export const maxCharLevel = 10;
+export const maxCharLevel = 20; // creatures now level up to 20
 export const minCharLevel = 1;
+export const evolveLevel = 10; // a creature can evolve into a shiny from this level
 
 // --- Upgrades ----------------------------------------------------------------
 // Each upgrade: cost(level) = round(base × growth ^ level); effect per level below.

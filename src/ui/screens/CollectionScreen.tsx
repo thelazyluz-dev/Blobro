@@ -3,8 +3,9 @@
 
 import { useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
+import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
-import { evolveCostByRarity, maxCharLevel } from '../../game/balance';
+import { evolveCostByRarity, evolveLevel, maxCharLevel } from '../../game/balance';
 import { charactersById, collectionOrder } from '../../game/characters';
 import { ownedCreatureIncome } from '../../game/economy';
 import { formatGoo } from '../../game/format';
@@ -100,7 +101,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const maxed = held.level >= maxCharLevel;
   const ringColor = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
   const evolveCost = evolveCostByRarity[def.rarity];
-  const canEvolve = maxed && !held.shiny;
+  const canEvolve = held.level >= evolveLevel && !held.shiny;
   const affordEvolve = goo >= evolveCost;
 
   const onEvolve = () => {
@@ -154,7 +155,11 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
 
         <button
           type="button"
-          onClick={() => playJingle(def.sound, useGame.getState().muted)}
+          onClick={() => {
+            const m = useGame.getState().muted;
+            playJingle(def.sound, m);
+            speakName(def.nameHe, m);
+          }}
           className="btn mt-4 flex w-full items-center justify-center gap-2 bg-hot py-3 text-lg text-bone"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#FFF4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

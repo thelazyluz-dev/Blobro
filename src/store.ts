@@ -9,9 +9,9 @@ import {
   bonusMinGoo,
   critMultiplier,
   evolveCostByRarity,
+  evolveLevel,
   frenzyDurationMs,
   frenzyMultiplier,
-  maxCharLevel,
 } from './game/balance';
 import { newlyCompleted } from './game/achievements';
 import { charactersById } from './game/characters';
@@ -256,7 +256,7 @@ export const useGame = create<GameState>((set, get) => {
     evolveCreature: (id) => {
       const s = get();
       const held = s.characters[id];
-      if (!held || held.level < maxCharLevel || held.shiny) return;
+      if (!held || held.level < evolveLevel || held.shiny) return;
       const def = charactersById[id];
       const cost = evolveCostByRarity[def.rarity];
       if (s.goo < cost) return;
