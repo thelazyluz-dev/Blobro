@@ -19,21 +19,38 @@ export const fingerEffectPerLevel = 1;
 
 // --- Passive income ----------------------------------------------------------
 // charIncome = baseByRarity × (1 + charIncomeGrowthPerLevel × (level − 1))
+// Widely-separated tiers so a rarer creature is unmistakably worth more:
+// each step is roughly ×7-8 the one below it.
 export const baseByRarity: Record<Rarity, number> = {
   common: 1,
-  uncommon: 6,
-  rare: 30,
-  legendary: 200,
+  uncommon: 8,
+  rare: 50,
+  legendary: 350,
 };
-export const charIncomeGrowthPerLevel = 0.34; // +34% of base income per level — leveling keeps paying, so income never flatlines
-// The robot hand is its OWN automation engine (independent of taps). Its output
-// COMPOUNDS per level — autoTapIncome = base × (growth^level − 1) — so it stays
-// a meaningful share of passive income instead of a 1-2% trap upgrade.
-export const autoTapIncomeBase = 8;
-export const autoTapIncomeGrowth = 1.28;
+export const charIncomeGrowthPerLevel = 0.4; // +40% of base income per level — every level is a real jump
+// The robot hand works alongside the creatures (automation, not taps): each
+// level makes it harvest a bit more of their income, so it scales WITH the
+// creatures and stays a meaningful contributor however strong they get —
+// instead of falling behind as a flat trickle. Capped so creatures stay king.
+export const autoTapFractionPerLevel = 0.035; // +3.5% of creature income per level
+export const autoTapFractionCap = 0.6; // up to +60% of creature income
 export const minCharLevel = 1;
 // No maximum — creatures level up forever, giving more each level (§ user request).
 export const evolveLevel = 10; // a creature can evolve into a shiny from this level
+
+// --- Direct creature leveling (goo sink) --------------------------------------
+// Besides hatching duplicates, a creature can be levelled straight up with goo
+// from the collection. Cost scales with rarity and its current level. Because
+// low-level creatures stay cheap, there is ALWAYS an affordable next level —
+// progress slows at the top but never dead-stops (§ user request).
+// cost(level → level+1) = round(base[rarity] × growth ^ (level − 1))
+export const creatureLevelCostBase: Record<Rarity, number> = {
+  common: 25,
+  uncommon: 120,
+  rare: 700,
+  legendary: 4000,
+};
+export const creatureLevelCostGrowth = 1.16;
 
 // --- Upgrades ----------------------------------------------------------------
 // Each upgrade: cost(level) = round(base × growth ^ level); effect per level below.
@@ -47,8 +64,8 @@ export const upgradeConfig: Record<UpgradeId, UpgradeConfig> = {
   finger: { costBase: 15, costGrowth: 1.5, effectPerLevel: 1 },
   // +25% tap power per level (multiplier).
   power: { costBase: 200, costGrowth: 2.05, effectPerLevel: 0.25 },
-  // The robot hand's cost curve. Its income is NOT linear-per-level — see
-  // autoTapIncomeBase/Growth below — so effectPerLevel here is unused for income.
+  // The robot hand's cost curve. Its effect is a fraction of creature income —
+  // see autoTapFractionPerLevel below — so effectPerLevel here is unused.
   autoTap: { costBase: 240, costGrowth: 1.95, effectPerLevel: 0 },
   // +12% to all creature income per level.
   nurture: { costBase: 250, costGrowth: 1.8, effectPerLevel: 0.12 },
@@ -133,9 +150,9 @@ export const achievementGooGrowth = 3; // …× this per tier (kept modest so a 
 // (clicks/hatches/bonuses/shinies) advance with play, so they carry the
 // mid-and-late-game cadence; lifetime-goo stays open-ended for the long haul.
 export const achievementGoals = {
-  // capped at the 10 creatures / 10 evolutions
-  collection: [3, 6, 10],
-  shinies: [1, 2, 3, 4, 5, 7, 10],
+  // capped at the 16 creatures / 16 evolutions
+  collection: [4, 8, 12, 16],
+  shinies: [1, 3, 6, 10, 16],
   // open-ended, up to 100 trillion lifetime goo (with ~half-step tiers)
   lifetime: [1e3, 5e3, 2e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7, 1e8, 3e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14],
   hatches: [10, 25, 50, 90, 150, 250, 400, 650, 1000, 1600, 2500, 4000, 6500, 10000],

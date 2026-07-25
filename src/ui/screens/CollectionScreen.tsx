@@ -1,5 +1,7 @@
-// Screen 3 — collection (§10.3). 10-slot grid; unowned slots are a black
-// silhouette with a question mark; tapping an owned creature shows details.
+// Screen 3 — collection (§10.3). Creatures are grouped into clear rarity
+// sections. Each owned tile shows a small badge = how many times it can be
+// levelled up right now with your goo. Tapping a creature opens its details,
+// where it can be levelled straight up with goo (and evolved from level 10).
 
 import { useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
@@ -7,23 +9,32 @@ import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
 import { evolveCostByRarity, evolveLevel } from '../../game/balance';
 import { charactersById, collectionOrder } from '../../game/characters';
-import { ownedCreatureIncome } from '../../game/economy';
+import { affordableCreatureLevels, creatureLevelCost, ownedCreatureIncome } from '../../game/economy';
 import { formatGoo } from '../../game/format';
-import type { CharId } from '../../game/types';
+import type { CharId, Rarity } from '../../game/types';
 import { useGame } from '../../store';
 import { CharacterBody } from '../characters';
 import { haptic } from '../haptics';
 import { isShareworthy, rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
 import { shareCreature } from '../shareCard';
 
+const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'legendary'];
+const idsByRarity: Record<Rarity, CharId[]> = RARITY_ORDER.reduce(
+  (acc, r) => {
+    acc[r] = collectionOrder.filter((id) => charactersById[id].rarity === r);
+    return acc;
+  },
+  {} as Record<Rarity, CharId[]>,
+);
+
 export function CollectionScreen() {
   const owned = useGame((s) => s.characters);
+  const goo = useGame((s) => s.goo);
   const [selected, setSelected] = useState<CharId | null>(null);
 
   const ownedCount = collectionOrder.filter((id) => owned[id]).length;
   const total = collectionOrder.length;
 
-  // Tapping an owned creature opens its details and plays its jingle (§10.3).
   const open = (id: CharId) => {
     setSelected(id);
     playJingle(charactersById[id].sound, useGame.getState().muted);
@@ -44,43 +55,79 @@ export function CollectionScreen() {
         </div>
       </header>
 
-      <div className="grid grid-cols-3 gap-3 pb-4">
-        {collectionOrder.map((id) => {
-          const def = charactersById[id];
-          const held = owned[id];
-          if (!held) {
-            return (
-              <div
-                key={id}
-                className="flex aspect-square items-center justify-center rounded-2xl bg-black/40 ring-1 ring-bone/10"
-              >
-                <span className="font-display text-4xl text-bone/25">?</span>
-              </div>
-            );
-          }
-          const ring = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
+      <div className="flex flex-col gap-5 pb-4">
+        {RARITY_ORDER.map((rarity) => {
+          const ids = idsByRarity[rarity];
+          const haveHere = ids.filter((id) => owned[id]).length;
           return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => open(id)}
-              className="relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
-              style={{
-                backgroundColor: '#170a29',
-                boxShadow: held.shiny
-                  ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
-                  : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
-              }}
-            >
-              {held.shiny && <span className="absolute end-1 top-1 text-sm">✨</span>}
-              <CharacterBody id={id} className="h-12 w-12" />
-              <span className={`mt-1 max-w-full truncate px-1 text-[10px] ${held.shiny ? 'text-pop' : 'text-bone/80'}`}>
-                {def.nameHe}
-              </span>
-              <span className="text-[10px] text-pop tabular">
-                {held.shiny ? '✨ ' : ''}רמה {held.level}
-              </span>
-            </button>
+            <section key={rarity}>
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className="inline-block h-3 w-3 rounded-full"
+                  style={{ background: rarityColor[rarity], boxShadow: `0 0 8px ${rarityColor[rarity]}` }}
+                />
+                <span className="font-display text-lg" style={{ color: rarityColor[rarity] }}>
+                  {rarityLabelHe[rarity]}
+                </span>
+                <span className="text-xs text-bone/45 tabular">
+                  {haveHere}/{ids.length}
+                </span>
+                <span className="ms-auto text-[10px] text-bone/40 tabular">
+                  {formatGoo(
+                    ownedCreatureIncome(rarity, { level: 1 }),
+                  )}{' '}
+                  גּוּ/ש׳ בסיס
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {ids.map((id) => {
+                  const def = charactersById[id];
+                  const held = owned[id];
+                  if (!held) {
+                    return (
+                      <div
+                        key={id}
+                        className="flex aspect-square items-center justify-center rounded-2xl bg-black/40 ring-1 ring-bone/10"
+                      >
+                        <span className="font-display text-4xl text-bone/25">?</span>
+                      </div>
+                    );
+                  }
+                  const ring = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
+                  const canLevel = affordableCreatureLevels(def.rarity, held.level, goo);
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => open(id)}
+                      className="relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
+                      style={{
+                        backgroundColor: '#170a29',
+                        boxShadow: held.shiny
+                          ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
+                          : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
+                      }}
+                    >
+                      {canLevel > 0 && (
+                        <span className="anim-breathe absolute start-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-goo px-1 text-[11px] font-bold text-void tabular ring-2 ring-void/50">
+                          {canLevel > 99 ? '99' : canLevel}
+                        </span>
+                      )}
+                      {held.shiny && <span className="absolute end-1 top-1 text-sm">✨</span>}
+                      <CharacterBody id={id} className="h-12 w-12" />
+                      <span
+                        className={`mt-1 max-w-full truncate px-1 text-[10px] ${held.shiny ? 'text-pop' : 'text-bone/80'}`}
+                      >
+                        {def.nameHe}
+                      </span>
+                      <span className="text-[10px] text-pop tabular">
+                        {held.shiny ? '✨ ' : ''}רמה {held.level}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           );
         })}
       </div>
@@ -95,6 +142,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const held = useGame((s) => s.characters[id]);
   const goo = useGame((s) => s.goo);
   const evolveCreature = useGame((s) => s.evolveCreature);
+  const levelUp = useGame((s) => s.levelUpCreature);
+  const levelUpMax = useGame((s) => s.levelUpCreatureMax);
   if (!held) return null;
 
   const income = ownedCreatureIncome(def.rarity, held);
@@ -102,6 +151,35 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const evolveCost = evolveCostByRarity[def.rarity];
   const canEvolve = held.level >= evolveLevel && !held.shiny;
   const affordEvolve = goo >= evolveCost;
+
+  // Direct goo leveling.
+  const levelCost = creatureLevelCost(def.rarity, held.level);
+  const affordLevel = goo >= levelCost;
+  const affordN = affordableCreatureLevels(def.rarity, held.level, goo);
+  const nextIncome = ownedCreatureIncome(def.rarity, { level: held.level + 1, shiny: held.shiny });
+  const levelGain = nextIncome - income;
+
+  const onLevel = () => {
+    const muted = useGame.getState().muted;
+    if (affordLevel) {
+      levelUp(id);
+      playPurchase(muted);
+      haptic(15);
+    } else {
+      playError(muted);
+    }
+  };
+
+  const onLevelMax = () => {
+    const muted = useGame.getState().muted;
+    if (affordN > 0) {
+      levelUpMax(id);
+      playPurchase(muted);
+      haptic([0, 20, 15, 30]);
+    } else {
+      playError(muted);
+    }
+  };
 
   const onEvolve = () => {
     const muted = useGame.getState().muted;
@@ -147,8 +225,32 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           {held.shiny ? 'מְנַצְנֵץ' : rarityLabelHe[def.rarity]}
         </div>
         <div className="mt-4 text-lg text-pop tabular">רמה {held.level}</div>
-        <div className="text-xs text-bone/50">בּוֹקְעִים עוֹד {def.nameHe} כְּדֵי לְחַזֵּק!</div>
         <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
+
+        {/* Direct level-up with goo — the always-available progression. */}
+        <button
+          type="button"
+          onClick={onLevel}
+          className={`btn mt-4 flex w-full flex-col items-center py-2.5 ${
+            affordLevel ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
+          }`}
+        >
+          <span className="text-lg">⬆️ שַׁדְרֵג רָמָה</span>
+          <span className="text-xs tabular">
+            {affordLevel
+              ? `${formatGoo(levelCost)} גּוּ · +${formatGoo(levelGain)}/שנייה`
+              : `חסר ${formatGoo(levelCost - goo)} גּוּ`}
+          </span>
+        </button>
+        {affordN > 1 && (
+          <button
+            type="button"
+            onClick={onLevelMax}
+            className="btn mt-2 w-full bg-cy/90 py-2 text-sm text-void"
+          >
+            שַׁדְרֵג ×{affordN > 99 ? '99' : affordN} בְּבַת אַחַת
+          </button>
+        )}
 
         <button
           type="button"
@@ -157,7 +259,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             playJingle(def.sound, m);
             speakName(def.nameHe, m);
           }}
-          className="btn mt-4 flex w-full items-center justify-center gap-2 bg-hot py-3 text-lg text-bone"
+          className="btn mt-3 flex w-full items-center justify-center gap-2 bg-hot py-3 text-lg text-bone"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#FFF4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M4 9v6h4l5 4V5L8 9H4z" fill="#FFF4E0" />

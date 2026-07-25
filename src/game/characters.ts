@@ -38,8 +38,16 @@ export const characters: CharacterDef[] = [
     rarity: 'common',
     sound: { waveform: 'sawtooth', notes: [196, 165, 147], durations: [0.12, 0.12, 0.16], filter: 700, decay: 0.24 },
   },
+  {
+    id: 'bubbo',
+    nameHe: 'בַּבּוֹ בָּלוֹן',
+    nameLatin: 'Bubbo',
+    descHe: 'מַסְטִיק וָרֹד שֶׁמְּנַפֵּחַ בּוּעוֹת עֲנָק',
+    rarity: 'common',
+    sound: { waveform: 'sine', notes: [523, 392, 659], durations: [0.09, 0.09, 0.14], filter: 1800, decay: 0.2 },
+  },
 
-  // --- Uncommon (28%) — 6 goo/sec ---
+  // --- Uncommon (28%) — 8 goo/sec ---
   {
     id: 'skwibbly',
     nameHe: 'סְקְוִיבְּלִי דוֹפּ',
@@ -64,8 +72,16 @@ export const characters: CharacterDef[] = [
     rarity: 'uncommon',
     sound: { waveform: 'sine', notes: [180, 140, 220], durations: [0.14, 0.12, 0.18], filter: 900, decay: 0.28 },
   },
+  {
+    id: 'kaktuki',
+    nameHe: 'קַקְטוּקִי',
+    nameLatin: 'Kaktuki',
+    descHe: 'קַקְטוּס עַקְצָנִי עִם לֵב רַךְ',
+    rarity: 'uncommon',
+    sound: { waveform: 'triangle', notes: [294, 370, 440], durations: [0.1, 0.1, 0.16], filter: 1500, decay: 0.24 },
+  },
 
-  // --- Rare (10.5%) — 30 goo/sec ---
+  // --- Rare (10.5%) — 50 goo/sec ---
   {
     id: 'zapparoo',
     nameHe: 'זַאפַּארוּ',
@@ -82,8 +98,24 @@ export const characters: CharacterDef[] = [
     rarity: 'rare',
     sound: { waveform: 'square', notes: [200, 160, 520], durations: [0.1, 0.1, 0.14], filter: 1600, decay: 0.26 },
   },
+  {
+    id: 'flamo',
+    nameHe: 'פְלֵיימוֹ',
+    nameLatin: 'Flamo',
+    descHe: 'לֶהָבָה קְטַנָּה שֶׁלֹּא נִכְבֵּית לְעוֹלָם',
+    rarity: 'rare',
+    sound: { waveform: 'sawtooth', notes: [520, 780, 1040], durations: [0.08, 0.1, 0.16], filter: 3200, decay: 0.28 },
+  },
+  {
+    id: 'kristalo',
+    nameHe: 'קְרִיסְטָלוֹ',
+    nameLatin: 'Kristalo',
+    descHe: 'יַהֲלוֹם חַי שֶׁמְּנַצְנֵץ בְּכָל הַצְּבָעִים',
+    rarity: 'rare',
+    sound: { waveform: 'sine', notes: [880, 1175, 1568], durations: [0.09, 0.09, 0.16], filter: 5000, decay: 0.3 },
+  },
 
-  // --- Legendary (1.5%) — 200 goo/sec ---
+  // --- Legendary (1.5%) — 350 goo/sec ---
   {
     id: 'gigablorf',
     nameHe: 'גִּיגַּבְּלוֹרְף',
@@ -96,6 +128,34 @@ export const characters: CharacterDef[] = [
       durations: [0.14, 0.12, 0.12, 0.12, 0.2],
       filter: 3200,
       decay: 0.4,
+    },
+  },
+  {
+    id: 'dragapuf',
+    nameHe: 'דְּרַגַפָּף',
+    nameLatin: 'Dragapuf',
+    descHe: 'דְּרָקוֹן פִּצְפּוֹן שֶׁנּוֹשֵׁף עָשָׁן מָתוֹק',
+    rarity: 'legendary',
+    sound: {
+      waveform: 'square',
+      notes: [130, 196, 262, 392, 523],
+      durations: [0.12, 0.12, 0.12, 0.12, 0.22],
+      filter: 2600,
+      decay: 0.42,
+    },
+  },
+  {
+    id: 'galaxo',
+    nameHe: 'גָּלַקְסוֹ',
+    nameLatin: 'Galaxo',
+    descHe: 'כּוֹכָב שֶׁנּוֹשֵׂא גָּלַקְסִיָּה שְׁלֵמָה בְּתוֹכוֹ',
+    rarity: 'legendary',
+    sound: {
+      waveform: 'triangle',
+      notes: [440, 587, 784, 1047, 1319],
+      durations: [0.12, 0.12, 0.12, 0.12, 0.24],
+      filter: 4200,
+      decay: 0.45,
     },
   },
 ];

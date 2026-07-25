@@ -1,12 +1,8 @@
 // Upgrade definitions and pure cost/effect math. Numbers come from balance.ts.
 
 import { critBaseChance, critChanceCap, luckCap, upgradeConfig } from './balance';
-import { autoTapIncome } from './economy';
+import { autoTapFraction } from './economy';
 import type { UpgradeId, Upgrades } from './types';
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
-}
 
 export interface UpgradeDef {
   id: UpgradeId;
@@ -19,7 +15,7 @@ export interface UpgradeDef {
 export const upgradeDefs: UpgradeDef[] = [
   { id: 'finger', nameHe: 'אֶצְבַּע חֲזָקָה', icon: '👆', effectHe: '+1 גּוּ לכל נגיעה' },
   { id: 'power', nameHe: 'כּוֹחַ עַל', icon: '💥', effectHe: '+25% לעוצמת הנגיעה' },
-  { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'אוֹסֶפֶת גּוּ לְבַד — וּמִתְחַזֶּקֶת בְּכָל רָמָה!' },
+  { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'אוֹסֶפֶת עוֹד מֵהַכְנָסַת הַיְצוּרִים!' },
   { id: 'nurture', nameHe: 'טִיפּוּחַ', icon: '💚', effectHe: '+12% לכל היצורים' },
   { id: 'crit', nameHe: 'מַכָּה קְרִיטִית', icon: '⚡', effectHe: '+3% סיכוי למכה ענקית' },
   { id: 'luck', nameHe: 'מַזָּל', icon: '🍀', effectHe: 'סיכוי גבוה יותר ליצורים נדירים' },
@@ -56,7 +52,7 @@ export function upgradeTotalHe(id: UpgradeId, level: number): string {
     case 'power':
       return `סה״כ +${Math.round(level * per * 100)}% לעוצמת הנגיעה`;
     case 'autoTap':
-      return `סה״כ +${round1(autoTapIncome(level))} גּוּ בשנייה`;
+      return `סה״כ +${Math.round(autoTapFraction(level) * 100)}% מהכנסת היצורים`;
     case 'nurture':
       return `סה״כ +${Math.round(level * per * 100)}% לכל היצורים`;
     case 'crit': {
@@ -81,8 +77,10 @@ export function upgradeGainHe(id: UpgradeId, level: number): string {
       return `+${per} גּוּ / נגיעה`;
     case 'power':
       return `+${Math.round(per * 100)}% נגיעה`;
-    case 'autoTap':
-      return `+${round1(autoTapIncome(level) - autoTapIncome(level - 1))} גּוּ / שנייה`;
+    case 'autoTap': {
+      const d = Math.round((autoTapFraction(level) - autoTapFraction(level - 1)) * 100);
+      return d > 0 ? `+${d}% מהיצורים` : 'יד רובוטית בשיא!';
+    }
     case 'nurture':
       return `+${Math.round(per * 100)}% ליצורים`;
     case 'crit': {

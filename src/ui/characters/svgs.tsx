@@ -1,4 +1,4 @@
-// Inline SVG bodies for the 10 characters. viewBox 0 0 100 100, flat shapes
+// Inline SVG bodies for the 16 characters. viewBox 0 0 100 100, flat shapes
 // and thick strokes only — no gradients, filters, or drop shadows on bodies.
 // Flat highlight/shadow shapes give depth. Identifiable at 64×64.
 
@@ -184,15 +184,118 @@ const Gigablorf: FC<BodyProps> = ({ className }) => (
   </svg>
 );
 
+// 11. Bubbo — pink bubblegum blob blowing a big bubble.
+const Bubbo: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <circle cx="75" cy="28" r="16" fill="#FF8FBF" stroke={OUT} strokeWidth="3.5" opacity="0.85" />
+    <circle cx="70" cy="23" r="4" fill="#FFF4E0" opacity="0.85" />
+    <path d="M20 56 Q16 30 44 28 Q74 26 78 52 Q82 80 50 84 Q22 84 20 56 Z" fill="#FF63A6" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M26 52 Q30 40 44 40" fill="none" stroke="#FF8FBF" strokeWidth="5" {...S} />
+    <circle cx="40" cy="54" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="58" cy="52" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="41" cy="55" r="2.6" fill="#150A22" />
+    <circle cx="59" cy="53" r="2.6" fill="#150A22" />
+    <circle cx="61" cy="66" r="4" fill="#7A1540" />
+  </svg>
+);
+
+// 12. Kaktuki — smiling potted cactus with a little flower.
+const Kaktuki: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M32 78 L68 78 L64 94 L36 94 Z" fill="#C97A3C" stroke={OUT} strokeWidth="4" {...S} />
+    <rect x="29" y="70" width="42" height="10" rx="3" fill="#E08A45" stroke={OUT} strokeWidth="4" {...S} />
+    <rect x="40" y="24" width="20" height="50" rx="10" fill="#3FA34D" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M40 46 q-14 0 -14 -12 q0 -6 5 -6" fill="none" stroke="#3FA34D" strokeWidth="9" {...S} />
+    <path d="M60 52 q14 0 14 -12 q0 -6 -5 -6" fill="none" stroke="#3FA34D" strokeWidth="9" {...S} />
+    <path d="M50 30 v-5 M45 40 l-3 -4 M55 40 l3 -4 M50 54 v-5" stroke="#2C7A38" strokeWidth="2.5" {...S} />
+    <circle cx="50" cy="21" r="5" fill="#FF2E88" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="50" cy="21" r="1.8" fill="#FFD84D" />
+    <circle cx="45" cy="47" r="3.2" fill="#150A22" />
+    <circle cx="56" cy="47" r="3.2" fill="#150A22" />
+    <path d="M45 55 q5 4 10 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+  </svg>
+);
+
+// 13. Flamo — a little living flame that never goes out.
+const Flamo: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M50 8 Q64 34 70 50 Q78 74 50 88 Q22 74 30 50 Q36 34 50 8 Z" fill="#FF6A00" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M50 30 Q58 46 58 58 Q58 74 50 80 Q42 74 42 58 Q42 46 50 30 Z" fill="#FFD84D" />
+    <circle cx="44" cy="58" r="4.5" fill="#150A22" />
+    <circle cx="56" cy="58" r="4.5" fill="#150A22" />
+    <circle cx="45.5" cy="56.5" r="1.5" fill="#FFF4E0" />
+    <circle cx="57.5" cy="56.5" r="1.5" fill="#FFF4E0" />
+    <path d="M45 68 q5 4 10 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+  </svg>
+);
+
+// 14. Kristalo — a faceted living gem that sparkles.
+const Kristalo: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M50 12 L78 40 L50 90 L22 40 Z" fill="#00E5FF" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M22 40 L50 90 L78 40 Z" fill="#33ECFF" opacity="0.5" />
+    <path d="M36 26 L50 40 L36 40 Z" fill="#BEF9FF" opacity="0.85" />
+    <path d="M22 40 L78 40 M50 12 L50 90 M50 12 L22 40 M50 12 L78 40" fill="none" stroke="#7CF3FF" strokeWidth="2.5" {...S} />
+    <circle cx="44" cy="50" r="3.6" fill="#150A22" />
+    <circle cx="57" cy="50" r="3.6" fill="#150A22" />
+    <circle cx="45" cy="49" r="1.3" fill="#FFF4E0" />
+    <path d="M45 58 q5 3 10 0" fill="none" stroke="#0A3A44" strokeWidth="2.6" {...S} />
+    <path d="M71 18 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 Z" fill="#FFF4E0" />
+  </svg>
+);
+
+// 15. Dragapuf — a pint-sized dragon puffing sweet smoke.
+const Dragapuf: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M28 44 Q8 34 12 56 Q22 54 30 60 Z" fill="#7A3FB0" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M72 44 Q92 34 88 56 Q78 54 70 60 Z" fill="#7A3FB0" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M28 56 Q26 34 50 32 Q74 34 72 56 Q74 82 50 84 Q26 82 28 56 Z" fill="#9B5DE5" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M40 62 Q50 74 60 62 Q60 78 50 80 Q40 78 40 62 Z" fill="#C9A6F0" />
+    <path d="M38 34 l-4 -12 l8 8 Z" fill="#FFD84D" stroke={OUT} strokeWidth="2.5" {...S} />
+    <path d="M62 34 l4 -12 l-8 8 Z" fill="#FFD84D" stroke={OUT} strokeWidth="2.5" {...S} />
+    <circle cx="43" cy="50" r="5" fill="#FFF4E0" stroke={OUT} strokeWidth="2.2" />
+    <circle cx="58" cy="50" r="5" fill="#FFF4E0" stroke={OUT} strokeWidth="2.2" />
+    <circle cx="44" cy="51" r="2.4" fill="#150A22" />
+    <circle cx="59" cy="51" r="2.4" fill="#150A22" />
+    <circle cx="47" cy="62" r="1.4" fill="#150A22" />
+    <circle cx="54" cy="62" r="1.4" fill="#150A22" />
+    <circle cx="81" cy="70" r="3" fill="#C9A6F0" opacity="0.6" />
+    <circle cx="87" cy="63" r="2" fill="#C9A6F0" opacity="0.5" />
+  </svg>
+);
+
+// 16. Galaxo — a star cradling a whole galaxy inside.
+const Galaxo: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M50 8 L61 38 L92 40 L67 60 L76 90 L50 72 L24 90 L33 60 L8 40 L39 38 Z" fill="#3A2B7A" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="50" cy="52" r="20" fill="#5B3FA0" />
+    <path d="M50 40 Q66 44 62 58 Q58 70 44 66 Q34 62 40 52" fill="none" stroke="#00E5FF" strokeWidth="3" {...S} />
+    <circle cx="50" cy="53" r="3" fill="#FFD84D" />
+    <circle cx="40" cy="46" r="1.5" fill="#FFF4E0" />
+    <circle cx="61" cy="60" r="1.5" fill="#FFF4E0" />
+    <circle cx="55" cy="44" r="1" fill="#A3FF12" />
+    <circle cx="43" cy="54" r="3.4" fill="#FFF4E0" />
+    <circle cx="57" cy="54" r="3.4" fill="#FFF4E0" />
+    <circle cx="43" cy="54" r="1.6" fill="#150A22" />
+    <circle cx="57" cy="54" r="1.6" fill="#150A22" />
+  </svg>
+);
+
 export const CHARACTER_BODIES: Record<CharId, FC<BodyProps>> = {
   blombo: Blombo,
   fizzik: Fizzik,
   nono: Nono,
   grumpolo: Grumpolo,
+  bubbo: Bubbo,
   skwibbly: Skwibbly,
   tikko: Tikko,
   mumbo: Mumbo,
+  kaktuki: Kaktuki,
   zapparoo: Zapparoo,
   chompolino: Chompolino,
+  flamo: Flamo,
+  kristalo: Kristalo,
   gigablorf: Gigablorf,
+  dragapuf: Dragapuf,
+  galaxo: Galaxo,
 };

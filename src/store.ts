@@ -23,7 +23,14 @@ import {
   type AchievementContext,
 } from './game/achievements';
 import { charactersById } from './game/characters';
-import { clickPower, eggCost, gooPerSec, modifiersFrom } from './game/economy';
+import {
+  affordableCreatureLevels,
+  clickPower,
+  creatureLevelCost,
+  eggCost,
+  gooPerSec,
+  modifiersFrom,
+} from './game/economy';
 import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
@@ -86,6 +93,8 @@ interface GameState {
   tryHatch: () => void;
   hatchMany: (maxCount: number) => void;
   evolveCreature: (id: CharId) => void;
+  levelUpCreature: (id: CharId) => void;
+  levelUpCreatureMax: (id: CharId) => void;
   collectBonus: () => number;
   grantGoo: (amount: number) => void;
   dismissMultiHatch: () => void;
@@ -297,6 +306,35 @@ export const useGame = create<GameState>((set, get) => {
       });
       get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨`, icon: '✨', tone: 'star' });
       get().triggerConfetti('rainbow');
+    },
+
+    // Level a creature straight up with goo (the collection goo sink).
+    levelUpCreature: (id) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held) return;
+      const cost = creatureLevelCost(charactersById[id].rarity, held.level);
+      if (s.goo < cost) return;
+      set({
+        goo: s.goo - cost,
+        characters: { ...s.characters, [id]: { ...held, level: held.level + 1 } },
+      });
+    },
+
+    // Pour goo in until the next level is no longer affordable — one tap, many levels.
+    levelUpCreatureMax: (id) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held) return;
+      const rarity = charactersById[id].rarity;
+      const n = affordableCreatureLevels(rarity, held.level, s.goo);
+      if (n <= 0) return;
+      let spent = 0;
+      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, held.level + i);
+      set({
+        goo: s.goo - spent,
+        characters: { ...s.characters, [id]: { ...held, level: held.level + n } },
+      });
     },
 
     grantGoo: (amount) => {

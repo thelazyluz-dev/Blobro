@@ -9,7 +9,10 @@ import {
   achievementGoals,
   achievementStarPerTier,
 } from './balance';
+import { collectionOrder } from './characters';
 import type { AchievementId } from './types';
+
+const TOTAL_CREATURES = collectionOrder.length;
 
 export type AchievementKind = 'collection' | 'shinies' | 'lifetime' | 'hatches' | 'clicks' | 'bonuses';
 
@@ -53,9 +56,9 @@ const ICON: Record<AchievementKind, string> = {
 function nameFor(kind: AchievementKind, goal: number): string {
   switch (kind) {
     case 'collection':
-      return goal >= 10 ? 'אספת את כל היצורים!' : `אספת ${goal} יצורים`;
+      return goal >= TOTAL_CREATURES ? 'אספת את כל היצורים!' : `אספת ${goal} יצורים`;
     case 'shinies':
-      return goal >= 10 ? 'כל היצורים מנצנצים!' : `${goal} יצורים מנצנצים`;
+      return goal >= TOTAL_CREATURES ? 'כל היצורים מנצנצים!' : `${goal} יצורים מנצנצים`;
     case 'lifetime':
       return `צברת ${shortNum(goal)} גּוּ`;
     case 'hatches':

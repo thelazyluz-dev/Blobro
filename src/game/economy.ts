@@ -2,11 +2,13 @@
 // the prestige hook — and through the achievement "star" where relevant.
 
 import {
-  autoTapIncomeBase,
-  autoTapIncomeGrowth,
+  autoTapFractionCap,
+  autoTapFractionPerLevel,
   baseByRarity,
   charIncomeGrowthPerLevel,
   clickBase,
+  creatureLevelCostBase,
+  creatureLevelCostGrowth,
   critBaseChance,
   critChanceCap,
   eggCostBase,
@@ -30,7 +32,7 @@ export function modifiersFrom(upgrades: Upgrades, achievementStarBonus: number):
     fingerLevel: upgrades.finger,
     clickMultiplier: 1 + upgradeConfig.power.effectPerLevel * upgrades.power,
     incomeMultiplier: 1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture,
-    autoTapIncome: autoTapIncome(upgrades.autoTap),
+    autoTapFraction: Math.min(autoTapFractionCap, autoTapFractionPerLevel * upgrades.autoTap),
     starMultiplier: 1 + achievementStarBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
@@ -47,16 +49,12 @@ export function clickPower(m: Modifiers): number {
   );
 }
 
-/**
- * The robot hand's raw goo/sec at a given upgrade level, before star/prestige.
- * Compounds per level so automation stays relevant: base × (growth^level − 1),
- * which is 0 at level 0 and accelerates as you invest.
- */
-export function autoTapIncome(level: number): number {
-  return autoTapIncomeBase * (Math.pow(autoTapIncomeGrowth, level) - 1);
+/** The robot hand's harvest fraction at a given upgrade level (capped). */
+export function autoTapFraction(level: number): number {
+  return Math.min(autoTapFractionCap, autoTapFractionPerLevel * level);
 }
 
-/** charIncome = baseByRarity × (1 + 0.34 × (level − 1)) */
+/** charIncome = baseByRarity × (1 + 0.4 × (level − 1)) */
 export function charIncome(rarity: Rarity, level: number): number {
   return baseByRarity[rarity] * (1 + charIncomeGrowthPerLevel * (level - 1));
 }
@@ -78,15 +76,39 @@ export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
 }
 
 /**
- * Total goo per second: creatures + the robot hand's own income. The robot
- * hand is independent of the click upgrades (finger/power/crit) — those only
- * affect manual taps. Both passive sources get the achievement star + prestige.
+ * Total goo per second: creature income, amplified by the robot hand which
+ * harvests an extra fraction of it. Both are automation — independent of the
+ * click upgrades (finger/power/crit), which only affect manual taps. The star
+ * and prestige are already folded into creatureIncome.
  */
 export function gooPerSec(owned: OwnedCharacters, m: Modifiers): number {
-  return creatureIncome(owned, m) + m.autoTapIncome * m.starMultiplier * globalMultiplier;
+  return creatureIncome(owned, m) * (1 + m.autoTapFraction);
 }
 
 /** eggCost(n) = round(45 × 1.11 ^ n), n = eggs already hatched */
 export function eggCost(n: number): number {
   return Math.round(eggCostBase * Math.pow(eggCostGrowth, n));
+}
+
+/** Goo cost to level a creature from `level` → `level + 1`. */
+export function creatureLevelCost(rarity: Rarity, level: number): number {
+  return Math.round(creatureLevelCostBase[rarity] * Math.pow(creatureLevelCostGrowth, level - 1));
+}
+
+/**
+ * How many consecutive levels the player could buy for one creature with `goo`
+ * on hand — the number shown as the little badge on its collection tile.
+ */
+export function affordableCreatureLevels(rarity: Rarity, level: number, goo: number): number {
+  let count = 0;
+  let spent = 0;
+  let lvl = level;
+  while (count < 999) {
+    const cost = creatureLevelCost(rarity, lvl);
+    if (spent + cost > goo) break;
+    spent += cost;
+    lvl += 1;
+    count += 1;
+  }
+  return count;
 }
