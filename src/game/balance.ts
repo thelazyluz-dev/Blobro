@@ -55,7 +55,7 @@ export const creatureLevelCostBase: Record<Rarity, number> = {
   rare: 700,
   legendary: 4000,
 };
-export const creatureLevelCostGrowth = 1.16;
+export const creatureLevelCostGrowth = 1.13;
 
 // --- Upgrades ----------------------------------------------------------------
 // Each upgrade: cost(level) = round(base × growth ^ level); effect per level below.

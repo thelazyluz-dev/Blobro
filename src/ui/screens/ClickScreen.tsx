@@ -16,7 +16,7 @@ import {
   rainIntervalMaxMs,
   rainIntervalMinMs,
 } from '../../game/balance';
-import { formatExact, formatGoo } from '../../game/format';
+import { formatExact, formatGoo, formatGooLive } from '../../game/format';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { useReducedMotion } from '../useReducedMotion';
@@ -272,11 +272,11 @@ export function ClickScreen() {
       ))}
       <header className="mt-2 text-center">
         <div
-          className={`font-display text-7xl leading-none tabular text-glow-pop ${
+          className={`font-display text-6xl leading-none tabular text-glow-pop ${
             frenzyActive ? 'text-hot' : 'text-pop'
           } ${pop ? 'anim-count-pop' : ''}`}
         >
-          {formatGoo(goo)}
+          {formatGooLive(goo)}
         </div>
         <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
         {goo >= 1000 && (

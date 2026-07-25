@@ -20,6 +20,27 @@ export function formatExact(value: number): string {
   return Math.floor(Math.max(0, value)).toLocaleString('en-US');
 }
 
+/**
+ * Like formatGoo but with MANY running decimals, for the big hero counter so it
+ * visibly ticks even when huge (e.g. 23_956_200_968_445 → "23.956201T"). Keeps
+ * ~7 significant figures, so the last digits move every fraction of a second at
+ * normal income instead of freezing between whole units.
+ */
+export function formatGooLive(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  const n = Math.max(0, value);
+  if (n < 1000) return Math.floor(n).toString();
+  for (const { value: unit, suffix } of UNITS) {
+    if (n >= unit) {
+      const scaled = n / unit;
+      const intDigits = Math.floor(Math.log10(scaled)) + 1;
+      const decimals = Math.min(6, Math.max(2, 7 - intDigits));
+      return scaled.toFixed(decimals) + suffix;
+    }
+  }
+  return Math.floor(n).toString();
+}
+
 /** e.g. 950 → "950", 1200 → "1.2K", 4_700_000 → "4.7M", 2.1e9 → "2.1B" */
 export function formatGoo(value: number): string {
   if (!Number.isFinite(value)) return '0';
