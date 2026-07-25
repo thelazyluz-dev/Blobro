@@ -23,7 +23,7 @@ export const fingerBonusBase = 5;
 export const fingerBonusGrowth = 1.21;
 
 // --- Passive income ----------------------------------------------------------
-// charIncome = baseByRarity × (1 + charIncomeGrowthPerLevel × (level − 1))
+// charIncome = baseByRarity × charIncomeGrowth ^ (level − 1)  (compounding)
 // Widely-separated tiers so a rarer creature is unmistakably worth more:
 // each step is roughly ×7-8 the one below it.
 export const baseByRarity: Record<Rarity, number> = {
@@ -32,7 +32,12 @@ export const baseByRarity: Record<Rarity, number> = {
   rare: 50,
   legendary: 350,
 };
-export const charIncomeGrowthPerLevel = 0.7; // +70% of base income per level — every upgrade adds a big chunk of passive income
+// Each level MULTIPLIES a creature's income (compounding), so a level is always
+// a meaningful jump — +5% of the creature's own income — no matter how high the
+// level. (Old saves used a flat additive curve; migration remaps their levels to
+// the equivalent compounding level so income is preserved — see save.ts.)
+export const charIncomeGrowth = 1.05;
+export const charIncomeGrowthLegacyAdditive = 0.7; // the pre-v6 additive rate, for migration only
 // The robot hand works alongside the creatures (automation, not taps): each
 // level makes it harvest a bit more of their income, so it scales WITH the
 // creatures and stays a meaningful contributor however strong they get —

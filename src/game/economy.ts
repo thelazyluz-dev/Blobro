@@ -5,7 +5,7 @@ import {
   autoTapFractionCap,
   autoTapFractionPerLevel,
   baseByRarity,
-  charIncomeGrowthPerLevel,
+  charIncomeGrowth,
   clickBase,
   creatureLevelPaybackSeconds,
   critBaseChance,
@@ -68,9 +68,10 @@ export function autoTapFraction(level: number): number {
   return Math.min(autoTapFractionCap, autoTapFractionPerLevel * level);
 }
 
-/** charIncome = baseByRarity × (1 + 0.7 × (level − 1)) */
+/** charIncome = baseByRarity × charIncomeGrowth^(level − 1) — compounding per
+ * level. Exponent is guarded so an absurd level can never overflow to Infinity. */
 export function charIncome(rarity: Rarity, level: number): number {
-  return baseByRarity[rarity] * (1 + charIncomeGrowthPerLevel * (level - 1));
+  return baseByRarity[rarity] * Math.pow(charIncomeGrowth, Math.min(level - 1, 3000));
 }
 
 /** A single owned creature's income, including its shiny (evolved) bonus. */

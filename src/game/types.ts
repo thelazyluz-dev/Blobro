@@ -55,7 +55,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 5;
+  version: 6;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;

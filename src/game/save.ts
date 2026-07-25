@@ -3,6 +3,8 @@
 // kids with real progress, so migration must never throw a save away.
 
 import {
+  charIncomeGrowth,
+  charIncomeGrowthLegacyAdditive,
   evolveLevel,
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
@@ -29,7 +31,19 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 5 as const;
+export const CURRENT_VERSION = 6 as const;
+
+/**
+ * v6 switched creature income from additive (flat +per level) to compounding
+ * (×per level). Remap a pre-v6 level to the compounding level that yields the
+ * SAME income, so no progress is lost — e.g. an additive level 94072 becomes a
+ * ~228 compounding level with identical income.
+ */
+function remapLegacyLevel(oldLevel: number): number {
+  const oldFactor = 1 + charIncomeGrowthLegacyAdditive * (oldLevel - 1);
+  const newLevel = 1 + Math.log(oldFactor) / Math.log(charIncomeGrowth);
+  return Math.max(minCharLevel, Math.round(newLevel));
+}
 
 export function defaultSaveState(now: number): SaveState {
   return {
@@ -61,14 +75,15 @@ function nonNegInt(value: unknown, fallback: number): number {
   return Math.max(0, Math.floor(num(value, fallback)));
 }
 
-function sanitizeCharacters(raw: unknown): OwnedCharacters {
+function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters {
   const out: OwnedCharacters = {};
   if (!raw || typeof raw !== 'object') return out;
   const valid = new Set<CharId>(collectionOrder);
   for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!valid.has(key as CharId)) continue;
     const e = entry as { level?: unknown; shiny?: unknown } | null;
-    const clamped = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
+    const raw0 = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
+    const clamped = remapLegacy ? remapLegacyLevel(raw0) : raw0;
     // A creature can be shiny (evolved) from the evolve level onward — it keeps
     // levelling afterwards, so don't strip shine below the max level.
     const shiny = Boolean(e?.shiny) && clamped >= evolveLevel;
@@ -128,6 +143,8 @@ export function migrate(raw: unknown, now: number): SaveState {
   if (!raw || typeof raw !== 'object') return defaultSaveState(now);
   const data = raw as Record<string, unknown>;
 
+  // Pre-v6 saves stored additive creature levels — remap them to compounding.
+  const remapLegacy = num(data.version, 0) < 6;
   const ownedCosmetics = sanitizeCosmetics(data.ownedCosmetics);
   // Equip a saved choice only if it's a real, owned item; else the default.
   const blobPick = typeof data.equippedBlob === 'string' ? data.equippedBlob : '';
@@ -146,7 +163,7 @@ export function migrate(raw: unknown, now: number): SaveState {
     goo: Math.max(0, num(data.goo, 0)),
     lifetimeGoo: Math.max(0, num(data.lifetimeGoo, 0)),
     upgrades: sanitizeUpgrades(data.upgrades, data.fingerLevel),
-    characters: sanitizeCharacters(data.characters),
+    characters: sanitizeCharacters(data.characters, remapLegacy),
     totalHatches: nonNegInt(data.totalHatches, 0),
     sinceRare: nonNegInt(data.sinceRare, 0),
     bonusesCollected: nonNegInt(data.bonusesCollected, 0),

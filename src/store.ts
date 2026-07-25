@@ -159,7 +159,7 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 5,
+    version: 6,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
