@@ -44,18 +44,12 @@ export const minCharLevel = 1;
 export const evolveLevel = 10; // a creature can evolve into a shiny from this level
 
 // --- Direct creature leveling (goo sink) --------------------------------------
-// Besides hatching duplicates, a creature can be levelled straight up with goo
-// from the collection. Cost scales with rarity and its current level. Because
-// low-level creatures stay cheap, there is ALWAYS an affordable next level —
-// progress slows at the top but never dead-stops (§ user request).
-// cost(level → level+1) = round(base[rarity] × growth ^ (level − 1))
-export const creatureLevelCostBase: Record<Rarity, number> = {
-  common: 25,
-  uncommon: 120,
-  rare: 700,
-  legendary: 4000,
-};
-export const creatureLevelCostGrowth = 1.13;
+// Besides hatching duplicates, a creature can be levelled straight up with goo.
+// The cost is tied directly to the income the level GRANTS: a level always costs
+// this many seconds of the extra goo/sec it adds. So the price-to-payoff ratio is
+// sensible at every level (never a multi-day payback), and it scales up naturally
+// as the creature — and your whole economy — grow stronger.
+export const creatureLevelPaybackSeconds = 180;
 
 // --- Upgrades ----------------------------------------------------------------
 // Each upgrade: cost(level) = round(base × growth ^ level); effect per level below.

@@ -357,7 +357,7 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const held = s.characters[id];
       if (!held) return;
-      const cost = creatureLevelCost(charactersById[id].rarity, held.level);
+      const cost = creatureLevelCost(charactersById[id].rarity, held, mods());
       if (s.goo < cost) return;
       set({
         goo: s.goo - cost,
@@ -371,10 +371,11 @@ export const useGame = create<GameState>((set, get) => {
       const held = s.characters[id];
       if (!held) return;
       const rarity = charactersById[id].rarity;
-      const n = affordableCreatureLevels(rarity, held.level, s.goo);
+      const m = mods();
+      const n = affordableCreatureLevels(rarity, held, m, s.goo);
       if (n <= 0) return;
       let spent = 0;
-      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, held.level + i);
+      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, shiny: held.shiny }, m);
       set({
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },

@@ -35,6 +35,7 @@ const idsByRarity: Record<Rarity, CharId[]> = RARITY_ORDER.reduce(
 export function CollectionScreen() {
   const owned = useGame((s) => s.characters);
   const goo = useGame((s) => s.goo);
+  const m = useGame(selectMods);
   const [selected, setSelected] = useState<CharId | null>(null);
 
   const ownedCount = collectionOrder.filter((id) => owned[id]).length;
@@ -99,7 +100,7 @@ export function CollectionScreen() {
                     );
                   }
                   const ring = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
-                  const canLevel = affordableCreatureLevels(def.rarity, held.level, goo);
+                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo);
                   return (
                     <button
                       key={id}
@@ -161,9 +162,9 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const affordEvolve = goo >= evolveCost;
 
   // Direct goo leveling.
-  const levelCost = creatureLevelCost(def.rarity, held.level);
+  const levelCost = creatureLevelCost(def.rarity, held, m);
   const affordLevel = goo >= levelCost;
-  const affordN = affordableCreatureLevels(def.rarity, held.level, goo);
+  const affordN = affordableCreatureLevels(def.rarity, held, m, goo);
   const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, shiny: held.shiny }, m);
   const levelGain = nextIncome - income;
 

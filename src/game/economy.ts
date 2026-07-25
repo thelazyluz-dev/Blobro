@@ -7,8 +7,7 @@ import {
   baseByRarity,
   charIncomeGrowthPerLevel,
   clickBase,
-  creatureLevelCostBase,
-  creatureLevelCostGrowth,
+  creatureLevelPaybackSeconds,
   critBaseChance,
   critChanceCap,
   eggCostBase,
@@ -125,24 +124,35 @@ export function eggCost(n: number): number {
   return Math.round(eggCostBase * Math.pow(eggCostGrowth, n));
 }
 
-/** Goo cost to level a creature from `level` → `level + 1`. */
-export function creatureLevelCost(rarity: Rarity, level: number): number {
-  return Math.round(creatureLevelCostBase[rarity] * Math.pow(creatureLevelCostGrowth, level - 1));
+/**
+ * Goo cost to level a creature from its current level → +1. Priced as a fixed
+ * number of seconds of the EXTRA income that level grants (all multipliers
+ * folded in), so the price-to-payoff ratio is always sensible.
+ */
+export function creatureLevelCost(rarity: Rarity, held: { level: number; shiny?: boolean }, m: Modifiers): number {
+  const gain =
+    creatureContribution(rarity, { level: held.level + 1, shiny: held.shiny }, m) -
+    creatureContribution(rarity, held, m);
+  return Math.max(1, Math.round(gain * creatureLevelPaybackSeconds));
 }
 
 /**
  * How many consecutive levels the player could buy for one creature with `goo`
  * on hand — the number shown as the little badge on its collection tile.
+ * (Capped so a huge bank doesn't buy a runaway number in one press.)
  */
-export function affordableCreatureLevels(rarity: Rarity, level: number, goo: number): number {
+export function affordableCreatureLevels(
+  rarity: Rarity,
+  held: { level: number; shiny?: boolean },
+  m: Modifiers,
+  goo: number,
+): number {
   let count = 0;
   let spent = 0;
-  let lvl = level;
   while (count < 999) {
-    const cost = creatureLevelCost(rarity, lvl);
+    const cost = creatureLevelCost(rarity, { level: held.level + count, shiny: held.shiny }, m);
     if (spent + cost > goo) break;
     spent += cost;
-    lvl += 1;
     count += 1;
   }
   return count;
