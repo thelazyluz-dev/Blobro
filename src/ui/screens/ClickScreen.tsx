@@ -3,11 +3,12 @@
 // All motion honors reduced-motion.
 
 import { useEffect, useRef, useState } from 'react';
-import { playClick, playCrit, playRainDrop } from '../../audio/sfx';
+import { playBonus, playClick, playCrit, playRainDrop } from '../../audio/sfx';
 import {
   bonusIntervalMaxMs,
   bonusIntervalMinMs,
   bonusLifetimeMs,
+  comboMilestones,
   frenzyMultiplier,
   rainDropCount,
   rainDropIncomeSeconds,
@@ -69,6 +70,8 @@ export function ClickScreen() {
   const [critFlash, setCritFlash] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [combo, setCombo] = useState(0);
+  const [comboBurst, setComboBurst] = useState<{ id: number; milestone: number; amount: number } | null>(null);
+  const comboBurstTimer = useRef<number>();
   const blobRef = useRef<HTMLButtonElement>(null);
   const popTimer = useRef<number>();
   const spawnRef = useRef<number>();
@@ -185,6 +188,20 @@ export function ClickScreen() {
       setCombo(0);
     }, COMBO_WINDOW_MS + 150);
 
+    // Combo milestone: cash in the whole streak — a lump sum worth
+    // (milestone × current tap value). Fires once as the count passes each mark.
+    if (comboMilestones.includes(c.count)) {
+      const amount = c.count * clickRef.current;
+      grantGoo(amount);
+      const m = useGame.getState().muted;
+      playBonus(m);
+      useGame.getState().triggerConfetti('confetti');
+      haptic([0, 40, 30, 60, 30, 90]);
+      setComboBurst({ id: ++uid, milestone: c.count, amount });
+      window.clearTimeout(comboBurstTimer.current);
+      comboBurstTimer.current = window.setTimeout(() => setComboBurst(null), 1500);
+    }
+
     const muted = useGame.getState().muted;
     if (crit) {
       playCrit(muted);
@@ -294,6 +311,18 @@ export function ClickScreen() {
           <span className="rounded-full bg-hot px-4 py-1 font-display text-lg text-bone glow-hot">
             ×{frenzyMultiplier} טֵרוּף!
           </span>
+        </div>
+      )}
+
+      {comboBurst && (
+        <div
+          key={comboBurst.id}
+          className={`pointer-events-none absolute inset-x-0 top-32 z-30 text-center ${reduced ? '' : 'anim-pop-in'}`}
+        >
+          <div className="font-display text-4xl text-cy text-glow-pop">
+            קוֹמְבּוֹ ×{comboBurst.milestone}!
+          </div>
+          <div className="mt-1 font-display text-3xl text-goo">+{formatGoo(comboBurst.amount)}</div>
         </div>
       )}
 

@@ -85,6 +85,12 @@ export const critBaseChance = 0.02; // before any upgrade
 export const critChanceCap = 0.6;
 export const critMultiplier = 8; // a crit tap is worth this many normal taps
 
+// --- Combo milestones --------------------------------------------------------
+// Sustained rapid tapping pays off: reaching one of these combo counts grants a
+// lump sum worth (milestone × current tap value) — the whole streak "cashed in",
+// so a longer combo pays proportionally more.
+export const comboMilestones = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+
 // --- Luck (hatch odds shift) -------------------------------------------------
 export const luckCap = 0.35; // max fraction shifted from common → rare/legendary
 export const luckRareShare = 0.7; // of the shifted mass, this goes to rare…
