@@ -1,17 +1,21 @@
-// Shop cosmetics — data only (pure). Two categories the player buys with goo:
-//  • blob skins — the look of the main clickable blob (+ a small tap bonus)
-//  • backgrounds — the screen's colour theme (+ a small passive-income bonus)
-// The bonuses are deliberately small: cosmetics are mainly a goo sink and a way
-// to make the game yours, not a power axis.
+// Shop cosmetics — data only (pure). Three categories bought with goo:
+//  • blob skins   — the look (distinct SHAPE + colours) of the main clickable
+//  • backgrounds  — the screen's colour theme
+//  • accessories  — something worn on the blob (hat, glasses…)
+// Each carries a small bonus. Prices range from cheap to deliberately
+// out-of-reach, so there's always something big to save toward.
 
-export type CosmeticKind = 'blob' | 'background';
+export type CosmeticKind = 'blob' | 'background' | 'accessory';
+export type BlobShape = 'goo' | 'round' | 'star' | 'ghost' | 'spiky' | 'heart';
+export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo';
 
 export interface BlobSkin {
   id: string;
   kind: 'blob';
   nameHe: string;
   cost: number;
-  clickBonus: number; // fraction added to tap power (0 = none)
+  clickBonus: number; // fraction added to tap power
+  shape: BlobShape;
   colors: { body: string; belly: string; highlight: string; arm: string };
 }
 
@@ -20,14 +24,24 @@ export interface BackgroundSkin {
   kind: 'background';
   nameHe: string;
   cost: number;
-  incomeBonus: number; // fraction added to passive income (0 = none)
+  incomeBonus: number; // fraction added to passive income
   gradient: string; // CSS background-image for the full-screen layer
 }
 
-export type Cosmetic = BlobSkin | BackgroundSkin;
+export interface Accessory {
+  id: string;
+  kind: 'accessory';
+  nameHe: string;
+  cost: number;
+  clickBonus: number; // fraction added to tap power (stacks with the blob)
+  art: AccessoryArt;
+}
+
+export type Cosmetic = BlobSkin | BackgroundSkin | Accessory;
 
 export const DEFAULT_BLOB = 'blob-goo';
 export const DEFAULT_BACKGROUND = 'bg-aurora';
+export const DEFAULT_ACCESSORY = 'acc-none';
 
 export const blobSkins: BlobSkin[] = [
   {
@@ -36,39 +50,71 @@ export const blobSkins: BlobSkin[] = [
     nameHe: 'בְּלוֹב יָרֹק',
     cost: 0,
     clickBonus: 0,
+    shape: 'goo',
     colors: { body: '#A3FF12', belly: '#7FCC0E', highlight: '#C6FF6E', arm: '#A3FF12' },
   },
   {
     id: 'blob-bubble',
     kind: 'blob',
-    nameHe: 'בְּלוֹב תּוּתִי',
+    nameHe: 'כַּדּוּר תּוּתִי',
     cost: 8_000,
     clickBonus: 0.08,
+    shape: 'round',
     colors: { body: '#FF63A6', belly: '#E24A8C', highlight: '#FF9AC7', arm: '#FF63A6' },
   },
   {
     id: 'blob-aqua',
     kind: 'blob',
-    nameHe: 'בְּלוֹב יָם',
+    nameHe: 'רוּחַ יָם',
     cost: 120_000,
     clickBonus: 0.14,
-    colors: { body: '#00E5FF', belly: '#00B4CC', highlight: '#8AF2FF', arm: '#00E5FF' },
+    shape: 'ghost',
+    colors: { body: '#7FE9FF', belly: '#4FC8E6', highlight: '#CFF7FF', arm: '#7FE9FF' },
   },
   {
     id: 'blob-gold',
     kind: 'blob',
-    nameHe: 'בְּלוֹב זָהָב',
+    nameHe: 'כּוֹכָב זָהָב',
     cost: 2_000_000,
     clickBonus: 0.22,
+    shape: 'star',
     colors: { body: '#FFD84D', belly: '#E0B62A', highlight: '#FFEDA0', arm: '#FFD84D' },
   },
   {
     id: 'blob-grape',
     kind: 'blob',
-    nameHe: 'בְּלוֹב עֲנָבִים',
+    nameHe: 'לֵב עֲנָבִים',
     cost: 40_000_000,
     clickBonus: 0.3,
+    shape: 'heart',
     colors: { body: '#9B5DE5', belly: '#7A3FB0', highlight: '#C9A6F0', arm: '#9B5DE5' },
+  },
+  {
+    id: 'blob-flame',
+    kind: 'blob',
+    nameHe: 'שֶׁמֶשׁ לוֹהֶטֶת',
+    cost: 1_000_000_000,
+    clickBonus: 0.38,
+    shape: 'spiky',
+    colors: { body: '#FF7A1A', belly: '#E85D00', highlight: '#FFC27A', arm: '#FF7A1A' },
+  },
+  {
+    id: 'blob-crystal',
+    kind: 'blob',
+    nameHe: 'כּוֹכַב קְרִיסְטָל',
+    cost: 100_000_000_000,
+    clickBonus: 0.46,
+    shape: 'star',
+    colors: { body: '#00E5FF', belly: '#00B4CC', highlight: '#BEF9FF', arm: '#00E5FF' },
+  },
+  {
+    id: 'blob-cosmic',
+    kind: 'blob',
+    nameHe: 'כַּדּוּר קוֹסְמִי',
+    cost: 5_000_000_000_000,
+    clickBonus: 0.55,
+    shape: 'round',
+    colors: { body: '#3A2B7A', belly: '#241a52', highlight: '#8A6BE0', arm: '#5B3FA0' },
   },
 ];
 
@@ -91,9 +137,9 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 8_000,
     incomeBonus: 0.08,
     gradient:
-      'radial-gradient(60% 50% at 80% 15%, rgba(0,229,255,0.28), transparent 60%),' +
-      'radial-gradient(60% 50% at 15% 85%, rgba(58,120,255,0.28), transparent 60%),' +
-      'radial-gradient(50% 40% at 50% 50%, rgba(0,255,200,0.12), transparent 65%)',
+      'radial-gradient(70% 60% at 50% 0%, rgba(0,229,255,0.3), transparent 60%),' +
+      'radial-gradient(80% 60% at 50% 100%, rgba(20,60,180,0.4), transparent 65%),' +
+      'radial-gradient(40% 30% at 50% 55%, rgba(0,255,200,0.12), transparent 65%)',
   },
   {
     id: 'bg-sunset',
@@ -102,9 +148,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 120_000,
     incomeBonus: 0.14,
     gradient:
-      'radial-gradient(60% 50% at 80% 12%, rgba(255,180,40,0.3), transparent 60%),' +
-      'radial-gradient(60% 55% at 15% 88%, rgba(255,46,136,0.3), transparent 60%),' +
-      'radial-gradient(50% 40% at 50% 45%, rgba(255,90,60,0.14), transparent 65%)',
+      'linear-gradient(180deg, rgba(120,40,140,0.35) 0%, rgba(255,120,60,0.35) 55%, rgba(255,200,80,0.4) 100%),' +
+      'radial-gradient(35% 25% at 50% 78%, rgba(255,240,150,0.5), transparent 60%)',
   },
   {
     id: 'bg-forest',
@@ -114,24 +159,69 @@ export const backgroundSkins: BackgroundSkin[] = [
     incomeBonus: 0.2,
     gradient:
       'radial-gradient(60% 50% at 82% 14%, rgba(163,255,18,0.26), transparent 60%),' +
-      'radial-gradient(60% 50% at 14% 86%, rgba(0,200,120,0.26), transparent 60%),' +
-      'radial-gradient(50% 40% at 50% 50%, rgba(255,216,77,0.1), transparent 65%)',
+      'radial-gradient(60% 50% at 14% 86%, rgba(0,200,120,0.3), transparent 60%),' +
+      'radial-gradient(45% 35% at 50% 50%, rgba(255,216,77,0.1), transparent 65%)',
   },
   {
     id: 'bg-galaxy',
     kind: 'background',
     nameHe: 'גָּלַקְסִיָּה',
     cost: 40_000_000,
-    incomeBonus: 0.28,
+    incomeBonus: 0.26,
     gradient:
-      'radial-gradient(60% 50% at 80% 15%, rgba(155,93,229,0.32), transparent 60%),' +
-      'radial-gradient(60% 50% at 18% 85%, rgba(0,120,255,0.28), transparent 60%),' +
-      'radial-gradient(45% 35% at 50% 45%, rgba(255,255,255,0.1), transparent 65%)',
+      'radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),' +
+      'radial-gradient(1.5px 1.5px at 70% 20%, #fff, transparent),' +
+      'radial-gradient(1.5px 1.5px at 40% 70%, #cbe, transparent),' +
+      'radial-gradient(2px 2px at 85% 65%, #fff, transparent),' +
+      'radial-gradient(1.5px 1.5px at 55% 45%, #fff, transparent),' +
+      'radial-gradient(70% 55% at 75% 20%, rgba(155,93,229,0.35), transparent 60%),' +
+      'radial-gradient(70% 55% at 20% 85%, rgba(0,120,255,0.3), transparent 60%)',
+  },
+  {
+    id: 'bg-neon',
+    kind: 'background',
+    nameHe: 'רֶשֶׁת נֵאוֹן',
+    cost: 1_000_000_000,
+    incomeBonus: 0.32,
+    gradient:
+      'repeating-linear-gradient(0deg, rgba(0,229,255,0.10) 0 1px, transparent 1px 44px),' +
+      'repeating-linear-gradient(90deg, rgba(255,46,136,0.10) 0 1px, transparent 1px 44px),' +
+      'radial-gradient(60% 50% at 50% 30%, rgba(163,255,18,0.14), transparent 65%)',
+  },
+  {
+    id: 'bg-candy',
+    kind: 'background',
+    nameHe: 'סֻכָּרִיָּה',
+    cost: 100_000_000_000,
+    incomeBonus: 0.4,
+    gradient:
+      'conic-gradient(from 0deg at 50% 42%, rgba(255,46,136,0.28), rgba(0,229,255,0.28), rgba(255,216,77,0.28), rgba(163,255,18,0.28), rgba(255,46,136,0.28))',
+  },
+  {
+    id: 'bg-lava',
+    kind: 'background',
+    nameHe: 'לָבָה',
+    cost: 5_000_000_000_000,
+    incomeBonus: 0.5,
+    gradient:
+      'radial-gradient(90% 60% at 50% 100%, rgba(255,90,0,0.5), transparent 60%),' +
+      'radial-gradient(50% 40% at 30% 80%, rgba(255,40,20,0.45), transparent 60%),' +
+      'radial-gradient(50% 40% at 70% 85%, rgba(255,160,0,0.4), transparent 60%),' +
+      'linear-gradient(180deg, rgba(40,0,10,0.5), transparent 45%)',
   },
 ];
 
+export const accessories: Accessory[] = [
+  { id: DEFAULT_ACCESSORY, kind: 'accessory', nameHe: 'בְּלִי', cost: 0, clickBonus: 0, art: 'none' },
+  { id: 'acc-hat', kind: 'accessory', nameHe: 'כּוֹבַע מְסִבָּה', cost: 20_000, clickBonus: 0.05, art: 'hat' },
+  { id: 'acc-glasses', kind: 'accessory', nameHe: 'מִשְׁקְפֵי שֶׁמֶשׁ', cost: 300_000, clickBonus: 0.08, art: 'glasses' },
+  { id: 'acc-bow', kind: 'accessory', nameHe: 'פַּפְּיוֹן', cost: 5_000_000, clickBonus: 0.12, art: 'bow' },
+  { id: 'acc-crown', kind: 'accessory', nameHe: 'כֶּתֶר מֶלֶךְ', cost: 200_000_000, clickBonus: 0.2, art: 'crown' },
+  { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 10_000_000_000, clickBonus: 0.28, art: 'halo' },
+];
+
 export const cosmeticsById = new Map<string, Cosmetic>(
-  [...blobSkins, ...backgroundSkins].map((c) => [c.id, c]),
+  [...blobSkins, ...backgroundSkins, ...accessories].map((c) => [c.id, c]),
 );
 
 export function blobById(id: string): BlobSkin {
@@ -144,12 +234,17 @@ export function backgroundById(id: string): BackgroundSkin {
   return c && c.kind === 'background' ? c : backgroundSkins[0];
 }
 
-/** Small tap-power bonus fraction from the equipped blob skin. */
-export function blobClickBonus(equippedBlob: string): number {
-  return blobById(equippedBlob).clickBonus;
+export function accessoryById(id: string): Accessory {
+  const c = cosmeticsById.get(id);
+  return c && c.kind === 'accessory' ? c : accessories[0];
 }
 
-/** Small passive-income bonus fraction from the equipped background. */
+/** Small tap-power bonus from the equipped blob skin + accessory (they stack). */
+export function clickCosmeticBonus(equippedBlob: string, equippedAccessory: string): number {
+  return blobById(equippedBlob).clickBonus + accessoryById(equippedAccessory).clickBonus;
+}
+
+/** Small passive-income bonus from the equipped background. */
 export function backgroundIncomeBonus(equippedBackground: string): number {
   return backgroundById(equippedBackground).incomeBonus;
 }

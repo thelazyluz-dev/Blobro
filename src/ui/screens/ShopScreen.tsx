@@ -1,11 +1,16 @@
-// Screen 5 — the shop. Spend goo on cosmetics: main-blob skins (a small tap
-// bonus) and background themes (a small passive-income bonus). Everything is
-// bought with in-game goo only — no real money, ever.
+// Screen 5 — the shop. Spend goo on cosmetics: blob skins (distinct shapes,
+// a small tap bonus), background themes (a small passive-income bonus) and
+// accessories worn on the blob (a small tap bonus). In-game goo only — no real
+// money, ever. Prices climb into the trillions so there's always a goal.
 
 import { playError, playPurchase } from '../../audio/sfx';
 import {
+  DEFAULT_BLOB,
+  accessories,
   backgroundSkins,
+  blobById,
   blobSkins,
+  type Accessory,
   type BackgroundSkin,
   type BlobSkin,
 } from '../../game/cosmetics';
@@ -28,10 +33,19 @@ export function ShopScreen() {
       </header>
 
       <section className="mb-6">
-        <h2 className="mb-2 font-display text-xl text-cy">בְּלוֹבִּים לְחִיצָה 🎨</h2>
+        <h2 className="mb-2 font-display text-xl text-cy">בְּלוֹבִּים 🎨</h2>
         <div className="grid grid-cols-2 gap-3">
           {blobSkins.map((skin) => (
             <BlobCard key={skin.id} skin={skin} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-6">
+        <h2 className="mb-2 font-display text-xl text-cy">אֲבִיזָרִים 🎩</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {accessories.map((acc) => (
+            <AccessoryCard key={acc.id} acc={acc} />
           ))}
         </div>
       </section>
@@ -53,9 +67,10 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
   const owned = useGame((s) => s.ownedCosmetics.includes(id));
   const equippedBlob = useGame((s) => s.equippedBlob);
   const equippedBackground = useGame((s) => s.equippedBackground);
+  const equippedAccessory = useGame((s) => s.equippedAccessory);
   const buy = useGame((s) => s.buyCosmetic);
   const equip = useGame((s) => s.equipCosmetic);
-  const equipped = id === equippedBlob || id === equippedBackground;
+  const equipped = id === equippedBlob || id === equippedBackground || id === equippedAccessory;
 
   const onClick = () => {
     const muted = useGame.getState().muted;
@@ -99,24 +114,44 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
   );
 }
 
+function CardShell({ children }: { children: React.ReactNode }) {
+  return <div className="surface rounded-2xl p-3">{children}</div>;
+}
+
 function BlobCard({ skin }: { skin: BlobSkin }) {
   return (
-    <div className="surface rounded-2xl p-3">
+    <CardShell>
       <div className="mx-auto flex h-20 w-20 items-center justify-center">
-        <MainBlob colors={skin.colors} className="h-20 w-20" />
+        <MainBlob colors={skin.colors} shape={skin.shape} className="h-20 w-20" />
       </div>
       <div className="mt-1 text-center font-display text-base text-bone">{skin.nameHe}</div>
       <div className="text-center text-[11px] text-cy tabular">
         {skin.clickBonus > 0 ? `+${Math.round(skin.clickBonus * 100)}% לנגיעה` : 'בְּסִיסִי'}
       </div>
       <ActionButton id={skin.id} cost={skin.cost} />
-    </div>
+    </CardShell>
+  );
+}
+
+function AccessoryCard({ acc }: { acc: Accessory }) {
+  const base = blobById(DEFAULT_BLOB);
+  return (
+    <CardShell>
+      <div className="mx-auto flex h-20 w-20 items-center justify-center">
+        <MainBlob colors={base.colors} shape="goo" accessory={acc.art} className="h-20 w-20" />
+      </div>
+      <div className="mt-1 text-center font-display text-base text-bone">{acc.nameHe}</div>
+      <div className="text-center text-[11px] text-cy tabular">
+        {acc.clickBonus > 0 ? `+${Math.round(acc.clickBonus * 100)}% לנגיעה` : 'בְּלִי בּוֹנוּס'}
+      </div>
+      <ActionButton id={acc.id} cost={acc.cost} />
+    </CardShell>
   );
 }
 
 function BackgroundCard({ skin }: { skin: BackgroundSkin }) {
   return (
-    <div className="surface rounded-2xl p-3">
+    <CardShell>
       <div
         className="mx-auto h-20 w-full rounded-xl ring-hairline"
         style={{ backgroundColor: '#1a0b2e', backgroundImage: skin.gradient }}
@@ -126,6 +161,6 @@ function BackgroundCard({ skin }: { skin: BackgroundSkin }) {
         {skin.incomeBonus > 0 ? `+${Math.round(skin.incomeBonus * 100)}% לשנייה` : 'בְּסִיסִי'}
       </div>
       <ActionButton id={skin.id} cost={skin.cost} />
-    </div>
+    </CardShell>
   );
 }

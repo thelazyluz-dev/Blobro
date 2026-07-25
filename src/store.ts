@@ -24,11 +24,13 @@ import {
 } from './game/achievements';
 import { charactersById } from './game/characters';
 import {
+  DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
   DEFAULT_BLOB,
   backgroundIncomeBonus,
-  blobClickBonus,
+  clickCosmeticBonus,
   cosmeticsById,
+  type CosmeticKind,
 } from './game/cosmetics';
 import {
   affordableCreatureLevels,
@@ -79,6 +81,7 @@ interface GameState {
   ownedCosmetics: string[];
   equippedBlob: string;
   equippedBackground: string;
+  equippedAccessory: string;
   muted: boolean;
 
   // --- transient UI / session ---
@@ -129,6 +132,13 @@ let toastId = 0;
 
 const achievementsById = new Map(achievementDefs.map((a) => [a.id, a]));
 
+/** Which "equipped" field a cosmetic kind sets. */
+function equipPatch(kind: CosmeticKind, id: string): Partial<GameState> {
+  if (kind === 'blob') return { equippedBlob: id };
+  if (kind === 'background') return { equippedBackground: id };
+  return { equippedAccessory: id };
+}
+
 /** Build the achievement-progress context from the persistent state fields. */
 function achContextOf(s: {
   characters: OwnedCharacters;
@@ -149,7 +159,7 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 4,
+    version: 5,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
@@ -163,6 +173,7 @@ function snapshot(s: GameState, now: number): SaveState {
     ownedCosmetics: s.ownedCosmetics,
     equippedBlob: s.equippedBlob,
     equippedBackground: s.equippedBackground,
+    equippedAccessory: s.equippedAccessory,
     lastSeen: now,
     muted: s.muted,
   };
@@ -174,7 +185,7 @@ export const useGame = create<GameState>((set, get) => {
     return modifiersFrom(
       s.upgrades,
       starBonusFor(s.achievements),
-      blobClickBonus(s.equippedBlob),
+      clickCosmeticBonus(s.equippedBlob, s.equippedAccessory),
       backgroundIncomeBonus(s.equippedBackground),
     );
   };
@@ -190,9 +201,10 @@ export const useGame = create<GameState>((set, get) => {
     clicks: 0,
     leaderboard: [],
     achievements: [],
-    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND],
+    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY],
     equippedBlob: DEFAULT_BLOB,
     equippedBackground: DEFAULT_BACKGROUND,
+    equippedAccessory: DEFAULT_ACCESSORY,
     muted: false,
 
     loaded: false,
@@ -215,7 +227,7 @@ export const useGame = create<GameState>((set, get) => {
       const m = modifiersFrom(
         save.upgrades,
         starBonusFor(save.achievements),
-        blobClickBonus(save.equippedBlob),
+        clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
         backgroundIncomeBonus(save.equippedBackground),
       );
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
@@ -235,6 +247,7 @@ export const useGame = create<GameState>((set, get) => {
         ownedCosmetics: save.ownedCosmetics,
         equippedBlob: save.equippedBlob,
         equippedBackground: save.equippedBackground,
+        equippedAccessory: save.equippedAccessory,
         muted: save.muted,
         loaded: true,
         offlineReport: report,
@@ -376,20 +389,17 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: s.goo - c.cost,
         ownedCosmetics: [...s.ownedCosmetics, id],
-        ...(c.kind === 'blob' ? { equippedBlob: id } : { equippedBackground: id }),
+        ...equipPatch(c.kind, id),
       });
-      get().pushToast({
-        text: `${c.nameHe} נִקְנָה!`,
-        icon: c.kind === 'blob' ? '🎨' : '🖼️',
-        tone: 'star',
-      });
+      const icon = c.kind === 'blob' ? '🎨' : c.kind === 'background' ? '🖼️' : '🎩';
+      get().pushToast({ text: `${c.nameHe} נִקְנָה!`, icon, tone: 'star' });
     },
 
     equipCosmetic: (id) => {
       const s = get();
       const c = cosmeticsById.get(id);
       if (!c || !s.ownedCosmetics.includes(id)) return;
-      set(c.kind === 'blob' ? { equippedBlob: id } : { equippedBackground: id });
+      set(equipPatch(c.kind, id));
     },
 
     grantGoo: (amount) => {
@@ -501,7 +511,7 @@ const modsOf = (s: GameState) =>
   modifiersFrom(
     s.upgrades,
     starBonusFor(s.achievements),
-    blobClickBonus(s.equippedBlob),
+    clickCosmeticBonus(s.equippedBlob, s.equippedAccessory),
     backgroundIncomeBonus(s.equippedBackground),
   );
 export const selectMods = (s: GameState): Modifiers => modsOf(s);

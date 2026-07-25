@@ -19,7 +19,7 @@ import {
   rainIntervalMinMs,
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
-import { blobById } from '../../game/cosmetics';
+import { accessoryById, blobById } from '../../game/cosmetics';
 import { selectClickPower, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
@@ -63,6 +63,8 @@ export function ClickScreen() {
   const grantGoo = useGame((s) => s.grantGoo);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   const blobColors = useGame((s) => blobById(s.equippedBlob).colors);
+  const blobShape = useGame((s) => blobById(s.equippedBlob).shape);
+  const accessoryArt = useGame((s) => accessoryById(s.equippedAccessory).art);
   const reduced = useReducedMotion();
 
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -361,7 +363,7 @@ export function ClickScreen() {
             }`}
             style={{ willChange: 'transform' }}
           >
-            <MainBlob colors={blobColors} className="h-[252px] w-[252px]" />
+            <MainBlob colors={blobColors} shape={blobShape} accessory={accessoryArt} className="h-[252px] w-[252px]" />
           </span>
 
           {particles.map((p) => (

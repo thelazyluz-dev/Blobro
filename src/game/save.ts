@@ -11,8 +11,10 @@ import {
 import { collectionOrder } from './characters';
 import { achievements } from './achievements';
 import {
+  DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
   DEFAULT_BLOB,
+  accessoryById,
   backgroundById,
   blobById,
   cosmeticsById,
@@ -27,7 +29,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 4 as const;
+export const CURRENT_VERSION = 5 as const;
 
 export function defaultSaveState(now: number): SaveState {
   return {
@@ -42,9 +44,10 @@ export function defaultSaveState(now: number): SaveState {
     clicks: 0,
     leaderboard: [],
     achievements: [],
-    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND],
+    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY],
     equippedBlob: DEFAULT_BLOB,
     equippedBackground: DEFAULT_BACKGROUND,
+    equippedAccessory: DEFAULT_ACCESSORY,
     lastSeen: now,
     muted: false,
   };
@@ -106,9 +109,9 @@ function sanitizeLeaderboard(raw: unknown): LeaderboardEntry[] {
     .slice(0, leaderboardMaxEntries);
 }
 
-/** Keep only real cosmetic ids; always include the two free defaults. */
+/** Keep only real cosmetic ids; always include the free defaults. */
 function sanitizeCosmetics(raw: unknown): string[] {
-  const out = new Set<string>([DEFAULT_BLOB, DEFAULT_BACKGROUND]);
+  const out = new Set<string>([DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY]);
   if (Array.isArray(raw)) {
     for (const id of raw) if (typeof id === 'string' && cosmeticsById.has(id)) out.add(id);
   }
@@ -129,10 +132,14 @@ export function migrate(raw: unknown, now: number): SaveState {
   // Equip a saved choice only if it's a real, owned item; else the default.
   const blobPick = typeof data.equippedBlob === 'string' ? data.equippedBlob : '';
   const bgPick = typeof data.equippedBackground === 'string' ? data.equippedBackground : '';
+  const accPick = typeof data.equippedAccessory === 'string' ? data.equippedAccessory : '';
   const equippedBlob = ownedCosmetics.includes(blobPick) ? blobById(blobPick).id : DEFAULT_BLOB;
   const equippedBackground = ownedCosmetics.includes(bgPick)
     ? backgroundById(bgPick).id
     : DEFAULT_BACKGROUND;
+  const equippedAccessory = ownedCosmetics.includes(accPick)
+    ? accessoryById(accPick).id
+    : DEFAULT_ACCESSORY;
 
   return {
     version: CURRENT_VERSION,
@@ -149,6 +156,7 @@ export function migrate(raw: unknown, now: number): SaveState {
     ownedCosmetics,
     equippedBlob,
     equippedBackground,
+    equippedAccessory,
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
   };
