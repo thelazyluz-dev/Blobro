@@ -21,22 +21,16 @@ export function formatExact(value: number): string {
 }
 
 /**
- * Like formatGoo but with MANY running decimals, for the big hero counter so it
- * visibly ticks even when huge (e.g. 23_956_200_968_445 → "23.956201T"). Keeps
- * ~7 significant figures, so the last digits move every fraction of a second at
- * normal income instead of freezing between whole units.
+ * The big hero counter: a clean compact number with a fixed 2 decimals
+ * (e.g. "23.96T"). Stays tidy and stable-width; the fine-grained running
+ * movement is shown by the exact full number rendered beneath it.
  */
-export function formatGooLive(value: number): string {
+export function formatGooHero(value: number): string {
   if (!Number.isFinite(value)) return '0';
   const n = Math.max(0, value);
   if (n < 1000) return Math.floor(n).toString();
   for (const { value: unit, suffix } of UNITS) {
-    if (n >= unit) {
-      const scaled = n / unit;
-      const intDigits = Math.floor(Math.log10(scaled)) + 1;
-      const decimals = Math.min(6, Math.max(2, 7 - intDigits));
-      return scaled.toFixed(decimals) + suffix;
-    }
+    if (n >= unit) return (n / unit).toFixed(2) + suffix;
   }
   return Math.floor(n).toString();
 }
