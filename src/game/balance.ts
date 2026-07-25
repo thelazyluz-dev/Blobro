@@ -32,7 +32,7 @@ export const baseByRarity: Record<Rarity, number> = {
   rare: 50,
   legendary: 350,
 };
-export const charIncomeGrowthPerLevel = 0.4; // +40% of base income per level — every level is a real jump
+export const charIncomeGrowthPerLevel = 0.7; // +70% of base income per level — every upgrade adds a big chunk of passive income
 // The robot hand works alongside the creatures (automation, not taps): each
 // level makes it harvest a bit more of their income, so it scales WITH the
 // creatures and stays a meaningful contributor however strong they get —
@@ -86,10 +86,12 @@ export const critChanceCap = 0.6;
 export const critMultiplier = 8; // a crit tap is worth this many normal taps
 
 // --- Combo milestones --------------------------------------------------------
-// Sustained rapid tapping pays off: reaching one of these combo counts grants a
-// lump sum worth (milestone × current tap value) — the whole streak "cashed in",
-// so a longer combo pays proportionally more.
-export const comboMilestones = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+// Sustained rapid tapping pays off: reaching a combo milestone grants a lump sum
+// worth (milestone × current tap value) — the streak "cashed in", so a longer
+// combo pays proportionally more. Early ramp, then a bonus every N combo FOREVER
+// (…500, 1000, 1500, 2000…) so it never stops rewarding.
+export const comboMilestones = [50, 100, 250];
+export const comboRepeatEvery = 500;
 // How long a tap keeps the combo alive. Forgiving enough that a brief pause or
 // a frame-hitch during a celebration doesn't drop a long streak.
 export const comboWindowMs = 1200;

@@ -9,6 +9,7 @@ import {
   bonusIntervalMinMs,
   bonusLifetimeMs,
   comboMilestones,
+  comboRepeatEvery,
   comboWindowMs,
   frenzyMultiplier,
   rainDropCount,
@@ -195,8 +196,12 @@ export function ClickScreen() {
     }, COMBO_WINDOW_MS + 150);
 
     // Combo milestone: cash in the whole streak — a lump sum worth
-    // (milestone × current tap value). Fires once as the count passes each mark.
-    if (comboMilestones.includes(c.count)) {
+    // (milestone × current tap value). Early ramp, then every comboRepeatEvery
+    // forever, so long streaks keep paying past 1000.
+    const isMilestone =
+      comboMilestones.includes(c.count) ||
+      (c.count >= comboRepeatEvery && c.count % comboRepeatEvery === 0);
+    if (isMilestone) {
       const amount = c.count * clickRef.current;
       grantGoo(amount);
       const m = useGame.getState().muted;

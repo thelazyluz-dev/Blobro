@@ -69,7 +69,7 @@ export function autoTapFraction(level: number): number {
   return Math.min(autoTapFractionCap, autoTapFractionPerLevel * level);
 }
 
-/** charIncome = baseByRarity × (1 + 0.4 × (level − 1)) */
+/** charIncome = baseByRarity × (1 + 0.7 × (level − 1)) */
 export function charIncome(rarity: Rarity, level: number): number {
   return baseByRarity[rarity] * (1 + charIncomeGrowthPerLevel * (level - 1));
 }
