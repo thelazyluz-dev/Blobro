@@ -15,10 +15,12 @@ export const globalMultiplier = 1; // prestige hook — do not remove
 // --- Clicking ----------------------------------------------------------------
 // clickPower = (clickBase + fingerBonus(level)) × clickMultiplier × star × globalMultiplier
 export const clickBase = 1;
-// "Strong finger" COMPOUNDS so every level is a real jump — a flat +1 stopped
-// mattering once taps were worth thousands. fingerBonus(level) = base × (growth^level − 1).
-export const fingerBonusBase = 4;
-export const fingerBonusGrowth = 1.4;
+// "Strong finger" grows per level so it never becomes a dead +1, but its growth
+// is kept BELOW the cost growth (1.5) so a tap stays a sensible active bonus
+// (roughly a second or two of passive income) instead of exploding past the
+// whole idle economy. fingerBonus(level) = base × (growth^level − 1).
+export const fingerBonusBase = 5;
+export const fingerBonusGrowth = 1.21;
 
 // --- Passive income ----------------------------------------------------------
 // charIncome = baseByRarity × (1 + charIncomeGrowthPerLevel × (level − 1))
