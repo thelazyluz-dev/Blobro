@@ -90,6 +90,9 @@ export const critMultiplier = 8; // a crit tap is worth this many normal taps
 // lump sum worth (milestone × current tap value) — the whole streak "cashed in",
 // so a longer combo pays proportionally more.
 export const comboMilestones = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+// How long a tap keeps the combo alive. Forgiving enough that a brief pause or
+// a frame-hitch during a celebration doesn't drop a long streak.
+export const comboWindowMs = 1200;
 
 // --- Luck (hatch odds shift) -------------------------------------------------
 export const luckCap = 0.35; // max fraction shifted from common → rare/legendary

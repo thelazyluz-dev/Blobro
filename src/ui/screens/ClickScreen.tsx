@@ -9,6 +9,7 @@ import {
   bonusIntervalMinMs,
   bonusLifetimeMs,
   comboMilestones,
+  comboWindowMs,
   frenzyMultiplier,
   rainDropCount,
   rainDropIncomeSeconds,
@@ -22,7 +23,7 @@ import { selectClickPower, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { useReducedMotion } from '../useReducedMotion';
 
-const COMBO_WINDOW_MS = 800;
+const COMBO_WINDOW_MS = comboWindowMs;
 
 interface Floater {
   id: number;
