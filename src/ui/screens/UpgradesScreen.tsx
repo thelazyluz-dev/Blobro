@@ -4,10 +4,11 @@
 import { useRef, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { formatGoo } from '../../game/format';
+import { globalMultiplier } from '../../game/balance';
 import { upgradeCost, upgradeDefs, upgradeGainHe, upgradeTotalHe } from '../../game/upgrades';
 import type { UpgradeId } from '../../game/types';
 import { haptic } from '../haptics';
-import { selectClickPower, selectGooPerSec, useGame } from '../../store';
+import { selectClickPower, selectGooPerSec, selectMods, useGame } from '../../store';
 
 export function UpgradesScreen() {
   const clickP = useGame(selectClickPower);
@@ -48,10 +49,15 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   const goo = useGame((s) => s.goo);
   const level = useGame((s) => s.upgrades[id]);
   const buy = useGame((s) => s.buyUpgrade);
+  const m = useGame(selectMods);
   const [shake, setShake] = useState(false);
   const shakeTimer = useRef<number>();
   // Floating "+X" that pops on each purchase, showing exactly what was gained.
   const [gain, setGain] = useState<{ text: string; key: number } | null>(null);
+
+  // For the "strong finger" line: the multiplier applied to its tap-base bonus,
+  // so the shown number is the real per-tap gain, not the raw base.
+  const tapMult = m.clickMultiplier * m.starMultiplier * globalMultiplier;
 
   const cost = upgradeCost(id, level);
   const canAfford = goo >= cost;
@@ -63,7 +69,7 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
       buy(id);
       playPurchase(muted);
       haptic(15);
-      setGain({ text: upgradeGainHe(id, level + 1), key: Date.now() });
+      setGain({ text: upgradeGainHe(id, level + 1, tapMult), key: Date.now() });
     } else {
       playError(muted);
       setShake(true);
@@ -95,7 +101,7 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
           </div>
           <div className="text-sm text-cy">{def.effectHe}</div>
           {level > 0 && (
-            <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level)}</div>
+            <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level, tapMult)}</div>
           )}
         </div>
       </div>

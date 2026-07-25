@@ -14,7 +14,8 @@ import {
   eggCostBase,
   eggCostGrowth,
   evolveIncomeMultiplier,
-  fingerEffectPerLevel,
+  fingerBonusBase,
+  fingerBonusGrowth,
   globalMultiplier,
   luckCap,
   upgradeConfig,
@@ -39,10 +40,19 @@ export function modifiersFrom(upgrades: Upgrades, achievementStarBonus: number):
   };
 }
 
+/**
+ * Bonus to the tap base from the "strong finger" upgrade. Compounds per level
+ * (0 at level 0), so higher levels add far more than a flat +1 — keeping the
+ * upgrade worth buying as costs climb.
+ */
+export function fingerBonus(level: number): number {
+  return fingerBonusBase * (Math.pow(fingerBonusGrowth, level) - 1);
+}
+
 /** Goo earned per manual tap (before any active frenzy). */
 export function clickPower(m: Modifiers): number {
   return (
-    (clickBase + m.fingerLevel * fingerEffectPerLevel) *
+    (clickBase + fingerBonus(m.fingerLevel)) *
     m.clickMultiplier *
     m.starMultiplier *
     globalMultiplier

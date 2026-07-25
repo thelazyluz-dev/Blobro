@@ -13,9 +13,12 @@ import type { Rarity, UpgradeId } from './types';
 export const globalMultiplier = 1; // prestige hook — do not remove
 
 // --- Clicking ----------------------------------------------------------------
-// clickPower = (clickBase + fingerLevel) × clickMultiplier × star × globalMultiplier
+// clickPower = (clickBase + fingerBonus(level)) × clickMultiplier × star × globalMultiplier
 export const clickBase = 1;
-export const fingerEffectPerLevel = 1;
+// "Strong finger" COMPOUNDS so every level is a real jump — a flat +1 stopped
+// mattering once taps were worth thousands. fingerBonus(level) = base × (growth^level − 1).
+export const fingerBonusBase = 4;
+export const fingerBonusGrowth = 1.4;
 
 // --- Passive income ----------------------------------------------------------
 // charIncome = baseByRarity × (1 + charIncomeGrowthPerLevel × (level − 1))

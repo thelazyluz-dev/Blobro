@@ -1,7 +1,8 @@
 // Upgrade definitions and pure cost/effect math. Numbers come from balance.ts.
 
 import { critBaseChance, critChanceCap, luckCap, upgradeConfig } from './balance';
-import { autoTapFraction } from './economy';
+import { autoTapFraction, fingerBonus } from './economy';
+import { formatGoo } from './format';
 import type { UpgradeId, Upgrades } from './types';
 
 export interface UpgradeDef {
@@ -13,7 +14,7 @@ export interface UpgradeDef {
 }
 
 export const upgradeDefs: UpgradeDef[] = [
-  { id: 'finger', nameHe: 'אֶצְבַּע חֲזָקָה', icon: '👆', effectHe: '+1 גּוּ לכל נגיעה' },
+  { id: 'finger', nameHe: 'אֶצְבַּע חֲזָקָה', icon: '👆', effectHe: 'עוֹצְמַת נְגִיעָה — כָּל רָמָה מוֹסִיפָה יוֹתֵר!' },
   { id: 'power', nameHe: 'כּוֹחַ עַל', icon: '💥', effectHe: '+25% לעוצמת הנגיעה' },
   { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'אוֹסֶפֶת עוֹד מֵהַכְנָסַת הַיְצוּרִים!' },
   { id: 'nurture', nameHe: 'טִיפּוּחַ', icon: '💚', effectHe: '+12% לכל היצורים' },
@@ -44,11 +45,11 @@ export function upgradeEffectPerLevel(id: UpgradeId): number {
  * everything bought so far, so the player sees "how much is this giving me
  * altogether" next to each upgrade (§ user request).
  */
-export function upgradeTotalHe(id: UpgradeId, level: number): string {
+export function upgradeTotalHe(id: UpgradeId, level: number, tapMult = 1): string {
   const per = upgradeConfig[id].effectPerLevel;
   switch (id) {
     case 'finger':
-      return `סה״כ +${level * per} גּוּ לכל נגיעה`;
+      return `סה״כ +${formatGoo(fingerBonus(level) * tapMult)} גּוּ לכל נגיעה`;
     case 'power':
       return `סה״כ +${Math.round(level * per * 100)}% לעוצמת הנגיעה`;
     case 'autoTap':
@@ -70,11 +71,11 @@ export function upgradeTotalHe(id: UpgradeId, level: number): string {
  * The marginal gain from the level you JUST bought (going level-1 → level).
  * Used for the floating "+X" indication on each purchase (§ user request).
  */
-export function upgradeGainHe(id: UpgradeId, level: number): string {
+export function upgradeGainHe(id: UpgradeId, level: number, tapMult = 1): string {
   const per = upgradeConfig[id].effectPerLevel;
   switch (id) {
     case 'finger':
-      return `+${per} גּוּ / נגיעה`;
+      return `+${formatGoo((fingerBonus(level) - fingerBonus(level - 1)) * tapMult)} גּוּ / נגיעה`;
     case 'power':
       return `+${Math.round(per * 100)}% נגיעה`;
     case 'autoTap': {
