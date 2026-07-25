@@ -10,6 +10,13 @@ import {
 } from './balance';
 import { collectionOrder } from './characters';
 import { achievements } from './achievements';
+import {
+  DEFAULT_BACKGROUND,
+  DEFAULT_BLOB,
+  backgroundById,
+  blobById,
+  cosmeticsById,
+} from './cosmetics';
 import { defaultUpgrades } from './upgrades';
 import type {
   CharId,
@@ -20,7 +27,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 3 as const;
+export const CURRENT_VERSION = 4 as const;
 
 export function defaultSaveState(now: number): SaveState {
   return {
@@ -35,6 +42,9 @@ export function defaultSaveState(now: number): SaveState {
     clicks: 0,
     leaderboard: [],
     achievements: [],
+    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND],
+    equippedBlob: DEFAULT_BLOB,
+    equippedBackground: DEFAULT_BACKGROUND,
     lastSeen: now,
     muted: false,
   };
@@ -96,14 +106,33 @@ function sanitizeLeaderboard(raw: unknown): LeaderboardEntry[] {
     .slice(0, leaderboardMaxEntries);
 }
 
+/** Keep only real cosmetic ids; always include the two free defaults. */
+function sanitizeCosmetics(raw: unknown): string[] {
+  const out = new Set<string>([DEFAULT_BLOB, DEFAULT_BACKGROUND]);
+  if (Array.isArray(raw)) {
+    for (const id of raw) if (typeof id === 'string' && cosmeticsById.has(id)) out.add(id);
+  }
+  return [...out];
+}
+
 /**
  * Coerce arbitrary persisted data into a valid current-version SaveState.
  * Additive across versions (v1 single fingerLevel → v2 upgrades/achievements →
- * v3 clicks/leaderboard); missing fields default cleanly, so progress is kept.
+ * v3 clicks/leaderboard → v4 shop cosmetics); missing fields default cleanly, so
+ * progress is kept.
  */
 export function migrate(raw: unknown, now: number): SaveState {
   if (!raw || typeof raw !== 'object') return defaultSaveState(now);
   const data = raw as Record<string, unknown>;
+
+  const ownedCosmetics = sanitizeCosmetics(data.ownedCosmetics);
+  // Equip a saved choice only if it's a real, owned item; else the default.
+  const blobPick = typeof data.equippedBlob === 'string' ? data.equippedBlob : '';
+  const bgPick = typeof data.equippedBackground === 'string' ? data.equippedBackground : '';
+  const equippedBlob = ownedCosmetics.includes(blobPick) ? blobById(blobPick).id : DEFAULT_BLOB;
+  const equippedBackground = ownedCosmetics.includes(bgPick)
+    ? backgroundById(bgPick).id
+    : DEFAULT_BACKGROUND;
 
   return {
     version: CURRENT_VERSION,
@@ -117,6 +146,9 @@ export function migrate(raw: unknown, now: number): SaveState {
     clicks: nonNegInt(data.clicks, 0),
     leaderboard: sanitizeLeaderboard(data.leaderboard),
     achievements: sanitizeAchievements(data.achievements),
+    ownedCosmetics,
+    equippedBlob,
+    equippedBackground,
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
   };

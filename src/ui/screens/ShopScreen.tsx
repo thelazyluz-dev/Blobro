@@ -1,0 +1,131 @@
+// Screen 5 — the shop. Spend goo on cosmetics: main-blob skins (a small tap
+// bonus) and background themes (a small passive-income bonus). Everything is
+// bought with in-game goo only — no real money, ever.
+
+import { playError, playPurchase } from '../../audio/sfx';
+import {
+  backgroundSkins,
+  blobSkins,
+  type BackgroundSkin,
+  type BlobSkin,
+} from '../../game/cosmetics';
+import { formatGoo } from '../../game/format';
+import { useGame } from '../../store';
+import { haptic } from '../haptics';
+import { MainBlob } from '../MainBlob';
+
+export function ShopScreen() {
+  const goo = useGame((s) => s.goo);
+
+  return (
+    <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
+      <header className="mb-4 text-center">
+        <h1 className="font-display text-4xl text-bone">חֲנוּת</h1>
+        <p className="mt-2 text-sm text-bone/60">קוֹנִים בְּגּוּ — מְעַצְּבִים אֶת הַמִּשְׂחָק</p>
+        <div className="mx-auto mt-3 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
+          {formatGoo(goo)} גּוּ
+        </div>
+      </header>
+
+      <section className="mb-6">
+        <h2 className="mb-2 font-display text-xl text-cy">בְּלוֹבִּים לְחִיצָה 🎨</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {blobSkins.map((skin) => (
+            <BlobCard key={skin.id} skin={skin} />
+          ))}
+        </div>
+      </section>
+
+      <section className="pb-4">
+        <h2 className="mb-2 font-display text-xl text-cy">רְקָעִים 🖼️</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {backgroundSkins.map((skin) => (
+            <BackgroundCard key={skin.id} skin={skin} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ActionButton({ id, cost }: { id: string; cost: number }) {
+  const goo = useGame((s) => s.goo);
+  const owned = useGame((s) => s.ownedCosmetics.includes(id));
+  const equippedBlob = useGame((s) => s.equippedBlob);
+  const equippedBackground = useGame((s) => s.equippedBackground);
+  const buy = useGame((s) => s.buyCosmetic);
+  const equip = useGame((s) => s.equipCosmetic);
+  const equipped = id === equippedBlob || id === equippedBackground;
+
+  const onClick = () => {
+    const muted = useGame.getState().muted;
+    if (equipped) return;
+    if (owned) {
+      equip(id);
+      playPurchase(muted);
+      haptic(15);
+    } else if (goo >= cost) {
+      buy(id);
+      playPurchase(muted);
+      haptic([0, 30, 20, 50]);
+    } else {
+      playError(muted);
+    }
+  };
+
+  if (equipped) {
+    return (
+      <div className="btn mt-2 w-full bg-goo/20 py-2 text-center text-sm font-bold text-goo ring-1 ring-goo/40">
+        ✓ מוּפְעָל
+      </div>
+    );
+  }
+  if (owned) {
+    return (
+      <button type="button" onClick={onClick} className="btn mt-2 w-full bg-cy py-2 text-sm text-void">
+        הַפְעֵל
+      </button>
+    );
+  }
+  const afford = goo >= cost;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`btn mt-2 w-full py-2 text-sm ${afford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'}`}
+    >
+      {afford ? <>קְנֵה — {formatGoo(cost)}</> : <span className="tabular">חסר {formatGoo(cost - goo)}</span>}
+    </button>
+  );
+}
+
+function BlobCard({ skin }: { skin: BlobSkin }) {
+  return (
+    <div className="surface rounded-2xl p-3">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center">
+        <MainBlob colors={skin.colors} className="h-20 w-20" />
+      </div>
+      <div className="mt-1 text-center font-display text-base text-bone">{skin.nameHe}</div>
+      <div className="text-center text-[11px] text-cy tabular">
+        {skin.clickBonus > 0 ? `+${Math.round(skin.clickBonus * 100)}% לנגיעה` : 'בְּסִיסִי'}
+      </div>
+      <ActionButton id={skin.id} cost={skin.cost} />
+    </div>
+  );
+}
+
+function BackgroundCard({ skin }: { skin: BackgroundSkin }) {
+  return (
+    <div className="surface rounded-2xl p-3">
+      <div
+        className="mx-auto h-20 w-full rounded-xl ring-hairline"
+        style={{ backgroundColor: '#1a0b2e', backgroundImage: skin.gradient }}
+      />
+      <div className="mt-1 text-center font-display text-base text-bone">{skin.nameHe}</div>
+      <div className="text-center text-[11px] text-cy tabular">
+        {skin.incomeBonus > 0 ? `+${Math.round(skin.incomeBonus * 100)}% לשנייה` : 'בְּסִיסִי'}
+      </div>
+      <ActionButton id={skin.id} cost={skin.cost} />
+    </div>
+  );
+}

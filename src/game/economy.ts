@@ -28,11 +28,16 @@ import type { Modifiers, OwnedCharacters, Rarity, Upgrades } from './types';
  * income bonus (each claimed achievement contributes a bonus scaled by its
  * difficulty — see game/achievements.ts).
  */
-export function modifiersFrom(upgrades: Upgrades, achievementStarBonus: number): Modifiers {
+export function modifiersFrom(
+  upgrades: Upgrades,
+  achievementStarBonus: number,
+  clickCosmeticBonus = 0,
+  incomeCosmeticBonus = 0,
+): Modifiers {
   return {
     fingerLevel: upgrades.finger,
-    clickMultiplier: 1 + upgradeConfig.power.effectPerLevel * upgrades.power,
-    incomeMultiplier: 1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture,
+    clickMultiplier: (1 + upgradeConfig.power.effectPerLevel * upgrades.power) * (1 + clickCosmeticBonus),
+    incomeMultiplier: (1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture) * (1 + incomeCosmeticBonus),
     autoTapFraction: Math.min(autoTapFractionCap, autoTapFractionPerLevel * upgrades.autoTap),
     starMultiplier: 1 + achievementStarBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),

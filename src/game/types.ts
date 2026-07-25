@@ -55,7 +55,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 3;
+  version: 4;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;
@@ -66,6 +66,9 @@ export interface SaveState {
   clicks: number; // manual taps by the current player (for the leaderboard)
   leaderboard: LeaderboardEntry[]; // local-only, on-device
   achievements: AchievementId[]; // claimed achievement ids
+  ownedCosmetics: string[]; // shop items bought (blob skins + backgrounds)
+  equippedBlob: string; // currently-worn main blob skin id
+  equippedBackground: string; // currently-applied background id
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
 }

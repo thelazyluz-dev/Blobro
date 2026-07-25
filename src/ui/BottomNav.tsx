@@ -41,11 +41,19 @@ const UpgradeIcon: FC<{ active: boolean }> = ({ active }) => (
   </svg>
 );
 
+const ShopIcon: FC<{ active: boolean }> = ({ active }) => (
+  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 8h16l-1 12H5L4 8z" />
+    <path d="M8 8a4 4 0 0 1 8 0" />
+  </svg>
+);
+
 const ITEMS: NavItem[] = [
   { tab: 'click', label: 'לְחִיצָה', Icon: ClickIcon },
   { tab: 'hatch', label: 'בְּקִיעָה', Icon: HatchIcon },
   { tab: 'collection', label: 'אוֹסֶף', Icon: CollectionIcon },
   { tab: 'upgrades', label: 'שְׁדְרוּג', Icon: UpgradeIcon },
+  { tab: 'shop', label: 'חֲנוּת', Icon: ShopIcon },
 ];
 
 export function BottomNav() {

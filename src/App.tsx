@@ -14,13 +14,16 @@ import { useFrenzyAudio } from './ui/useFrenzyAudio';
 import { ClickScreen } from './ui/screens/ClickScreen';
 import { CollectionScreen } from './ui/screens/CollectionScreen';
 import { HatchScreen } from './ui/screens/HatchScreen';
+import { ShopScreen } from './ui/screens/ShopScreen';
 import { UpgradesScreen } from './ui/screens/UpgradesScreen';
 import { useGameEngine } from './ui/useGameEngine';
+import { backgroundById } from './game/cosmetics';
 import { useGame } from './store';
 
 export function App() {
   const loaded = useGameEngine();
   const activeTab = useGame((s) => s.activeTab);
+  const bgGradient = useGame((s) => backgroundById(s.equippedBackground).gradient);
   useFrenzyAudio();
 
   // Unlock the AudioContext on the first interaction (browser autoplay policy),
@@ -42,7 +45,7 @@ export function App() {
 
   return (
     <div className="relative mx-auto flex h-full max-w-md flex-col">
-      <div className="bg-aurora" aria-hidden />
+      <div className="bg-aurora" aria-hidden style={{ backgroundImage: bgGradient }} />
       <MuteButton />
       <AchievementsButton />
       <LeaderboardButton />
@@ -51,6 +54,7 @@ export function App() {
         {activeTab === 'hatch' && <HatchScreen />}
         {activeTab === 'collection' && <CollectionScreen />}
         {activeTab === 'upgrades' && <UpgradesScreen />}
+        {activeTab === 'shop' && <ShopScreen />}
       </main>
 
       <BottomNav />

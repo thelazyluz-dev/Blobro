@@ -24,6 +24,13 @@ import {
 } from './game/achievements';
 import { charactersById } from './game/characters';
 import {
+  DEFAULT_BACKGROUND,
+  DEFAULT_BLOB,
+  backgroundIncomeBonus,
+  blobClickBonus,
+  cosmeticsById,
+} from './game/cosmetics';
+import {
   affordableCreatureLevels,
   clickPower,
   creatureLevelCost,
@@ -46,7 +53,7 @@ import type {
   Upgrades,
 } from './game/types';
 
-export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades';
+export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades' | 'shop';
 
 export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
 export type ToastTone = 'goo' | 'star' | 'pop';
@@ -69,6 +76,9 @@ interface GameState {
   clicks: number;
   leaderboard: LeaderboardEntry[];
   achievements: string[];
+  ownedCosmetics: string[];
+  equippedBlob: string;
+  equippedBackground: string;
   muted: boolean;
 
   // --- transient UI / session ---
@@ -95,6 +105,8 @@ interface GameState {
   evolveCreature: (id: CharId) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
+  buyCosmetic: (id: string) => void;
+  equipCosmetic: (id: string) => void;
   collectBonus: () => number;
   grantGoo: (amount: number) => void;
   dismissMultiHatch: () => void;
@@ -137,7 +149,7 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 3,
+    version: 4,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
@@ -148,6 +160,9 @@ function snapshot(s: GameState, now: number): SaveState {
     clicks: s.clicks,
     leaderboard: s.leaderboard,
     achievements: s.achievements,
+    ownedCosmetics: s.ownedCosmetics,
+    equippedBlob: s.equippedBlob,
+    equippedBackground: s.equippedBackground,
     lastSeen: now,
     muted: s.muted,
   };
@@ -156,7 +171,12 @@ function snapshot(s: GameState, now: number): SaveState {
 export const useGame = create<GameState>((set, get) => {
   const mods = (): Modifiers => {
     const s = get();
-    return modifiersFrom(s.upgrades, starBonusFor(s.achievements));
+    return modifiersFrom(
+      s.upgrades,
+      starBonusFor(s.achievements),
+      blobClickBonus(s.equippedBlob),
+      backgroundIncomeBonus(s.equippedBackground),
+    );
   };
 
   return {
@@ -170,6 +190,9 @@ export const useGame = create<GameState>((set, get) => {
     clicks: 0,
     leaderboard: [],
     achievements: [],
+    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND],
+    equippedBlob: DEFAULT_BLOB,
+    equippedBackground: DEFAULT_BACKGROUND,
     muted: false,
 
     loaded: false,
@@ -189,7 +212,12 @@ export const useGame = create<GameState>((set, get) => {
       const raw = await loadRaw();
       const save = raw ? migrate(raw, now) : defaultSaveState(now);
 
-      const m = modifiersFrom(save.upgrades, starBonusFor(save.achievements));
+      const m = modifiersFrom(
+        save.upgrades,
+        starBonusFor(save.achievements),
+        blobClickBonus(save.equippedBlob),
+        backgroundIncomeBonus(save.equippedBackground),
+      );
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
       const report = computeOffline(gooPerSec(save.characters, m), secondsAway);
 
@@ -204,6 +232,9 @@ export const useGame = create<GameState>((set, get) => {
         clicks: save.clicks,
         leaderboard: save.leaderboard,
         achievements: save.achievements,
+        ownedCosmetics: save.ownedCosmetics,
+        equippedBlob: save.equippedBlob,
+        equippedBackground: save.equippedBackground,
         muted: save.muted,
         loaded: true,
         offlineReport: report,
@@ -337,6 +368,30 @@ export const useGame = create<GameState>((set, get) => {
       });
     },
 
+    // Shop: buy a cosmetic with goo (auto-equips it), or equip one already owned.
+    buyCosmetic: (id) => {
+      const s = get();
+      const c = cosmeticsById.get(id);
+      if (!c || s.ownedCosmetics.includes(id) || s.goo < c.cost) return;
+      set({
+        goo: s.goo - c.cost,
+        ownedCosmetics: [...s.ownedCosmetics, id],
+        ...(c.kind === 'blob' ? { equippedBlob: id } : { equippedBackground: id }),
+      });
+      get().pushToast({
+        text: `${c.nameHe} נִקְנָה!`,
+        icon: c.kind === 'blob' ? '🎨' : '🖼️',
+        tone: 'star',
+      });
+    },
+
+    equipCosmetic: (id) => {
+      const s = get();
+      const c = cosmeticsById.get(id);
+      if (!c || !s.ownedCosmetics.includes(id)) return;
+      set(c.kind === 'blob' ? { equippedBlob: id } : { equippedBackground: id });
+    },
+
     grantGoo: (amount) => {
       if (amount <= 0) return;
       set((s) => ({ goo: s.goo + amount, lifetimeGoo: s.lifetimeGoo + amount }));
@@ -442,7 +497,13 @@ if (import.meta.env.DEV) {
 }
 
 // Convenience selectors used across screens.
-const modsOf = (s: GameState) => modifiersFrom(s.upgrades, starBonusFor(s.achievements));
+const modsOf = (s: GameState) =>
+  modifiersFrom(
+    s.upgrades,
+    starBonusFor(s.achievements),
+    blobClickBonus(s.equippedBlob),
+    backgroundIncomeBonus(s.equippedBackground),
+  );
 export const selectMods = (s: GameState): Modifiers => modsOf(s);
 export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(s));
 export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);
