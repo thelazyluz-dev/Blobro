@@ -5,10 +5,10 @@ import { useEffect, useMemo } from 'react';
 import { playAchievement, playBonus } from '../audio/sfx';
 import { speakName } from '../audio/speech';
 import { charactersById } from '../game/characters';
-import { ownedCreatureIncome } from '../game/economy';
+import { creatureContribution } from '../game/economy';
 import { formatGoo } from '../game/format';
 import type { CharId, Rarity } from '../game/types';
-import { useGame } from '../store';
+import { selectMods, useGame } from '../store';
 import { CharacterBody } from './characters';
 import { haptic } from './haptics';
 import { rarityColor, rarityLabelHe } from './rarity';
@@ -19,6 +19,7 @@ const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, l
 export function MultiHatchResult() {
   const result = useGame((s) => s.multiHatchResult);
   const dismiss = useGame((s) => s.dismissMultiHatch);
+  const m = useGame(selectMods);
 
   // Every creature pulled, rarest first, then by count.
   const pulled = useMemo(() => {
@@ -56,16 +57,17 @@ export function MultiHatchResult() {
   const totalLevels = Object.values(result.levelUps).reduce((a, b) => a + (b ?? 0), 0);
   const newSet = new Set(result.newIds);
 
-  // Extra passive income this batch bought — each creature's gain from the
-  // levels (or first appearance) it got here, so the payoff is visible.
+  // Extra passive income this batch bought — each creature's true goo/sec gain
+  // (all automation multipliers folded in) from the levels or first appearance
+  // it got here, so the payoff matches the rate shown elsewhere.
   const incomeGained = (Object.keys(result.charTally) as CharId[]).reduce((sum, id) => {
     const held = result.owned[id];
     if (!held) return sum;
     const rarity = charactersById[id].rarity;
     const gainedLevels = (result.levelUps[id] ?? 0) + (newSet.has(id) ? 1 : 0);
     const prevLevel = held.level - gainedLevels;
-    const before = prevLevel >= 1 ? ownedCreatureIncome(rarity, { level: prevLevel, shiny: held.shiny }) : 0;
-    return sum + (ownedCreatureIncome(rarity, held) - before);
+    const before = prevLevel >= 1 ? creatureContribution(rarity, { level: prevLevel, shiny: held.shiny }, m) : 0;
+    return sum + (creatureContribution(rarity, held, m) - before);
   }, 0);
 
   return (

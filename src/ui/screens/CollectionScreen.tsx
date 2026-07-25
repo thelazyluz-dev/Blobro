@@ -9,10 +9,15 @@ import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
 import { evolveCostByRarity, evolveLevel } from '../../game/balance';
 import { charactersById, collectionOrder } from '../../game/characters';
-import { affordableCreatureLevels, creatureLevelCost, ownedCreatureIncome } from '../../game/economy';
+import {
+  affordableCreatureLevels,
+  creatureContribution,
+  creatureLevelCost,
+  ownedCreatureIncome,
+} from '../../game/economy';
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
-import { useGame } from '../../store';
+import { selectMods, useGame } from '../../store';
 import { CharacterBody } from '../characters';
 import { haptic } from '../haptics';
 import { isShareworthy, rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
@@ -141,12 +146,15 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const def = charactersById[id];
   const held = useGame((s) => s.characters[id]);
   const goo = useGame((s) => s.goo);
+  const m = useGame(selectMods);
   const evolveCreature = useGame((s) => s.evolveCreature);
   const levelUp = useGame((s) => s.levelUpCreature);
   const levelUpMax = useGame((s) => s.levelUpCreatureMax);
   if (!held) return null;
 
-  const income = ownedCreatureIncome(def.rarity, held);
+  // The creature's TRUE goo/sec contribution (all automation multipliers folded
+  // in), so the numbers here match what the level actually adds to your rate.
+  const income = creatureContribution(def.rarity, held, m);
   const ringColor = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
   const evolveCost = evolveCostByRarity[def.rarity];
   const canEvolve = held.level >= evolveLevel && !held.shiny;
@@ -156,7 +164,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const levelCost = creatureLevelCost(def.rarity, held.level);
   const affordLevel = goo >= levelCost;
   const affordN = affordableCreatureLevels(def.rarity, held.level, goo);
-  const nextIncome = ownedCreatureIncome(def.rarity, { level: held.level + 1, shiny: held.shiny });
+  const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, shiny: held.shiny }, m);
   const levelGain = nextIncome - income;
 
   const onLevel = () => {
@@ -199,7 +207,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
       role="presentation"
     >
       <div
-        className="surface anim-pop-in w-full max-w-xs rounded-3xl p-6 text-center"
+        className="surface anim-pop-in max-h-[88vh] w-full max-w-xs overflow-y-auto rounded-3xl p-6 text-center"
         style={{ boxShadow: `0 0 0 2px ${ringColor}, 0 24px 60px -20px #000` }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"

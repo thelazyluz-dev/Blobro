@@ -443,6 +443,7 @@ if (import.meta.env.DEV) {
 
 // Convenience selectors used across screens.
 const modsOf = (s: GameState) => modifiersFrom(s.upgrades, starBonusFor(s.achievements));
+export const selectMods = (s: GameState): Modifiers => modsOf(s);
 export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(s));
 export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);
 export const selectClickPower = (s: GameState) => clickPower(modsOf(s));

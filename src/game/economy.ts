@@ -65,6 +65,26 @@ export function ownedCreatureIncome(rarity: Rarity, held: { level: number; shiny
   return held.shiny ? base * evolveIncomeMultiplier : base;
 }
 
+/**
+ * What ONE owned creature actually adds to goo/sec, with every automation
+ * multiplier folded in (nurture + star + prestige + the robot hand). This is
+ * the honest "this creature earns X/sec" number the collection shows — the raw
+ * ownedCreatureIncome alone understates it, which looked like a bug.
+ */
+export function creatureContribution(
+  rarity: Rarity,
+  held: { level: number; shiny?: boolean },
+  m: Modifiers,
+): number {
+  return (
+    ownedCreatureIncome(rarity, held) *
+    m.incomeMultiplier *
+    m.starMultiplier *
+    globalMultiplier *
+    (1 + m.autoTapFraction)
+  );
+}
+
 /** Passive income from creatures alone (nurture + star + global applied). */
 export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
   let sum = 0;

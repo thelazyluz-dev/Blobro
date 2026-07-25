@@ -8,11 +8,11 @@ import { playCharge, playCrack } from '../audio/sfx';
 import { speakName } from '../audio/speech';
 import { playJingle } from '../audio/synth';
 import { charactersById } from '../game/characters';
-import { ownedCreatureIncome } from '../game/economy';
+import { creatureContribution } from '../game/economy';
 import { formatGoo } from '../game/format';
 import type { HatchOutcome } from '../game/hatching';
 import type { CharId, Rarity } from '../game/types';
-import { useGame } from '../store';
+import { selectMods, useGame } from '../store';
 import { CharacterBody } from './characters';
 import { haptic } from './haptics';
 import { rarityBackground, rarityColor, rarityLabelHe, isShareworthy } from './rarity';
@@ -255,10 +255,11 @@ function ShareButton({ id }: { id: CharId }) {
 function RevealMessage({ outcome }: { outcome: HatchOutcome }) {
   const def = charactersById[outcome.charId];
   const held = useGame((s) => s.characters[outcome.charId]);
+  const m = useGame(selectMods);
   const rarity = outcome.rarity;
 
   if (outcome.kind === 'new') {
-    const income = held ? ownedCreatureIncome(rarity, held) : 0;
+    const income = held ? creatureContribution(rarity, held, m) : 0;
     return (
       <>
         <p className="mt-3 text-lg text-goo">יצור חדש הצטרף לאוסף!</p>
@@ -266,10 +267,11 @@ function RevealMessage({ outcome }: { outcome: HatchOutcome }) {
       </>
     );
   }
-  // How much more this creature now earns thanks to the level it just gained.
+  // How much more this creature now earns thanks to the level it just gained —
+  // its true contribution to goo/sec, with all automation multipliers folded in.
   const delta = held
-    ? ownedCreatureIncome(rarity, held) -
-      ownedCreatureIncome(rarity, { level: held.level - 1, shiny: held.shiny })
+    ? creatureContribution(rarity, held, m) -
+      creatureContribution(rarity, { level: held.level - 1, shiny: held.shiny }, m)
     : 0;
   return (
     <>
