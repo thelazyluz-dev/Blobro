@@ -86,9 +86,12 @@ export function AchievementsOverlay() {
         role="dialog"
         aria-modal="true"
       >
-        <div className="mb-1 text-center font-display text-3xl text-bone">🏆 הִשֵּׂגִים</div>
-        <div className="mb-3 text-center text-sm text-goo">
-          {claimed.length} נֶאֶסְפוּ · בּוֹנוּס פְּעִיל +{starPct}% לכל הגּוּ
+        <div className="mb-2 text-center font-display text-3xl text-bone">🏆 הִשֵּׂגִים</div>
+        <div className="mb-3 rounded-2xl bg-goo/15 px-3 py-2 text-center ring-1 ring-goo/40">
+          <div className="font-display text-2xl text-goo tabular">בּוֹנוּס פָּעִיל: +{starPct}%</div>
+          <div className="text-[11px] text-bone/70">
+            לְכָל הַהַכְנָסָה (לְחִיצוֹת + פָּסִיבִי) · מִ־{claimed.length} הִשֵּׂגִים שֶׁאָסַפְתָּ
+          </div>
         </div>
 
         {readyCount > 1 && (
@@ -136,8 +139,10 @@ export function AchievementsOverlay() {
                         />
                       </div>
                     )}
-                    <div className="mt-1 text-[10px] text-cy">
-                      פרס: +{Math.round(a.starReward * 100)}% הכנסה · {formatGoo(a.gooReward)} גּוּ
+                    <div className="mt-1 text-[11px] text-cy">
+                      <span className="text-goo">⭐ +{Math.round(a.starReward * 100)}% הכנסה לתמיד</span>
+                      {' · '}
+                      <span className="text-pop">💰 {formatGoo(a.gooReward)} גּוּ</span>
                     </div>
                   </div>
                   {ready ? (

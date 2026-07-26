@@ -108,6 +108,7 @@ interface GameState {
   evolveCreature: (id: CharId) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
+  upgradeAllCreatures: () => void;
   buyCosmetic: (id: string) => void;
   equipCosmetic: (id: string) => void;
   collectBonus: () => number;
@@ -381,6 +382,37 @@ export const useGame = create<GameState>((set, get) => {
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },
       });
+    },
+
+    // One press: spend goo across ALL creatures, always buying the cheapest
+    // available level (best value), so your whole roster climbs together. Bounded
+    // per press; the cost naturally rises as levels rise.
+    upgradeAllCreatures: () => {
+      const s = get();
+      const m = mods();
+      let goo = s.goo;
+      const chars: OwnedCharacters = { ...s.characters };
+      let bought = 0;
+      const CAP = 300;
+      while (bought < CAP) {
+        let bestId: CharId | null = null;
+        let bestCost = Infinity;
+        for (const id of Object.keys(chars) as CharId[]) {
+          const cost = creatureLevelCost(charactersById[id].rarity, chars[id]!, m);
+          if (cost <= goo && cost < bestCost) {
+            bestCost = cost;
+            bestId = id;
+          }
+        }
+        if (!bestId) break;
+        goo -= bestCost;
+        const h = chars[bestId]!;
+        chars[bestId] = { ...h, level: h.level + 1 };
+        bought += 1;
+      }
+      if (bought === 0) return;
+      set({ goo, characters: chars });
+      get().pushToast({ text: `שִׁדְרַגְתָּ ${bought} רָמוֹת!`, icon: '⬆️', tone: 'goo' });
     },
 
     // Shop: buy a cosmetic with goo (auto-equips it), or equip one already owned.

@@ -4,7 +4,7 @@
 // - Hashed build assets are cache-first (their URL changes when they change).
 // - Everything is same-origin and local: no third-party requests, ever.
 
-const CACHE = 'blorbo-v20';
+const CACHE = 'blorbo-v21';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

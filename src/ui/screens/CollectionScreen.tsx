@@ -41,14 +41,34 @@ export function CollectionScreen() {
   const ownedCount = collectionOrder.filter((id) => owned[id]).length;
   const total = collectionOrder.length;
 
+  const upgradeAll = useGame((s) => s.upgradeAllCreatures);
+
   const open = (id: CharId) => {
     setSelected(id);
     playJingle(charactersById[id].sound, useGame.getState().muted);
   };
 
+  // Cheapest single level available across owned creatures — enables "upgrade all".
+  const cheapest = collectionOrder.reduce((min, id) => {
+    const h = owned[id];
+    return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m)) : min;
+  }, Infinity);
+  const canUpgradeAny = goo >= cheapest;
+
+  const onUpgradeAll = () => {
+    const muted = useGame.getState().muted;
+    if (canUpgradeAny) {
+      upgradeAll();
+      playPurchase(muted);
+      haptic([0, 25, 15, 40]);
+    } else {
+      playError(muted);
+    }
+  };
+
   return (
     <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
-      <header className="mb-5 text-center">
+      <header className="mb-4 text-center">
         <h1 className="font-display text-4xl text-bone">הָאוֹסֶף</h1>
         <p className="mt-2 text-sm text-bone/60 tabular">
           {ownedCount} מתוך {total} יצורים
@@ -59,6 +79,17 @@ export function CollectionScreen() {
             style={{ width: `${(ownedCount / total) * 100}%` }}
           />
         </div>
+        {ownedCount > 0 && (
+          <button
+            type="button"
+            onClick={onUpgradeAll}
+            className={`btn mt-4 w-full py-2.5 text-base ${
+              canUpgradeAny ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
+            }`}
+          >
+            ⬆️ שַׁדְרֵג אֶת כֻּלָּם
+          </button>
+        )}
       </header>
 
       <div className="flex flex-col gap-5 pb-4">
