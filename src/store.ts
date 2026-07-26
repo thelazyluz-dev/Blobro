@@ -123,6 +123,7 @@ interface GameState {
   setLeaderboardOpen: (open: boolean) => void;
   addToLeaderboard: (name: string) => void;
   resetClicks: () => void;
+  resetGame: () => void;
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
   triggerConfetti: (kind: ConfettiKind) => void;
@@ -493,6 +494,36 @@ export const useGame = create<GameState>((set, get) => {
     // Start a fresh run for the next player (resets the click tally only —
     // the game's goo and creatures are untouched).
     resetClicks: () => set({ clicks: 0 }),
+
+    // Wipe ALL progress back to a brand-new game (and persist the empty save).
+    resetGame: () => {
+      const now = Date.now();
+      const fresh = defaultSaveState(now);
+      set({
+        goo: fresh.goo,
+        lifetimeGoo: fresh.lifetimeGoo,
+        upgrades: { ...fresh.upgrades },
+        characters: {},
+        totalHatches: 0,
+        sinceRare: 0,
+        bonusesCollected: 0,
+        clicks: 0,
+        leaderboard: [],
+        achievements: [],
+        ownedCosmetics: [...fresh.ownedCosmetics],
+        equippedBlob: fresh.equippedBlob,
+        equippedBackground: fresh.equippedBackground,
+        equippedAccessory: fresh.equippedAccessory,
+        hatchResult: null,
+        multiHatchResult: null,
+        offlineReport: null,
+        frenzyUntil: 0,
+        achievementsOpen: false,
+        leaderboardOpen: false,
+        activeTab: 'click',
+      });
+      void persist(snapshot(get(), now));
+    },
 
     // Keep only the most recent few so a burst of unlocks never floods the screen.
     pushToast: (t) => set((s) => ({ toasts: [...s.toasts, { ...t, id: ++toastId }].slice(-4) })),
