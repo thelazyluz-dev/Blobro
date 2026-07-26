@@ -46,7 +46,14 @@ export const autoTapFractionPerLevel = 0.035; // +3.5% of creature income per le
 export const autoTapFractionCap = 0.6; // up to +60% of creature income
 export const minCharLevel = 1;
 // No maximum — creatures level up forever, giving more each level (§ user request).
-export const evolveLevel = 10; // a creature can evolve into a shiny from this level
+
+// --- Evolution chain ---------------------------------------------------------
+// A creature can evolve several times, each stage a bigger shiny worth much more.
+// Stage s needs the creature at evolveLevels[s-1]; income is × the stage factor.
+export const evolveLevels = [10, 25, 50, 100]; // level required for stage 1,2,3,4
+export const maxEvolution = evolveLevels.length; // 4
+export const evolveMultiplierByStage = [1, 3, 8, 20, 50]; // income × at stage 0..4
+export const evolveLevel = evolveLevels[0]; // first evolution level (back-compat)
 
 // --- Direct creature leveling (goo sink) --------------------------------------
 // Besides hatching duplicates, a creature can be levelled straight up with goo.
@@ -100,15 +107,10 @@ export const luckCap = 0.35; // max fraction shifted from common → rare/legend
 export const luckRareShare = 0.7; // of the shifted mass, this goes to rare…
 export const luckLegendaryShare = 0.3; // …and this to legendary
 
-// --- Evolution (shiny creatures) ---------------------------------------------
-// A level-10 creature can evolve into a shiny variant worth much more.
-export const evolveIncomeMultiplier = 3;
-export const evolveCostByRarity: Record<Rarity, number> = {
-  common: 2_500,
-  uncommon: 12_000,
-  rare: 60_000,
-  legendary: 400_000,
-};
+// --- Evolution cost ----------------------------------------------------------
+// An evolution costs this many seconds of the extra income it grants — same
+// sensible payback idea as leveling, but a bigger commitment (a premium jump).
+export const evolvePaybackSeconds = 600;
 
 // --- Goo rain event ----------------------------------------------------------
 export const rainIntervalMinMs = 70_000;

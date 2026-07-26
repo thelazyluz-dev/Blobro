@@ -36,10 +36,11 @@ export interface CharacterDef {
   sound: SoundParams;
 }
 
-/** Only owned characters appear here. `shiny` = evolved variant. */
+/** Only owned characters appear here. `evolution` = number of evolution stages
+ * done (0 = not evolved; 1..maxEvolution = shiny tiers, each worth more). */
 export interface OwnedCharacter {
   level: number;
-  shiny?: boolean;
+  evolution?: number;
 }
 export type OwnedCharacters = Partial<Record<CharId, OwnedCharacter>>;
 
@@ -55,7 +56,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 6;
+  version: 7;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;

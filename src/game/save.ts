@@ -5,9 +5,10 @@
 import {
   charIncomeGrowth,
   charIncomeGrowthLegacyAdditive,
-  evolveLevel,
+  evolveLevels,
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
+  maxEvolution,
   minCharLevel,
 } from './balance';
 import { collectionOrder } from './characters';
@@ -31,7 +32,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 6 as const;
+export const CURRENT_VERSION = 7 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -81,13 +82,19 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
   const valid = new Set<CharId>(collectionOrder);
   for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!valid.has(key as CharId)) continue;
-    const e = entry as { level?: unknown; shiny?: unknown } | null;
+    const e = entry as { level?: unknown; shiny?: unknown; evolution?: unknown } | null;
     const raw0 = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
     const clamped = remapLegacy ? remapLegacyLevel(raw0) : raw0;
-    // A creature can be shiny (evolved) from the evolve level onward — it keeps
-    // levelling afterwards, so don't strip shine below the max level.
-    const shiny = Boolean(e?.shiny) && clamped >= evolveLevel;
-    out[key as CharId] = shiny ? { level: clamped, shiny: true } : { level: clamped };
+    // Evolution stage: read the number, or convert a legacy `shiny:true` to stage 1.
+    // Cap to what the level actually allows (and to maxEvolution).
+    const rawEvo = typeof e?.evolution === 'number' ? Math.floor(e.evolution) : e?.shiny ? 1 : 0;
+    let stageForLevel = 0;
+    for (const lv of evolveLevels) {
+      if (clamped >= lv) stageForLevel += 1;
+      else break;
+    }
+    const evolution = Math.max(0, Math.min(rawEvo, maxEvolution, stageForLevel));
+    out[key as CharId] = evolution > 0 ? { level: clamped, evolution } : { level: clamped };
   }
   return out;
 }

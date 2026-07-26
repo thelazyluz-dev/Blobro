@@ -8,12 +8,12 @@ import {
   bonusIncomeSeconds,
   bonusMinGoo,
   critMultiplier,
-  evolveCostByRarity,
-  evolveLevel,
+  evolveLevels,
   frenzyDurationMs,
   frenzyMultiplier,
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
+  maxEvolution,
 } from './game/balance';
 import {
   achievements as achievementDefs,
@@ -37,6 +37,7 @@ import {
   clickPower,
   creatureLevelCost,
   eggCost,
+  evolveCost,
   gooPerSec,
   modifiersFrom,
 } from './game/economy';
@@ -151,7 +152,7 @@ function achContextOf(s: {
 }): AchievementContext {
   return {
     collectionCount: Object.keys(s.characters).length,
-    shinyCount: Object.values(s.characters).filter((c) => c?.shiny).length,
+    shinyCount: Object.values(s.characters).filter((c) => (c?.evolution ?? 0) > 0).length,
     lifetimeGoo: s.lifetimeGoo,
     totalHatches: s.totalHatches,
     clicks: s.clicks,
@@ -161,7 +162,7 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 6,
+    version: 7,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
@@ -342,15 +343,17 @@ export const useGame = create<GameState>((set, get) => {
     evolveCreature: (id) => {
       const s = get();
       const held = s.characters[id];
-      if (!held || held.level < evolveLevel || held.shiny) return;
+      if (!held) return;
+      const stage = held.evolution ?? 0;
+      if (stage >= maxEvolution || held.level < evolveLevels[stage]) return; // not eligible yet
       const def = charactersById[id];
-      const cost = evolveCostByRarity[def.rarity];
+      const cost = evolveCost(def.rarity, held, mods());
       if (s.goo < cost) return;
       set({
         goo: s.goo - cost,
-        characters: { ...s.characters, [id]: { ...held, shiny: true } },
+        characters: { ...s.characters, [id]: { ...held, evolution: stage + 1 } },
       });
-      get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨`, icon: '✨', tone: 'star' });
+      get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨ (שלב ${stage + 1})`, icon: '✨', tone: 'star' });
       get().triggerConfetti('rainbow');
     },
 
@@ -377,7 +380,7 @@ export const useGame = create<GameState>((set, get) => {
       const n = affordableCreatureLevels(rarity, held, m, s.goo);
       if (n <= 0) return;
       let spent = 0;
-      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, shiny: held.shiny }, m);
+      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, evolution: held.evolution }, m);
       set({
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },

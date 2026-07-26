@@ -7,12 +7,13 @@ import { useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
-import { evolveCostByRarity, evolveLevel } from '../../game/balance';
+import { evolveLevels, evolveMultiplierByStage, maxEvolution } from '../../game/balance';
 import { charactersById, collectionOrder } from '../../game/characters';
 import {
   affordableCreatureLevels,
   creatureContribution,
   creatureLevelCost,
+  evolveCost,
   ownedCreatureIncome,
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
@@ -130,7 +131,9 @@ export function CollectionScreen() {
                       </div>
                     );
                   }
-                  const ring = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
+                  const stage = held.evolution ?? 0;
+                  const evolved = stage > 0;
+                  const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
                   const canLevel = affordableCreatureLevels(def.rarity, held, m, goo);
                   return (
                     <button
@@ -140,7 +143,7 @@ export function CollectionScreen() {
                       className="relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
                       style={{
                         backgroundColor: '#170a29',
-                        boxShadow: held.shiny
+                        boxShadow: evolved
                           ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
                           : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
                       }}
@@ -150,15 +153,17 @@ export function CollectionScreen() {
                           {canLevel > 99 ? '99' : canLevel}
                         </span>
                       )}
-                      {held.shiny && <span className="absolute end-1 top-1 text-sm">✨</span>}
+                      {evolved && (
+                        <span className="absolute end-1 top-1 text-sm">✨{stage > 1 ? stage : ''}</span>
+                      )}
                       <CharacterBody id={id} className="h-12 w-12" />
                       <span
-                        className={`mt-1 max-w-full truncate px-1 text-[10px] ${held.shiny ? 'text-pop' : 'text-bone/80'}`}
+                        className={`mt-1 max-w-full truncate px-1 text-[10px] ${evolved ? 'text-pop' : 'text-bone/80'}`}
                       >
                         {def.nameHe}
                       </span>
                       <span className="text-[10px] text-pop tabular">
-                        {held.shiny ? '✨ ' : ''}רמה {held.level}
+                        {evolved ? '✨ ' : ''}רמה {held.level}
                       </span>
                     </button>
                   );
@@ -187,16 +192,22 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   // The creature's TRUE goo/sec contribution (all automation multipliers folded
   // in), so the numbers here match what the level actually adds to your rate.
   const income = creatureContribution(def.rarity, held, m);
-  const ringColor = held.shiny ? '#FFD84D' : rarityColor[def.rarity];
-  const evolveCost = evolveCostByRarity[def.rarity];
-  const canEvolve = held.level >= evolveLevel && !held.shiny;
-  const affordEvolve = goo >= evolveCost;
+  const stage = held.evolution ?? 0;
+  const evolved = stage > 0;
+  const ringColor = evolved ? '#FFD84D' : rarityColor[def.rarity];
+  // Evolution chain: next stage needs the creature at evolveLevels[stage].
+  const maxedEvolution = stage >= maxEvolution;
+  const nextEvolveLevel = maxedEvolution ? Infinity : evolveLevels[stage];
+  const canEvolve = !maxedEvolution && held.level >= nextEvolveLevel;
+  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m);
+  const affordEvolve = goo >= evolveCostGoo;
+  const evolveMultNext = maxedEvolution ? 1 : evolveMultiplierByStage[stage + 1] / evolveMultiplierByStage[stage];
 
   // Direct goo leveling.
   const levelCost = creatureLevelCost(def.rarity, held, m);
   const affordLevel = goo >= levelCost;
   const affordN = affordableCreatureLevels(def.rarity, held, m, goo);
-  const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, shiny: held.shiny }, m);
+  const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, evolution: held.evolution }, m);
   const levelGain = nextIncome - income;
 
   const onLevel = () => {
@@ -246,23 +257,23 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         aria-modal="true"
       >
         <div
-          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl ${held.shiny ? 'anim-hue-spin' : ''}`}
+          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl ${evolved ? 'anim-hue-spin' : ''}`}
           style={{ background: rarityBackground(def.rarity), boxShadow: `0 0 40px -8px ${ringColor}` }}
         >
-          {held.shiny && <span className="absolute -end-1 -top-1 text-2xl">✨</span>}
+          {evolved && <span className="absolute -end-1 -top-1 text-2xl">✨</span>}
           <CharacterBody id={id} className="h-24 w-24" />
         </div>
         <div className="font-display text-3xl text-bone">
-          {held.shiny ? '✨ ' : ''}
+          {evolved ? '✨ ' : ''}
           {def.nameHe}
         </div>
         <div className="text-sm text-bone/50">{def.nameLatin}</div>
         <p className="mx-auto mt-2 max-w-[16rem] text-sm text-bone/75">{def.descHe}</p>
         <div
           className="mx-auto mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold text-void"
-          style={{ background: held.shiny ? 'linear-gradient(135deg,#FFD84D,#FF2E88)' : rarityBackground(def.rarity) }}
+          style={{ background: evolved ? 'linear-gradient(135deg,#FFD84D,#FF2E88)' : rarityBackground(def.rarity) }}
         >
-          {held.shiny ? 'מְנַצְנֵץ' : rarityLabelHe[def.rarity]}
+          {evolved ? `מְנַצְנֵץ ${stage}/${maxEvolution}` : rarityLabelHe[def.rarity]}
         </div>
         <div className="mt-4 text-lg text-pop tabular">רמה {held.level}</div>
         <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
@@ -318,12 +329,20 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             }`}
             style={{ background: 'linear-gradient(135deg,#FFD84D,#FF2E88)' }}
           >
-            <span className="text-lg">✨ אֶבּוֹלוּצְיָה ✨</span>
+            <span className="text-lg">✨ אֶבּוֹלוּצְיָה — שֶׁלָּב {stage + 1} ✨</span>
             <span className="text-xs tabular">
-              {affordEvolve ? `${formatGoo(evolveCost)} גּוּ — פי ${3} הכנסה!` : `חסר ${formatGoo(evolveCost - goo)} גּוּ`}
+              {affordEvolve
+                ? `${formatGoo(evolveCostGoo)} גּוּ — פי ${Math.round(evolveMultNext * 10) / 10} הכנסה!`
+                : `חסר ${formatGoo(evolveCostGoo - goo)} גּוּ`}
             </span>
           </button>
         )}
+        {!maxedEvolution && !canEvolve && (
+          <div className="mt-3 text-xs text-bone/50">
+            אֶבּוֹלוּצְיָה שֶׁלָּב {stage + 1}: הַגֵּעַ לְרָמָה {nextEvolveLevel}
+          </div>
+        )}
+        {maxedEvolution && <div className="mt-3 text-sm text-pop">✨ אֶבּוֹלוּצְיָה מְלֵאָה! ✨</div>}
 
         {isShareworthy(def.rarity) && <ModalShareButton id={id} />}
 

@@ -12,7 +12,9 @@ import {
   critChanceCap,
   eggCostBase,
   eggCostGrowth,
-  evolveIncomeMultiplier,
+  evolveMultiplierByStage,
+  evolvePaybackSeconds,
+  maxEvolution,
   fingerBonusBase,
   fingerBonusGrowth,
   globalMultiplier,
@@ -74,10 +76,14 @@ export function charIncome(rarity: Rarity, level: number): number {
   return baseByRarity[rarity] * Math.pow(charIncomeGrowth, Math.min(level - 1, 3000));
 }
 
-/** A single owned creature's income, including its shiny (evolved) bonus. */
-export function ownedCreatureIncome(rarity: Rarity, held: { level: number; shiny?: boolean }): number {
-  const base = charIncome(rarity, held.level);
-  return held.shiny ? base * evolveIncomeMultiplier : base;
+/** Income × for a creature's evolution stage (0 = none). */
+export function evolveIncomeMult(evolution = 0): number {
+  return evolveMultiplierByStage[Math.min(Math.max(0, evolution), maxEvolution)] ?? 1;
+}
+
+/** A single owned creature's income, including its evolution (shiny) bonus. */
+export function ownedCreatureIncome(rarity: Rarity, held: { level: number; evolution?: number }): number {
+  return charIncome(rarity, held.level) * evolveIncomeMult(held.evolution);
 }
 
 /**
@@ -88,7 +94,7 @@ export function ownedCreatureIncome(rarity: Rarity, held: { level: number; shiny
  */
 export function creatureContribution(
   rarity: Rarity,
-  held: { level: number; shiny?: boolean },
+  held: { level: number; evolution?: number },
   m: Modifiers,
 ): number {
   return (
@@ -130,11 +136,20 @@ export function eggCost(n: number): number {
  * number of seconds of the EXTRA income that level grants (all multipliers
  * folded in), so the price-to-payoff ratio is always sensible.
  */
-export function creatureLevelCost(rarity: Rarity, held: { level: number; shiny?: boolean }, m: Modifiers): number {
+export function creatureLevelCost(rarity: Rarity, held: { level: number; evolution?: number }, m: Modifiers): number {
   const gain =
-    creatureContribution(rarity, { level: held.level + 1, shiny: held.shiny }, m) -
+    creatureContribution(rarity, { level: held.level + 1, evolution: held.evolution }, m) -
     creatureContribution(rarity, held, m);
   return Math.max(1, Math.round(gain * creatureLevelPaybackSeconds));
+}
+
+/** Goo cost to evolve to the next stage — a fixed payback of the income boost. */
+export function evolveCost(rarity: Rarity, held: { level: number; evolution?: number }, m: Modifiers): number {
+  const stage = held.evolution ?? 0;
+  const gain =
+    creatureContribution(rarity, { level: held.level, evolution: stage + 1 }, m) -
+    creatureContribution(rarity, held, m);
+  return Math.max(1, Math.round(gain * evolvePaybackSeconds));
 }
 
 /**
@@ -144,14 +159,14 @@ export function creatureLevelCost(rarity: Rarity, held: { level: number; shiny?:
  */
 export function affordableCreatureLevels(
   rarity: Rarity,
-  held: { level: number; shiny?: boolean },
+  held: { level: number; evolution?: number },
   m: Modifiers,
   goo: number,
 ): number {
   let count = 0;
   let spent = 0;
   while (count < 999) {
-    const cost = creatureLevelCost(rarity, { level: held.level + count, shiny: held.shiny }, m);
+    const cost = creatureLevelCost(rarity, { level: held.level + count, evolution: held.evolution }, m);
     if (spent + cost > goo) break;
     spent += cost;
     count += 1;
