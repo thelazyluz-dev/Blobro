@@ -63,6 +63,13 @@ export const evolveLevel = evolveLevels[0]; // first evolution level (back-compa
 // as the creature — and your whole economy — grow stronger.
 export const creatureLevelPaybackSeconds = 180;
 
+// --- "Upgrade all" convenience (paced so it isn't a free fast-forward) --------
+// Pressing it charges a service fee (this many seconds of your income) that
+// DOUBLES with each use in the session, and then locks the button for a cooldown.
+export const upgradeAllCooldownMs = 60_000; // 1-minute lock after each use
+export const upgradeAllFeeBaseSeconds = 60; // base fee = 60s of income…
+export const upgradeAllFeeGrowth = 2; // …×2 per use (escalating)
+
 // --- Upgrades ----------------------------------------------------------------
 // Each upgrade: cost(level) = round(base × growth ^ level); effect per level below.
 export interface UpgradeConfig {

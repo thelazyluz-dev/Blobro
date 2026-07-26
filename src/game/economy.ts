@@ -15,6 +15,8 @@ import {
   evolveMultiplierByStage,
   evolvePaybackSeconds,
   maxEvolution,
+  upgradeAllFeeBaseSeconds,
+  upgradeAllFeeGrowth,
   fingerBonusBase,
   fingerBonusGrowth,
   globalMultiplier,
@@ -124,6 +126,11 @@ export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
  */
 export function gooPerSec(owned: OwnedCharacters, m: Modifiers): number {
   return creatureIncome(owned, m) * (1 + m.autoTapFraction);
+}
+
+/** The escalating "upgrade all" service fee: seconds of income × 2^tier. */
+export function upgradeAllFee(feeTier: number, gooPerSecValue: number): number {
+  return Math.round(upgradeAllFeeBaseSeconds * gooPerSecValue * Math.pow(upgradeAllFeeGrowth, feeTier));
 }
 
 /** eggCost(n) = round(45 × 1.11 ^ n), n = eggs already hatched */

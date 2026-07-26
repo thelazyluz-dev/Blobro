@@ -3,7 +3,7 @@
 // levelled up right now with your goo. Tapping a creature opens its details,
 // where it can be levelled straight up with goo (and evolved from level 10).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
@@ -15,10 +15,11 @@ import {
   creatureLevelCost,
   evolveCost,
   ownedCreatureIncome,
+  upgradeAllFee,
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
-import { selectMods, useGame } from '../../store';
+import { selectGooPerSec, selectMods, useGame } from '../../store';
 import { CharacterBody } from '../characters';
 import { haptic } from '../haptics';
 import { isShareworthy, rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
@@ -43,6 +44,18 @@ export function CollectionScreen() {
   const total = collectionOrder.length;
 
   const upgradeAll = useGame((s) => s.upgradeAllCreatures);
+  const gooPerSecNow = useGame(selectGooPerSec);
+  const feeTier = useGame((s) => s.upgradeAllFeeTier);
+  const readyAt = useGame((s) => s.upgradeAllReadyAt);
+
+  // A ticking "now" so the cooldown countdown updates once a second while locked.
+  const [now, setNow] = useState(() => Date.now());
+  const locked = now < readyAt;
+  useEffect(() => {
+    if (!locked) return;
+    const t = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(t);
+  }, [locked]);
 
   const open = (id: CharId) => {
     setSelected(id);
@@ -54,7 +67,10 @@ export function CollectionScreen() {
     const h = owned[id];
     return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m)) : min;
   }, Infinity);
-  const canUpgradeAny = goo >= cheapest;
+  // The escalating service fee for THIS press, plus a level actually being buyable.
+  const fee = upgradeAllFee(feeTier, gooPerSecNow);
+  const canUpgradeAny = !locked && goo > fee && goo - fee >= cheapest;
+  const cooldownLeft = Math.max(0, Math.ceil((readyAt - now) / 1000));
 
   const onUpgradeAll = () => {
     const muted = useGame.getState().muted;
@@ -84,11 +100,22 @@ export function CollectionScreen() {
           <button
             type="button"
             onClick={onUpgradeAll}
-            className={`btn mt-4 w-full py-2.5 text-base ${
+            disabled={locked}
+            className={`btn mt-4 flex w-full flex-col items-center py-2.5 text-base ${
               canUpgradeAny ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
             }`}
           >
-            ⬆️ שַׁדְרֵג אֶת כֻּלָּם
+            {locked ? (
+              <>
+                <span>⏳ שַׁדְרֵג אֶת כֻּלָּם</span>
+                <span className="text-xs tabular">מוּכָן בְּעוֹד {cooldownLeft}ש׳</span>
+              </>
+            ) : (
+              <>
+                <span>⬆️ שַׁדְרֵג אֶת כֻּלָּם</span>
+                <span className="text-xs tabular">עֲמֵלָה {formatGoo(fee)} גּוּ</span>
+              </>
+            )}
           </button>
         )}
       </header>
