@@ -177,7 +177,7 @@ export const achievementGoals = {
 
 // --- Offline income ----------------------------------------------------------
 export const offlineMinSeconds = 60; // must be away longer than this to earn
-export const offlineCapSeconds = 14400; // 4 hours
+export const offlineCapSeconds = 1800; // 30 minutes — offline earnings stop after this
 export const offlineRate = 0.5; // 50%
 
 // --- Local leaderboard -------------------------------------------------------

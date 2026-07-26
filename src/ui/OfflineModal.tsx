@@ -1,6 +1,7 @@
 // "חזרת!" — offline earnings reveal (§8). The hook for coming back tomorrow,
 // so it's front-and-center, never hidden in a corner. Number counts up.
 
+import { offlineCapSeconds } from '../game/balance';
 import { useGame } from '../store';
 import { CountUp } from './CountUp';
 
@@ -26,7 +27,7 @@ export function OfflineModal() {
         <h2 className="mt-2 font-display text-3xl text-bone">חָזַרְתָּ!</h2>
         <p className="mt-2 text-sm text-bone/60">
           בזמן שלא היית ({formatAway(report.secondsAway)}) היצורים עבדו בשבילך
-          {report.capped ? ' (עד 4 שעות)' : ''}:
+          {report.capped ? ` (עד ${formatAway(offlineCapSeconds)})` : ''}:
         </p>
         <div className="mt-4 font-display text-5xl text-pop">
           +<CountUp target={report.goo} /> <span className="text-2xl">גּוּ</span>
