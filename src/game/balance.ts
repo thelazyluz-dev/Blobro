@@ -129,24 +129,32 @@ export const rainDropMinGoo = 5;
 
 // --- Eggs --------------------------------------------------------------------
 // eggCost(n) = round(eggCostBase × eggCostGrowth ^ n)   // n = eggs already hatched
-export const eggCostBase = 45;
-export const eggCostGrowth = 1.11;
+// Costs climb faster now so filling the collection is a longer journey — you
+// can't just spam-hatch your way to every creature in a few minutes.
+export const eggCostBase = 60;
+export const eggCostGrowth = 1.12;
 
 // --- Bulk hatching -----------------------------------------------------------
 export const bulkHatchTen = 10;
 export const bulkHatchMax = 100; // safety cap for "hatch all" in one press
 
 // --- Hatching odds -----------------------------------------------------------
+// Rarer creatures are meant to feel earned: rare/legendary odds are deliberately
+// low, so a rare pull is exciting and a legendary is a real event — not something
+// you trip over in the first few minutes. (Pity below still guarantees them so a
+// patient player is never permanently shut out.)
 export const rarityChances: Record<Rarity, number> = {
-  common: 0.6,
-  uncommon: 0.28,
-  rare: 0.105,
-  legendary: 0.015,
+  common: 0.66,
+  uncommon: 0.26,
+  rare: 0.07,
+  legendary: 0.01,
 };
 
 // --- Pity --------------------------------------------------------------------
-export const pityRareThreshold = 15; // sinceRare → guaranteed rare/legendary
-export const pityLegendaryThreshold = 60; // totalHatches → guaranteed legendary if unowned
+// Higher thresholds → the guaranteed rare/legendary takes longer to arrive, so
+// the rarest creatures stay a longer-term goal.
+export const pityRareThreshold = 25; // sinceRare → guaranteed rare/legendary
+export const pityLegendaryThreshold = 110; // totalHatches → guaranteed legendary if unowned
 
 // --- Golden bonus (the pull mechanic) ----------------------------------------
 // A golden blob drifts across the click screen; tapping it pays out and starts
@@ -161,10 +169,13 @@ export const frenzyMultiplier = 8; // tap power during a frenzy
 export const frenzyDurationMs = 9000;
 
 // --- Achievements ------------------------------------------------------------
-// Many escalating tiers per category so there's always another goal. Each
-// achievement's reward scales with its tier (difficulty): a permanent income
-// bonus (star) plus a one-time goo grant.
-export const achievementStarPerTier = 0.02; // +2% income per difficulty tier
+// Many escalating tiers per category so there's always another goal. Rewards are
+// now SPLIT by category (see game/achievements.ts): the collection-mastery
+// ladders (collecting & evolving creatures) grant a permanent income bonus
+// (star); the grind ladders (goo/hatches/clicks/bonuses) grant a one-time goo
+// lump. No achievement gives both — so the permanent bonus comes only from a
+// handful of achievements and stays modest instead of ballooning across dozens.
+export const achievementStarPerTier = 0.015; // +1.5% income per difficulty tier (star ladders only)
 export const achievementGooBase = 200; // tier-1 goo grant…
 export const achievementGooGrowth = 3; // …× this per tier (kept modest so a single
 // claim never bombs the economy and completions stay spread out, not bursty)

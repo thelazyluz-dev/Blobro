@@ -1,7 +1,8 @@
-// Achievements — many escalating tiers so there's always a next goal. Each
-// achievement's reward scales with its tier (difficulty): a permanent income
-// bonus (star) plus a one-time goo grant. Thresholds/rewards come from
-// balance.ts; copy lives here. Pure — the store decides when to check.
+// Achievements — many escalating tiers so there's always a next goal. Rewards
+// are SPLIT by category (§ user request): collection-mastery ladders grant a
+// permanent income % (the "star"); grind ladders grant a one-time goo lump. No
+// achievement gives both. Thresholds/rewards come from balance.ts; copy lives
+// here. Pure — the store decides when to check.
 
 import {
   achievementGooBase,
@@ -23,9 +24,14 @@ export interface AchievementDef {
   tier: number; // 1-based difficulty within its category
   nameHe: string;
   icon: string;
-  starReward: number; // permanent income bonus fraction (e.g. 0.04 = +4%)
-  gooReward: number; // one-time goo grant on unlock
+  starReward: number; // permanent income bonus fraction (e.g. 0.04 = +4%) — star ladders only
+  gooReward: number; // one-time goo grant on unlock — grind ladders only
 }
+
+// Which ladders grant the permanent income % (the "star") vs. a one-time goo
+// lump. Mastering your collection makes everything you own earn more forever;
+// grinding milestones pays out spendable goo. A ladder is one OR the other.
+const STAR_KINDS = new Set<AchievementKind>(['collection', 'shinies']);
 
 export interface AchievementContext {
   collectionCount: number;
@@ -71,6 +77,7 @@ function nameFor(kind: AchievementKind, goal: number): string {
 }
 
 function build(kind: AchievementKind): AchievementDef[] {
+  const givesStar = STAR_KINDS.has(kind);
   return (achievementGoals[kind] as readonly number[]).map((goal, i) => {
     const tier = i + 1;
     return {
@@ -80,8 +87,9 @@ function build(kind: AchievementKind): AchievementDef[] {
       tier,
       nameHe: nameFor(kind, goal),
       icon: ICON[kind],
-      starReward: achievementStarPerTier * tier,
-      gooReward: Math.round(achievementGooBase * Math.pow(achievementGooGrowth, tier - 1)),
+      // Star ladders grant a permanent income %; grind ladders grant one-time goo.
+      starReward: givesStar ? achievementStarPerTier * tier : 0,
+      gooReward: givesStar ? 0 : Math.round(achievementGooBase * Math.pow(achievementGooGrowth, tier - 1)),
     };
   });
 }

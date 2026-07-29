@@ -63,6 +63,7 @@ export function AchievementsOverlay() {
 
   const claimedSet = new Set(claimed);
   const starPct = Math.round(starBonusFor(claimed) * 100);
+  const starClaimedCount = achievements.filter((a) => a.starReward > 0 && claimedSet.has(a.id)).length;
   const readyCount = claimableIds.size;
 
   const onClaim = (id: string) => {
@@ -90,7 +91,8 @@ export function AchievementsOverlay() {
         <div className="mb-3 rounded-2xl bg-goo/15 px-3 py-2 text-center ring-1 ring-goo/40">
           <div className="font-display text-2xl text-goo tabular">בּוֹנוּס פָּעִיל: +{starPct}%</div>
           <div className="text-[11px] text-bone/70">
-            לְכָל הַהַכְנָסָה (לְחִיצוֹת + פָּסִיבִי) · מִ־{claimed.length} הִשֵּׂגִים שֶׁאָסַפְתָּ
+            לְכָל הַהַכְנָסָה (לְחִיצוֹת + פָּסִיבִי) · מֵאִסּוּף וְאֶבּוֹלוּצְיָה שֶׁל יְצוּרִים
+            {starClaimedCount > 0 ? ` (${starClaimedCount})` : ''}
           </div>
         </div>
 
@@ -139,10 +141,12 @@ export function AchievementsOverlay() {
                         />
                       </div>
                     )}
-                    <div className="mt-1 text-[11px] text-cy">
-                      <span className="text-goo">⭐ +{Math.round(a.starReward * 100)}% הכנסה לתמיד</span>
-                      {' · '}
-                      <span className="text-pop">💰 {formatGoo(a.gooReward)} גּוּ</span>
+                    <div className="mt-1 text-[11px]">
+                      {a.starReward > 0 ? (
+                        <span className="text-goo">⭐ +{Math.round(a.starReward * 100)}% הכנסה לתמיד</span>
+                      ) : (
+                        <span className="text-pop">💰 {formatGoo(a.gooReward)} גּוּ חַד־פַּעֲמִי</span>
+                      )}
                     </div>
                   </div>
                   {ready ? (

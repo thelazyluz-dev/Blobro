@@ -21,7 +21,7 @@ import {
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { accessoryById, blobById } from '../../game/cosmetics';
-import { selectClickPower, selectGooPerSec, useGame } from '../../store';
+import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
 import { useReducedMotion } from '../useReducedMotion';
@@ -59,6 +59,7 @@ export function ClickScreen() {
   const goo = useGame((s) => s.goo);
   const rate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
+  const starBonus = useGame(selectStarBonus);
   const click = useGame((s) => s.click);
   const collectBonus = useGame((s) => s.collectBonus);
   const grantGoo = useGame((s) => s.grantGoo);
@@ -312,8 +313,18 @@ export function ClickScreen() {
             {formatExact(goo)}
           </div>
         )}
-        <div className="mt-3 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
-          {formatGoo(rate)} גּוּ/שנייה
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <div className="inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
+            {formatGoo(rate)} גּוּ/שנייה
+          </div>
+          {starBonus > 0 && (
+            <div
+              className="inline-block rounded-full bg-goo/15 px-3 py-1 text-base font-bold text-goo tabular ring-1 ring-goo/40"
+              title="בונוס הכנסה קבוע מהישגים — חל על לחיצות והכנסה פאסיבית"
+            >
+              ⭐ +{Math.round(starBonus * 100)}%
+            </div>
+          )}
         </div>
       </header>
 

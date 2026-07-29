@@ -491,7 +491,9 @@ export const useGame = create<GameState>((set, get) => {
 
     tick: (dtSeconds) => {
       const s = get();
-      const rate = gooPerSec(s.characters, modifiersFrom(s.upgrades, starBonusFor(s.achievements)));
+      // Use the SAME full modifiers the UI shows (star + cosmetic income bonus),
+      // so the goo you actually earn matches the displayed goo/sec exactly.
+      const rate = gooPerSec(s.characters, mods());
       if (rate <= 0) return;
       const gain = rate * dtSeconds;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
@@ -605,6 +607,8 @@ const modsOf = (s: GameState) =>
   );
 export const selectMods = (s: GameState): Modifiers => modsOf(s);
 export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(s));
+/** The active permanent income bonus (star) as a fraction, e.g. 0.2 = +20%. */
+export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
 export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);
 export const selectClickPower = (s: GameState) => clickPower(modsOf(s));
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);
