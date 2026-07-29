@@ -13,6 +13,7 @@ export interface GameEvent {
   clickMult: number; // multiplies tap power
   eggCostMult: number; // multiplies egg price
   luckBonus: number; // added to hatch luck (better rare/legendary odds)
+  music?: boolean; // play the 8-bit chiptune loop during this event
 }
 
 export const eventPeriodMs = 10 * 60 * 1000; // a new event every 10 minutes
@@ -28,6 +29,7 @@ export const EVENTS: GameEvent[] = [
     clickMult: 1,
     eggCostMult: 1,
     luckBonus: 0,
+    music: true,
   },
   {
     id: 'click2x',
@@ -72,6 +74,7 @@ export const EVENTS: GameEvent[] = [
     clickMult: 1,
     eggCostMult: 1,
     luckBonus: 0,
+    music: true,
   },
 ];
 

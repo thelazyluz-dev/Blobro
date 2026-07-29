@@ -12,6 +12,7 @@ import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
 import { Toaster } from './ui/Toaster';
+import { useEventMusic } from './ui/useEventMusic';
 import { useFrenzyAudio } from './ui/useFrenzyAudio';
 import { ClickScreen } from './ui/screens/ClickScreen';
 import { CollectionScreen } from './ui/screens/CollectionScreen';
@@ -27,6 +28,7 @@ export function App() {
   const activeTab = useGame((s) => s.activeTab);
   const bgGradient = useGame((s) => backgroundById(s.equippedBackground).gradient);
   useFrenzyAudio();
+  useEventMusic();
 
   // Unlock the AudioContext on the first interaction (browser autoplay policy),
   // so jingles scheduled slightly later (e.g. after the egg shake) still play.

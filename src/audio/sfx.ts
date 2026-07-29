@@ -53,13 +53,49 @@ function sequence(
   notes.forEach((f, i) => voice(ctx, f, now + i * step, dur, opts));
 }
 
-/** A tiny blip whose pitch rises with the tap combo — rapid tapping "runs up". */
+// Once the combo is high enough that the rising blip would just cap out, each
+// tap instead plays the next note of a catchy 8-bit riff, so fast tapping turns
+// into a little chiptune melody (§ user request).
+const COMBO_MELODY = [
+  659, 784, 880, 784, 988, 880, 784, 659, 587, 659, 784, 988, 1047, 988, 880, 784,
+];
+const COMBO_MELODY_START = 20;
+
+/** A tiny blip whose pitch rises with the tap combo — rapid tapping "runs up".
+ * Past a high combo it flips into a looping 8-bit melody instead of a stuck note. */
 export function playClick(muted: boolean, combo = 1): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
+  const now = ctx.currentTime;
+  if (combo >= COMBO_MELODY_START) {
+    const f = COMBO_MELODY[(combo - COMBO_MELODY_START) % COMBO_MELODY.length];
+    voice(ctx, f, now, 0.09, { type: 'square', gain: 0.12, filter: 7000, decay: 0.05 });
+    voice(ctx, f / 2, now, 0.07, { type: 'triangle', gain: 0.06, filter: 3500, decay: 0.05 });
+    return;
+  }
   const freq = Math.min(1300, 520 + combo * 42);
-  voice(ctx, freq, ctx.currentTime, 0.04, { type: 'square', gain: 0.1, filter: 6000, decay: 0.03 });
+  voice(ctx, freq, now, 0.04, { type: 'square', gain: 0.1, filter: 6000, decay: 0.03 });
+}
+
+// A looping original 8-bit chiptune (lead + bass), played step-by-step during
+// music events. All synthesized — no files, no copyright. 0 = a rest.
+const MUSIC_LEAD = [523, 659, 784, 659, 523, 659, 784, 880, 784, 659, 523, 587, 659, 784, 587, 523];
+const MUSIC_BASS = [131, 0, 131, 0, 175, 0, 175, 0, 196, 0, 196, 0, 175, 0, 131, 0];
+export const MUSIC_STEP_MS = 145;
+export const MUSIC_STEPS = MUSIC_LEAD.length;
+
+/** Play one step of the event chiptune loop. Kept quiet — it's a backdrop. */
+export function playMusicStep(muted: boolean, step: number): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const i = ((step % MUSIC_STEPS) + MUSIC_STEPS) % MUSIC_STEPS;
+  const now = ctx.currentTime;
+  const lead = MUSIC_LEAD[i];
+  const bass = MUSIC_BASS[i];
+  if (lead) voice(ctx, lead, now, 0.11, { type: 'square', gain: 0.055, filter: 6000, decay: 0.04 });
+  if (bass) voice(ctx, bass, now, 0.13, { type: 'triangle', gain: 0.05, filter: 2600, decay: 0.05 });
 }
 
 /** Coin-like two-note rise on buying an upgrade. */
