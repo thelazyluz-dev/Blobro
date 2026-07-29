@@ -145,11 +145,11 @@ export const rainAllBonusMult = 3;
 // Costs climb faster now so filling the collection is a longer journey — you
 // can't just spam-hatch your way to every creature in a few minutes.
 export const eggCostBase = 60;
-export const eggCostGrowth = 1.12;
+export const eggCostGrowth = 1.15; // bigger gap between successive eggs
 
-// --- Bulk hatching -----------------------------------------------------------
-export const bulkHatchTen = 10;
-export const bulkHatchMax = 100; // safety cap for "hatch all" in one press
+// --- Eggs: buying & opening --------------------------------------------------
+export const eggBuyMaxPerPress = 50; // "buy max" purchases at most this many at once
+export const openAllCap = 200; // safety cap for opening the whole inventory at once
 
 // --- Hatching odds -----------------------------------------------------------
 // Rarer creatures are meant to feel earned: rare/legendary odds are deliberately

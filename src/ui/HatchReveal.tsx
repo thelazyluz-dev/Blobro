@@ -4,7 +4,7 @@
 // Duplicates are never framed as a loss (§7.3). Honors reduced-motion.
 
 import { useEffect, useMemo, useState } from 'react';
-import { playCharge, playCrack } from '../audio/sfx';
+import { playCharge, playClick, playCrack } from '../audio/sfx';
 import { speakName } from '../audio/speech';
 import { playJingle } from '../audio/synth';
 import { charactersById } from '../game/characters';
@@ -28,21 +28,35 @@ const SHAKE_MS_BY_RARITY: Record<Rarity, number> = {
   legendary: 2400,
 };
 const SHAKING_TEXT: Record<Rarity, string> = {
-  common: 'הביצה זזה…',
-  uncommon: 'הביצה זזה…',
-  rare: 'משהו טוב מגיע…',
-  legendary: 'משהו עֲנָק מגיע!!',
+  common: 'לְחַץ לִפְתֹּחַ! 🥚',
+  uncommon: 'לְחַץ שׁוּב וְשׁוּב!',
+  rare: 'מַשֶּׁהוּ טוֹב בִּפְנִים… תִּשְׁבֹּר!',
+  legendary: 'מַשֶּׁהוּ עֲנָק!! תִּשְׁבֹּר מַהֵר!',
 };
+
+// Crack strokes over the egg (viewBox 0 0 120 150), revealed one per tap — their
+// colour is the rarity hint that builds as you crack it open.
+const CRACKS = [
+  'M60 34 L54 66 L64 88',
+  'M60 34 L70 60 L60 92',
+  'M38 76 L58 82 L46 108',
+  'M82 72 L62 84 L74 112',
+  'M60 92 L55 118 L67 132',
+  'M28 62 L50 78',
+  'M92 66 L70 80',
+];
 
 export function HatchReveal() {
   const outcome = useGame((s) => s.hatchResult);
   const dismiss = useGame((s) => s.dismissHatch);
   const reduced = useReducedMotion();
   const [stage, setStage] = useState<'shaking' | 'revealed'>('shaking');
+  const [taps, setTaps] = useState(0);
 
   const rarity = outcome?.rarity ?? 'common';
   const rarityLevel = RARITY_RANK[rarity];
   const shakeMs = SHAKE_MS_BY_RARITY[rarity];
+  const tapsNeeded = 3 + rarityLevel; // rarer eggs take a few more taps to crack
 
   // Sparks converging on the egg during the buildup.
   const sparks = useMemo(() => {
@@ -53,14 +67,18 @@ export function HatchReveal() {
     });
   }, [outcome]);
 
-  // Suspense phase: rising charge tone + escalating haptic thumps, then reveal.
+  // Reset to the cracking phase whenever a fresh egg arrives.
   useEffect(() => {
     if (!outcome) return;
-    if (reduced) {
-      setStage('revealed');
-      return;
-    }
-    setStage('shaking');
+    setTaps(0);
+    setStage(reduced ? 'revealed' : 'shaking');
+  }, [outcome, reduced]);
+
+  // Cracking ambiance: a rising charge tone + escalating haptic thumps. The
+  // player taps to crack it open (see onTap); if they don't, it auto-opens
+  // after shakeMs as a fallback so it never gets stuck.
+  useEffect(() => {
+    if (!outcome || reduced || stage !== 'shaking') return;
     const muted = useGame.getState().muted;
     const stopCharge = playCharge(muted, shakeMs, rarityLevel);
     const beats = 2 + rarityLevel;
@@ -73,7 +91,19 @@ export function HatchReveal() {
       thumps.forEach((id) => window.clearTimeout(id));
       stopCharge();
     };
-  }, [outcome, reduced, shakeMs, rarityLevel]);
+  }, [outcome, reduced, shakeMs, rarityLevel, stage]);
+
+  const onTap = () => {
+    if (stage !== 'shaking') return;
+    const muted = useGame.getState().muted;
+    setTaps((n) => {
+      const next = n + 1;
+      haptic(10 + Math.min(70, next * 14));
+      playClick(muted, next * 4);
+      if (next >= tapsNeeded) setStage('revealed');
+      return next;
+    });
+  };
 
   // The crack, the jingle, the spoken name, confetti and haptics on reveal.
   // muted is read fresh so toggling it mid-reveal never replays anything.
@@ -114,7 +144,12 @@ export function HatchReveal() {
     >
       {stage === 'shaking' ? (
         <div className="flex flex-col items-center">
-          <div className="relative flex h-60 w-60 items-center justify-center">
+          <button
+            type="button"
+            onPointerDown={onTap}
+            aria-label="לחץ לפתוח את הביצה"
+            className="relative flex h-60 w-60 touch-none select-none items-center justify-center rounded-full outline-none focus-visible:ring-4 focus-visible:ring-cy active:scale-95"
+          >
             {!reduced && (
               <span
                 className="anim-charge pointer-events-none absolute inset-0 rounded-full"
@@ -148,15 +183,19 @@ export function HatchReveal() {
               viewBox="0 0 120 150"
               width="176"
               height="220"
-              className={`relative glow-goo ${reduced ? '' : 'anim-egg-shake'}`}
+              className={`relative glow-goo ${reduced || taps > 0 ? '' : 'anim-egg-shake'}`}
               style={reduced ? undefined : { animationDuration: `${Math.max(0.14, 0.28 - rarityLevel * 0.04)}s` }}
               aria-hidden
             >
               <ellipse cx="60" cy="82" rx="46" ry="58" fill="#FFF4E0" stroke="#2A1508" strokeWidth="6" strokeLinejoin="round" />
               <path d="M30 78 l10 -10 l8 10 l10 -12 l9 12 l9 -10 l9 10" fill="none" stroke="#A3FF12" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
               <ellipse cx="45" cy="58" rx="9" ry="13" fill="#A3FF12" opacity="0.4" />
+              {/* Cracks grow with each tap, in the rarity colour — the hint. */}
+              {CRACKS.slice(0, taps).map((d, i) => (
+                <path key={i} d={d} fill="none" stroke={rarityColor[rarity]} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+              ))}
             </svg>
-          </div>
+          </button>
           <p className="mt-8 font-display text-2xl" style={{ color: rarityLevel >= 2 ? rarityColor[rarity] : '#FFF4E0D9' }}>
             {SHAKING_TEXT[rarity]}
           </p>

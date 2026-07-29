@@ -1,13 +1,10 @@
-// Screen 2 — hatching (§10.2). Single reveal + bulk hatch (×10 / all), the next
-// egg cost, a pity meter, and a "how much is missing" hint.
+// Screen 2 — eggs (§10.2). New model: you BUY eggs into an inventory (the price
+// climbs with every egg acquired), then OPEN them — one at a time by tapping the
+// egg crack-by-crack (the reveal overlay), or the whole stash at once with
+// "בקע הכל". A pity meter and a "how much is missing" hint round it out.
 
-import { playError } from '../../audio/sfx';
-import {
-  bulkHatchMax,
-  bulkHatchTen,
-  pityLegendaryThreshold,
-  pityRareThreshold,
-} from '../../game/balance';
+import { playError, playPurchase } from '../../audio/sfx';
+import { pityLegendaryThreshold, pityRareThreshold } from '../../game/balance';
 import { formatGoo } from '../../game/format';
 import { isLegendaryOwned } from '../../game/hatching';
 import { selectEggCost, useGame } from '../../store';
@@ -17,40 +14,58 @@ import { useReducedMotion } from '../useReducedMotion';
 export function HatchScreen() {
   const goo = useGame((s) => s.goo);
   const cost = useGame(selectEggCost);
+  const eggs = useGame((s) => s.eggs);
   const sinceRare = useGame((s) => s.sinceRare);
   const totalHatches = useGame((s) => s.totalHatches);
   const characters = useGame((s) => s.characters);
-  const tryHatch = useGame((s) => s.tryHatch);
-  const hatchMany = useGame((s) => s.hatchMany);
+  const buyEgg = useGame((s) => s.buyEgg);
+  const buyEggsMax = useGame((s) => s.buyEggsMax);
+  const openEgg = useGame((s) => s.openEgg);
+  const openAllEggs = useGame((s) => s.openAllEggs);
   const reduced = useReducedMotion();
 
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
+  const hasEggs = eggs > 0;
   const legendaryOwned = isLegendaryOwned(characters);
 
   const rareLeft = Math.max(0, pityRareThreshold - sinceRare);
   const legLeft = Math.max(0, pityLegendaryThreshold - totalHatches);
 
-  const bulk = (n: number) => {
-    if (canAfford) {
-      hatchMany(n);
-      haptic(20);
-    } else {
+  const buy = (all: boolean) => {
+    if (!canAfford) {
       playError(useGame.getState().muted);
+      return;
     }
+    if (all) buyEggsMax();
+    else buyEgg();
+    playPurchase(useGame.getState().muted);
+    haptic(15);
+  };
+
+  const open = () => {
+    if (!hasEggs) return;
+    openEgg();
+    haptic(15);
+  };
+
+  const openAll = () => {
+    if (!hasEggs) return;
+    openAllEggs();
+    haptic([0, 20, 15, 30]);
   };
 
   return (
     <div className="anim-tab-in flex h-full flex-col items-center justify-between px-6 py-6">
       <header className="text-center">
         <h1 className="font-display text-4xl text-bone">בְּקִיעָה</h1>
-        <p className="mt-1 text-sm text-bone/60">בוקעים ביצה — מגלים יצור!</p>
+        <p className="mt-1 text-sm text-bone/60">קונים ביצים — פותחים ומגלים יצורים!</p>
       </header>
 
       {/* pity meter */}
       <div className="w-full max-w-xs space-y-2">
         <PityBar
-          label={rareLeft === 0 ? 'הבקיעה הבאה: נדיר מובטח! ✨' : `עוד ${rareLeft} עד נדיר מובטח`}
+          label={rareLeft === 0 ? 'הפתיחה הבאה: נדיר מובטח! ✨' : `עוד ${rareLeft} עד נדיר מובטח`}
           value={sinceRare}
           max={pityRareThreshold}
           color="#FF2E88"
@@ -65,58 +80,79 @@ export function HatchScreen() {
         )}
       </div>
 
+      {/* The stash: tap the egg to open one (crack-by-crack in the overlay). */}
       <div className="relative flex flex-1 items-center justify-center">
         <div
           className={`pointer-events-none absolute h-56 w-56 rounded-full ${reduced ? '' : 'anim-breathe'}`}
           style={{ background: 'radial-gradient(circle, rgba(255,216,77,0.28), transparent 65%)' }}
         />
-        <svg viewBox="0 0 120 150" width="168" height="210" className={reduced ? '' : 'anim-idle'} aria-hidden>
-          <ellipse cx="60" cy="82" rx="46" ry="58" fill="#FFF4E0" stroke="#2A1508" strokeWidth="6" strokeLinejoin="round" />
-          <path d="M30 78 l10 -10 l8 10 l10 -12 l9 12 l9 -10 l9 10" fill="none" stroke="#A3FF12" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-          <ellipse cx="46" cy="60" rx="9" ry="13" fill="#A3FF12" opacity="0.5" />
-          <circle cx="74" cy="66" r="3" fill="#FFD84D" opacity="0.7" />
-        </svg>
+        <button
+          type="button"
+          onClick={open}
+          disabled={!hasEggs}
+          aria-label={hasEggs ? 'פתח ביצה' : 'אין ביצים'}
+          className={`relative touch-none select-none rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-cy ${
+            hasEggs ? 'active:scale-95' : 'opacity-60'
+          }`}
+        >
+          <svg viewBox="0 0 120 150" width="168" height="210" className={reduced || !hasEggs ? '' : 'anim-idle'} aria-hidden>
+            <ellipse cx="60" cy="82" rx="46" ry="58" fill="#FFF4E0" stroke="#2A1508" strokeWidth="6" strokeLinejoin="round" />
+            <path d="M30 78 l10 -10 l8 10 l10 -12 l9 12 l9 -10 l9 10" fill="none" stroke="#A3FF12" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+            <ellipse cx="45" cy="58" rx="9" ry="13" fill="#A3FF12" opacity="0.4" />
+            <circle cx="74" cy="66" r="3" fill="#FFD84D" opacity="0.7" />
+          </svg>
+          {/* inventory count badge */}
+          <span
+            className="absolute -end-1 -top-1 flex h-9 min-w-9 items-center justify-center rounded-full bg-hot px-2 font-display text-lg text-bone tabular ring-2 ring-void/60"
+            style={{ boxShadow: '0 0 14px rgba(255,46,136,0.7)' }}
+          >
+            {eggs}
+          </span>
+        </button>
       </div>
 
       <div className="w-full max-w-xs text-center">
-        <div className="mb-3 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-pop tabular ring-hairline">
-          מחיר ביצה: {formatGoo(cost)} גּוּ
-        </div>
-        <button
-          type="button"
-          onClick={tryHatch}
-          disabled={!canAfford}
-          className={`btn w-full py-5 text-3xl ${
-            canAfford ? 'bg-hot text-bone glow-hot' : 'bg-surface text-bone/35 ring-hairline'
-          }`}
-        >
-          בְּקַע
-        </button>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => bulk(bulkHatchTen)}
-            disabled={!canAfford}
-            className={`btn py-3 text-lg ${
-              canAfford ? 'bg-goo text-void' : 'bg-surface text-bone/35 ring-hairline'
-            }`}
-          >
-            בְּקַע ×{bulkHatchTen}
-          </button>
-          <button
-            type="button"
-            onClick={() => bulk(bulkHatchMax)}
-            disabled={!canAfford}
-            className={`btn py-3 text-lg ${
-              canAfford ? 'bg-cy text-void' : 'bg-surface text-bone/35 ring-hairline'
-            }`}
-          >
-            בְּקַע הַכֹּל
-          </button>
-        </div>
-        {!canAfford && (
-          <p className="mt-3 text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>
+        {hasEggs ? (
+          <p className="mb-3 text-sm text-bone/70">לְחַץ עַל הַבֵּיצָה לִפְתֹּחַ אוֹתָהּ! 🥚</p>
+        ) : (
+          <p className="mb-3 text-sm text-bone/70">אֵין לְךָ בֵּיצִים — קְנֵה אַחַת!</p>
         )}
+
+        {/* Open controls appear once you have a stash. */}
+        {hasEggs && (
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <button type="button" onClick={open} className="btn bg-hot py-3 text-lg text-bone glow-hot">
+              פְּתַח בֵּיצָה
+            </button>
+            <button type="button" onClick={openAll} className="btn bg-cy py-3 text-lg text-void">
+              בְּקַע הַכֹּל ({eggs})
+            </button>
+          </div>
+        )}
+
+        {/* Buy controls. */}
+        <div className="mb-2 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-pop tabular ring-hairline">
+          מְחִיר בֵּיצָה: {formatGoo(cost)} גּוּ
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => buy(false)}
+            disabled={!canAfford}
+            className={`btn py-4 text-xl ${canAfford ? 'bg-goo text-void glow-goo' : 'bg-surface text-bone/35 ring-hairline'}`}
+          >
+            קְנֵה בֵּיצָה
+          </button>
+          <button
+            type="button"
+            onClick={() => buy(true)}
+            disabled={!canAfford}
+            className={`btn py-4 text-xl ${canAfford ? 'bg-goo/80 text-void' : 'bg-surface text-bone/35 ring-hairline'}`}
+          >
+            קְנֵה מַקְּסִימוּם
+          </button>
+        </div>
+        {!canAfford && <p className="mt-3 text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>}
       </div>
     </div>
   );

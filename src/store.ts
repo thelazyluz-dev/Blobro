@@ -8,10 +8,12 @@ import {
   bonusIncomeSeconds,
   bonusMinGoo,
   critMultiplier,
+  eggBuyMaxPerPress,
   evolveLevels,
   frenzyDurationMs,
   frenzyMultiplier,
   leaderboardMaxEntries,
+  openAllCap,
   leaderboardNameMaxLen,
   maxEvolution,
   upgradeAllCooldownMs,
@@ -44,7 +46,7 @@ import {
   upgradeAllFee,
 } from './game/economy';
 import { formatGoo } from './game/format';
-import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
+import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
@@ -77,6 +79,7 @@ interface GameState {
   lifetimeGoo: number;
   upgrades: Upgrades;
   characters: OwnedCharacters;
+  eggs: number;
   totalHatches: number;
   sinceRare: number;
   bonusesCollected: number;
@@ -115,8 +118,10 @@ interface GameState {
   setTab: (tab: Tab) => void;
   click: () => { gain: number; frenzy: boolean; crit: boolean };
   buyUpgrade: (id: UpgradeId) => void;
-  tryHatch: () => void;
-  hatchMany: (maxCount: number) => void;
+  buyEgg: () => void;
+  buyEggsMax: () => void;
+  openEgg: () => void;
+  openAllEggs: () => void;
   evolveCreature: (id: CharId) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
@@ -177,11 +182,12 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 7,
+    version: 8,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
     characters: s.characters,
+    eggs: s.eggs,
     totalHatches: s.totalHatches,
     sinceRare: s.sinceRare,
     bonusesCollected: s.bonusesCollected,
@@ -213,6 +219,7 @@ export const useGame = create<GameState>((set, get) => {
     lifetimeGoo: 0,
     upgrades: { finger: 0, power: 0, autoTap: 0, nurture: 0, crit: 0, luck: 0 },
     characters: {},
+    eggs: 0,
     totalHatches: 0,
     sinceRare: 0,
     bonusesCollected: 0,
@@ -261,6 +268,7 @@ export const useGame = create<GameState>((set, get) => {
         lifetimeGoo: save.lifetimeGoo + (report?.goo ?? 0),
         upgrades: save.upgrades,
         characters: save.characters,
+        eggs: save.eggs,
         totalHatches: save.totalHatches,
         sinceRare: save.sinceRare,
         bonusesCollected: save.bonusesCollected,
@@ -303,10 +311,28 @@ export const useGame = create<GameState>((set, get) => {
       set({ goo: s.goo - cost, upgrades: { ...s.upgrades, [id]: s.upgrades[id] + 1 } });
     },
 
-    tryHatch: () => {
+    // Buy ONE egg into inventory. The price climbs with every egg ever acquired
+    // (opened + still held), so it keeps rising however you pace your opening.
+    buyEgg: () => {
       const s = get();
-      const cost = eggCost(s.totalHatches);
+      const cost = eggCost(s.totalHatches + s.eggs);
       if (s.goo < cost) return;
+      set({ goo: s.goo - cost, eggs: s.eggs + 1 });
+    },
+
+    // Buy as many eggs as you can afford right now (capped), at escalating price.
+    buyEggsMax: () => {
+      const s = get();
+      const { count, spent } = buyableEggs(s.goo, s.totalHatches + s.eggs, eggBuyMaxPerPress, eggCost);
+      if (count === 0) return;
+      set({ goo: s.goo - spent, eggs: s.eggs + count });
+    },
+
+    // Open a single egg from inventory (free — it was paid for at purchase). The
+    // outcome is rolled now; the reveal overlay lets the player tap it open.
+    openEgg: () => {
+      const s = get();
+      if (s.eggs <= 0) return;
 
       const outcome = hatch(Math.random, {
         owned: s.characters,
@@ -325,7 +351,7 @@ export const useGame = create<GameState>((set, get) => {
       };
 
       set({
-        goo: s.goo - cost + outcome.gooReward,
+        eggs: s.eggs - 1,
         lifetimeGoo: s.lifetimeGoo + outcome.gooReward,
         characters,
         totalHatches: outcome.nextTotalHatches,
@@ -334,22 +360,22 @@ export const useGame = create<GameState>((set, get) => {
       });
     },
 
-    hatchMany: (maxCount) => {
+    // Open the whole inventory at once (free) — summarised in the batch modal.
+    openAllEggs: () => {
       const s = get();
-      const result = hatchBatch({
+      if (s.eggs <= 0) return;
+      const result = openEggs({
         rng: Math.random,
-        goo: s.goo,
         owned: s.characters,
         sinceRare: s.sinceRare,
         totalHatches: s.totalHatches,
         luck: mods().luck,
-        maxCount,
-        eggCost,
+        count: Math.min(s.eggs, openAllCap),
       });
-      if (result.count === 0) return; // couldn't afford even one
+      if (result.count === 0) return;
 
       set({
-        goo: result.goo,
+        eggs: s.eggs - result.count,
         lifetimeGoo: s.lifetimeGoo + result.gooFromDupes,
         characters: result.owned,
         totalHatches: result.totalHatches,
@@ -594,12 +620,14 @@ export const useGame = create<GameState>((set, get) => {
         lifetimeGoo: fresh.lifetimeGoo,
         upgrades: { ...fresh.upgrades },
         characters: {},
+        eggs: 0,
         totalHatches: 0,
         sinceRare: 0,
         bonusesCollected: 0,
         clicks: 0,
         leaderboard: [],
         achievements: [],
+        milestone: null,
         ownedCosmetics: [...fresh.ownedCosmetics],
         equippedBlob: fresh.equippedBlob,
         equippedBackground: fresh.equippedBackground,
@@ -648,7 +676,7 @@ export const selectMods = (s: GameState): Modifiers => modsOf(s);
 export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(s));
 /** The active permanent income bonus (star) as a fraction, e.g. 0.2 = +20%. */
 export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
-export const selectEggCost = (s: GameState) => eggCost(s.totalHatches);
+export const selectEggCost = (s: GameState) => eggCost(s.totalHatches + s.eggs);
 export const selectClickPower = (s: GameState) => clickPower(modsOf(s));
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);
 export const selectAchContext = (s: GameState): AchievementContext => achContextOf(s);

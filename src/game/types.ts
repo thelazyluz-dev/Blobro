@@ -56,11 +56,12 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 7;
+  version: 8;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;
   characters: OwnedCharacters;
+  eggs: number; // unopened eggs in the player's inventory
   totalHatches: number;
   sinceRare: number;
   bonusesCollected: number;

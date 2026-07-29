@@ -126,7 +126,9 @@ export function MultiHatchResult() {
           {incomeGained > 0 && (
             <div className="text-goo tabular">+{formatGoo(incomeGained)} גּוּ/שנייה נוֹסָף</div>
           )}
-          <div className="text-bone/50 tabular">עלות: {formatGoo(result.spent)} גּוּ</div>
+          {result.spent > 0 && (
+            <div className="text-bone/50 tabular">עלות: {formatGoo(result.spent)} גּוּ</div>
+          )}
         </div>
 
         <button type="button" onClick={dismiss} className="btn mt-4 w-full bg-cy py-3 text-xl text-void">

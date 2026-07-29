@@ -85,20 +85,18 @@ export interface HatchOutcome {
  * Perform one hatch. Returns the outcome plus the updated pity counters.
  * Does NOT mutate anything — the caller (store) applies the result.
  */
-export interface BatchInput {
+export interface OpenInput {
   rng: () => number;
-  goo: number;
   owned: OwnedCharacters;
   sinceRare: number;
   totalHatches: number;
   luck: number;
-  maxCount: number;
-  eggCost: (n: number) => number;
+  count: number; // how many eggs from inventory to open
 }
 
 export interface BatchResult {
   count: number; // eggs actually hatched
-  spent: number; // goo spent on eggs
+  spent: number; // goo spent (0 for opening — eggs were paid for when bought)
   gooFromDupes: number; // goo earned back from maxed duplicates
   goo: number; // resulting goo (after spend + dupe refunds)
   owned: OwnedCharacters; // updated (new object)
@@ -114,28 +112,45 @@ export interface BatchResult {
 const rarityRank: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
 
 /**
- * Hatch up to `maxCount` eggs in one go, stopping when goo runs out. Pure —
- * returns the aggregated result and the updated state for the store to apply.
+ * How many eggs can be bought with `goo`, and the total goo spent — using the
+ * escalating price where `acquired` is how many eggs have EVER been acquired
+ * (opened + still in inventory), so the price keeps climbing across sessions.
  */
-export function hatchBatch(input: BatchInput): BatchResult {
-  let { goo, sinceRare, totalHatches } = input;
+export function buyableEggs(
+  goo: number,
+  acquired: number,
+  maxCount: number,
+  eggCost: (n: number) => number,
+): { count: number; spent: number } {
+  let count = 0;
+  let spent = 0;
+  let n = acquired;
+  while (count < maxCount) {
+    const cost = eggCost(n);
+    if (goo - spent < cost) break;
+    spent += cost;
+    n += 1;
+    count += 1;
+  }
+  return { count, spent };
+}
+
+/**
+ * Open `count` eggs from inventory in one go — no goo cost (they were paid for
+ * when bought). Pure; returns the aggregated result for the store to apply.
+ */
+export function openEggs(input: OpenInput): BatchResult {
+  let { sinceRare, totalHatches } = input;
   const owned: OwnedCharacters = { ...input.owned };
   const rarityTally: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 };
   const charTally: Partial<Record<CharId, number>> = {};
   const newIds: CharId[] = [];
   const levelUps: Partial<Record<CharId, number>> = {};
   let count = 0;
-  let spent = 0;
   let gooFromDupes = 0;
   let bestRarity: Rarity | null = null;
 
-  for (let i = 0; i < input.maxCount; i++) {
-    const cost = input.eggCost(totalHatches);
-    if (goo < cost) break;
-
-    goo -= cost;
-    spent += cost;
-
+  for (let i = 0; i < input.count; i++) {
     const outcome = hatch(input.rng, { owned, sinceRare, totalHatches, luck: input.luck });
     const existing = owned[outcome.charId];
     owned[outcome.charId] = existing
@@ -145,10 +160,7 @@ export function hatchBatch(input: BatchInput): BatchResult {
     charTally[outcome.charId] = (charTally[outcome.charId] ?? 0) + 1;
     if (outcome.kind === 'new') newIds.push(outcome.charId);
     else if (outcome.kind === 'levelup') levelUps[outcome.charId] = (levelUps[outcome.charId] ?? 0) + 1;
-    if (outcome.gooReward > 0) {
-      gooFromDupes += outcome.gooReward;
-      goo += outcome.gooReward;
-    }
+    if (outcome.gooReward > 0) gooFromDupes += outcome.gooReward;
 
     rarityTally[outcome.rarity]++;
     if (!bestRarity || rarityRank[outcome.rarity] > rarityRank[bestRarity]) bestRarity = outcome.rarity;
@@ -160,9 +172,9 @@ export function hatchBatch(input: BatchInput): BatchResult {
 
   return {
     count,
-    spent,
+    spent: 0,
     gooFromDupes,
-    goo,
+    goo: 0, // unused for opening — the store keeps its own goo
     owned,
     sinceRare,
     totalHatches,

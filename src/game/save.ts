@@ -32,7 +32,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 7 as const;
+export const CURRENT_VERSION = 8 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -53,6 +53,7 @@ export function defaultSaveState(now: number): SaveState {
     lifetimeGoo: 0,
     upgrades: { ...defaultUpgrades },
     characters: {},
+    eggs: 0,
     totalHatches: 0,
     sinceRare: 0,
     bonusesCollected: 0,
@@ -171,6 +172,7 @@ export function migrate(raw: unknown, now: number): SaveState {
     lifetimeGoo: Math.max(0, num(data.lifetimeGoo, 0)),
     upgrades: sanitizeUpgrades(data.upgrades, data.fingerLevel),
     characters: sanitizeCharacters(data.characters, remapLegacy),
+    eggs: nonNegInt(data.eggs, 0),
     totalHatches: nonNegInt(data.totalHatches, 0),
     sinceRare: nonNegInt(data.sinceRare, 0),
     bonusesCollected: nonNegInt(data.bonusesCollected, 0),
