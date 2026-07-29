@@ -144,8 +144,8 @@ export const rainAllBonusMult = 3;
 // eggCost(n) = round(eggCostBase × eggCostGrowth ^ n)   // n = eggs already hatched
 // Costs climb faster now so filling the collection is a longer journey — you
 // can't just spam-hatch your way to every creature in a few minutes.
-export const eggCostBase = 60;
-export const eggCostGrowth = 1.15; // bigger gap between successive eggs
+export const eggCostBase = 80;
+export const eggCostGrowth = 1.18; // steeper — each egg is a bigger investment
 
 // --- Eggs: buying & opening --------------------------------------------------
 export const eggBuyMaxPerPress = 50; // "buy max" purchases at most this many at once
@@ -157,10 +157,10 @@ export const openAllCap = 200; // safety cap for opening the whole inventory at 
 // you trip over in the first few minutes. (Pity below still guarantees them so a
 // patient player is never permanently shut out.)
 export const rarityChances: Record<Rarity, number> = {
-  common: 0.66,
-  uncommon: 0.26,
-  rare: 0.07,
-  legendary: 0.01,
+  common: 0.68,
+  uncommon: 0.27,
+  rare: 0.045, // rarer than before (was 0.07) — a rare pull feels special
+  legendary: 0.005, // ~half the old chance (was 0.01); pity still guarantees one
 };
 
 // --- Pity --------------------------------------------------------------------
