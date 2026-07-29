@@ -162,12 +162,17 @@ export function CollectionScreen() {
                   const evolved = stage > 0;
                   const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
                   const canLevel = affordableCreatureLevels(def.rarity, held, m, goo);
+                  // Ready to evolve = reached the next stage's level threshold and
+                  // not already maxed. Glows gold so it's visible without opening.
+                  const evolveReady = stage < maxEvolution && held.level >= evolveLevels[stage];
                   return (
                     <button
                       key={id}
                       type="button"
                       onClick={() => open(id)}
-                      className="relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
+                      className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95 ${
+                        evolveReady ? 'anim-evolve-glow' : ''
+                      }`}
                       style={{
                         backgroundColor: '#170a29',
                         boxShadow: evolved
@@ -180,8 +185,11 @@ export function CollectionScreen() {
                           {canLevel > 99 ? '99' : canLevel}
                         </span>
                       )}
-                      {evolved && (
-                        <span className="absolute end-1 top-1 text-sm">✨{stage > 1 ? stage : ''}</span>
+                      {evolveReady && (
+                        <span className="absolute end-1 top-1 z-10 text-sm" title="מוכן לאבולוציה">⬆️✨</span>
+                      )}
+                      {evolved && !evolveReady && (
+                        <span className="absolute end-1 top-1 text-sm">✨{stage}</span>
                       )}
                       <CharacterBody id={id} className="h-12 w-12" />
                       <span
@@ -352,7 +360,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             type="button"
             onClick={onEvolve}
             className={`btn mt-3 flex w-full flex-col items-center py-2.5 ${
-              affordEvolve ? 'text-void' : 'text-void/70'
+              affordEvolve ? 'anim-evolve-glow text-void' : 'text-void/70'
             }`}
             style={{ background: 'linear-gradient(135deg,#FFD84D,#FF2E88)' }}
           >

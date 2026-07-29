@@ -57,7 +57,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-bubble',
     kind: 'blob',
     nameHe: 'כַּדּוּר תּוּתִי',
-    cost: 8_000,
+    cost: 25_000,
     clickBonus: 0.08,
     shape: 'round',
     colors: { body: '#FF63A6', belly: '#E24A8C', highlight: '#FF9AC7', arm: '#FF63A6' },
@@ -66,7 +66,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-aqua',
     kind: 'blob',
     nameHe: 'רוּחַ יָם',
-    cost: 120_000,
+    cost: 600_000,
     clickBonus: 0.14,
     shape: 'ghost',
     colors: { body: '#7FE9FF', belly: '#4FC8E6', highlight: '#CFF7FF', arm: '#7FE9FF' },
@@ -75,7 +75,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-gold',
     kind: 'blob',
     nameHe: 'כּוֹכָב זָהָב',
-    cost: 2_000_000,
+    cost: 18_000_000,
     clickBonus: 0.22,
     shape: 'star',
     colors: { body: '#FFD84D', belly: '#E0B62A', highlight: '#FFEDA0', arm: '#FFD84D' },
@@ -84,7 +84,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-grape',
     kind: 'blob',
     nameHe: 'לֵב עֲנָבִים',
-    cost: 40_000_000,
+    cost: 600_000_000,
     clickBonus: 0.3,
     shape: 'heart',
     colors: { body: '#9B5DE5', belly: '#7A3FB0', highlight: '#C9A6F0', arm: '#9B5DE5' },
@@ -93,7 +93,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-flame',
     kind: 'blob',
     nameHe: 'שֶׁמֶשׁ לוֹהֶטֶת',
-    cost: 1_000_000_000,
+    cost: 25_000_000_000,
     clickBonus: 0.38,
     shape: 'spiky',
     colors: { body: '#FF7A1A', belly: '#E85D00', highlight: '#FFC27A', arm: '#FF7A1A' },
@@ -102,7 +102,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-crystal',
     kind: 'blob',
     nameHe: 'כּוֹכַב קְרִיסְטָל',
-    cost: 100_000_000_000,
+    cost: 1_200_000_000_000,
     clickBonus: 0.46,
     shape: 'star',
     colors: { body: '#00E5FF', belly: '#00B4CC', highlight: '#BEF9FF', arm: '#00E5FF' },
@@ -111,7 +111,7 @@ export const blobSkins: BlobSkin[] = [
     id: 'blob-cosmic',
     kind: 'blob',
     nameHe: 'כַּדּוּר קוֹסְמִי',
-    cost: 5_000_000_000_000,
+    cost: 80_000_000_000_000,
     clickBonus: 0.55,
     shape: 'round',
     colors: { body: '#3A2B7A', belly: '#241a52', highlight: '#8A6BE0', arm: '#5B3FA0' },
@@ -134,7 +134,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-ocean',
     kind: 'background',
     nameHe: 'מַעֲמַקֵּי יָם',
-    cost: 8_000,
+    cost: 30_000,
     incomeBonus: 0.08,
     gradient:
       'radial-gradient(70% 60% at 50% 0%, rgba(0,229,255,0.3), transparent 60%),' +
@@ -145,7 +145,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-sunset',
     kind: 'background',
     nameHe: 'שְׁקִיעָה',
-    cost: 120_000,
+    cost: 750_000,
     incomeBonus: 0.14,
     gradient:
       'linear-gradient(180deg, rgba(120,40,140,0.35) 0%, rgba(255,120,60,0.35) 55%, rgba(255,200,80,0.4) 100%),' +
@@ -155,7 +155,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-forest',
     kind: 'background',
     nameHe: 'יַעַר קָסוּם',
-    cost: 2_000_000,
+    cost: 22_000_000,
     incomeBonus: 0.2,
     gradient:
       'radial-gradient(60% 50% at 82% 14%, rgba(163,255,18,0.26), transparent 60%),' +
@@ -166,7 +166,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-galaxy',
     kind: 'background',
     nameHe: 'גָּלַקְסִיָּה',
-    cost: 40_000_000,
+    cost: 750_000_000,
     incomeBonus: 0.26,
     gradient:
       'radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),' +
@@ -181,7 +181,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-neon',
     kind: 'background',
     nameHe: 'רֶשֶׁת נֵאוֹן',
-    cost: 1_000_000_000,
+    cost: 30_000_000_000,
     incomeBonus: 0.32,
     gradient:
       'repeating-linear-gradient(0deg, rgba(0,229,255,0.10) 0 1px, transparent 1px 44px),' +
@@ -192,7 +192,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-candy',
     kind: 'background',
     nameHe: 'סֻכָּרִיָּה',
-    cost: 100_000_000_000,
+    cost: 1_500_000_000_000,
     incomeBonus: 0.4,
     gradient:
       'conic-gradient(from 0deg at 50% 42%, rgba(255,46,136,0.28), rgba(0,229,255,0.28), rgba(255,216,77,0.28), rgba(163,255,18,0.28), rgba(255,46,136,0.28))',
@@ -201,7 +201,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-lava',
     kind: 'background',
     nameHe: 'לָבָה',
-    cost: 5_000_000_000_000,
+    cost: 100_000_000_000_000,
     incomeBonus: 0.5,
     gradient:
       'radial-gradient(90% 60% at 50% 100%, rgba(255,90,0,0.5), transparent 60%),' +
@@ -213,11 +213,11 @@ export const backgroundSkins: BackgroundSkin[] = [
 
 export const accessories: Accessory[] = [
   { id: DEFAULT_ACCESSORY, kind: 'accessory', nameHe: 'בְּלִי', cost: 0, clickBonus: 0, art: 'none' },
-  { id: 'acc-hat', kind: 'accessory', nameHe: 'כּוֹבַע מְסִבָּה', cost: 20_000, clickBonus: 0.05, art: 'hat' },
-  { id: 'acc-glasses', kind: 'accessory', nameHe: 'מִשְׁקְפֵי שֶׁמֶשׁ', cost: 300_000, clickBonus: 0.08, art: 'glasses' },
-  { id: 'acc-bow', kind: 'accessory', nameHe: 'פַּפְּיוֹן', cost: 5_000_000, clickBonus: 0.12, art: 'bow' },
-  { id: 'acc-crown', kind: 'accessory', nameHe: 'כֶּתֶר מֶלֶךְ', cost: 200_000_000, clickBonus: 0.2, art: 'crown' },
-  { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 10_000_000_000, clickBonus: 0.28, art: 'halo' },
+  { id: 'acc-hat', kind: 'accessory', nameHe: 'כּוֹבַע מְסִבָּה', cost: 60_000, clickBonus: 0.05, art: 'hat' },
+  { id: 'acc-glasses', kind: 'accessory', nameHe: 'מִשְׁקְפֵי שֶׁמֶשׁ', cost: 1_500_000, clickBonus: 0.08, art: 'glasses' },
+  { id: 'acc-bow', kind: 'accessory', nameHe: 'פַּפְּיוֹן', cost: 50_000_000, clickBonus: 0.12, art: 'bow' },
+  { id: 'acc-crown', kind: 'accessory', nameHe: 'כֶּתֶר מֶלֶךְ', cost: 2_500_000_000, clickBonus: 0.2, art: 'crown' },
+  { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 150_000_000_000, clickBonus: 0.28, art: 'halo' },
 ];
 
 export const cosmeticsById = new Map<string, Cosmetic>(

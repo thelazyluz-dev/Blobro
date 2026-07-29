@@ -40,10 +40,12 @@ const Face: FC<{ eyeY: number; spread: number; mouthY: number }> = ({ eyeY, spre
   <>
     <ellipse cx={100 - spread} cy={eyeY} rx="15" ry="18" fill={EYE_W} stroke={OUT} strokeWidth="4" />
     <ellipse cx={100 + spread} cy={eyeY} rx="15" ry="18" fill={EYE_W} stroke={OUT} strokeWidth="4" />
-    <circle cx={100 - spread + 3} cy={eyeY + 3} r="7.5" fill={PUP} />
-    <circle cx={100 + spread + 3} cy={eyeY + 3} r="7.5" fill={PUP} />
-    <circle cx={100 - spread + 6} cy={eyeY} r="2.6" fill={EYE_W} />
-    <circle cx={100 + spread + 6} cy={eyeY} r="2.6" fill={EYE_W} />
+    <g className="blob-pupils">
+      <circle cx={100 - spread + 3} cy={eyeY + 3} r="7.5" fill={PUP} />
+      <circle cx={100 + spread + 3} cy={eyeY + 3} r="7.5" fill={PUP} />
+      <circle cx={100 - spread + 6} cy={eyeY} r="2.6" fill={EYE_W} />
+      <circle cx={100 + spread + 6} cy={eyeY} r="2.6" fill={EYE_W} />
+    </g>
     <path
       d={`M${100 - 24} ${mouthY} Q100 ${mouthY + 26} ${100 + 24} ${mouthY} Q100 ${mouthY + 12} ${100 - 24} ${mouthY} Z`}
       fill={OUT}
@@ -83,10 +85,12 @@ function GooBody({ colors }: { colors: Colors }) {
       <ellipse cx="72" cy="70" rx="26" ry="15" fill={colors.highlight} />
       <ellipse cx="76" cy="98" rx="18" ry="21" fill={EYE_W} stroke={OUT} strokeWidth="4" />
       <ellipse cx="126" cy="96" rx="18" ry="21" fill={EYE_W} stroke={OUT} strokeWidth="4" />
-      <circle cx="80" cy="102" r="9" fill={PUP} />
-      <circle cx="122" cy="100" r="9" fill={PUP} />
-      <circle cx="84" cy="98" r="3" fill={EYE_W} />
-      <circle cx="126" cy="96" r="3" fill={EYE_W} />
+      <g className="blob-pupils">
+        <circle cx="80" cy="102" r="9" fill={PUP} />
+        <circle cx="122" cy="100" r="9" fill={PUP} />
+        <circle cx="84" cy="98" r="3" fill={EYE_W} />
+        <circle cx="126" cy="96" r="3" fill={EYE_W} />
+      </g>
       <path d="M74 132 Q100 164 130 130 Q102 146 74 132 Z" fill={OUT} stroke={OUT} strokeWidth="6" strokeLinejoin="round" />
       <path d="M90 142 Q102 154 116 142 Q104 150 90 142 Z" fill="#FF2E88" />
       <rect x="98" y="131" width="8" height="7" rx="2" fill={EYE_W} />
