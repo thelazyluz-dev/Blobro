@@ -72,7 +72,7 @@ export function useGameEngine(): boolean {
       const nextMag = Math.floor(Math.log10(Math.max(1, next)));
       if (nextMag > beforeMag && nextMag >= 2) {
         playMagnitude(muted, nextMag);
-        useGame.getState().pulseMagnitude();
+        useGame.getState().pulseMagnitude(nextMag);
       }
     });
     return unsub;

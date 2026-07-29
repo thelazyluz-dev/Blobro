@@ -103,6 +103,7 @@ interface GameState {
   confettiKind: ConfettiKind;
   milestone: Milestone | null; // a big number milestone currently being celebrated
   magnitudePulse: number; // increments each time goo crosses an order of magnitude
+  magnitudeExp: number; // the exponent (10^exp) of the latest order-of-magnitude crossing
   // "Upgrade all" pacing (session-only, never persisted): the button is locked
   // until this epoch-ms, and its service fee doubles with each use this session.
   upgradeAllReadyAt: number;
@@ -142,7 +143,7 @@ interface GameState {
   triggerConfetti: (kind: ConfettiKind) => void;
   showMilestone: (m: Milestone) => void;
   dismissMilestone: () => void;
-  pulseMagnitude: () => void;
+  pulseMagnitude: (exp: number) => void;
 }
 
 let toastId = 0;
@@ -237,6 +238,7 @@ export const useGame = create<GameState>((set, get) => {
     confettiKind: 'confetti',
     milestone: null,
     magnitudePulse: 0,
+    magnitudeExp: 0,
     upgradeAllReadyAt: 0,
     upgradeAllFeeTier: 0,
 
@@ -625,7 +627,7 @@ export const useGame = create<GameState>((set, get) => {
       set({ milestone: m });
     },
     dismissMilestone: () => set({ milestone: null }),
-    pulseMagnitude: () => set((s) => ({ magnitudePulse: s.magnitudePulse + 1 })),
+    pulseMagnitude: (exp) => set((s) => ({ magnitudePulse: s.magnitudePulse + 1, magnitudeExp: exp })),
   };
 });
 

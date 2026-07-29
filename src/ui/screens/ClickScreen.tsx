@@ -85,7 +85,10 @@ export function ClickScreen() {
   const rainBonusTimer = useRef<number>();
   const [critFlash, setCritFlash] = useState(false);
   const [magFlash, setMagFlash] = useState(false);
+  const [magBanner, setMagBanner] = useState<{ id: number; exp: number } | null>(null);
+  const magBannerTimer = useRef<number>();
   const magnitudePulse = useGame((s) => s.magnitudePulse);
+  const magnitudeExp = useGame((s) => s.magnitudeExp);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [combo, setCombo] = useState(0);
   const [comboBurst, setComboBurst] = useState<{ id: number; milestone: number; amount: number } | null>(null);
@@ -118,13 +121,20 @@ export function ClickScreen() {
     return () => window.clearInterval(iv);
   }, [frenzyUntil]);
 
-  // Order-of-magnitude flash: brief screen glow when the counter gains a digit.
+  // Order-of-magnitude crossing: strong flash + a punchy banner + a haptic
+  // thump, so every new digit is unmistakable.
   useEffect(() => {
-    if (magnitudePulse === 0 || reduced) return;
+    if (magnitudePulse === 0) return;
+    haptic([0, 30, 20, 50]);
+    if (reduced) return;
     setMagFlash(true);
-    const t = window.setTimeout(() => setMagFlash(false), 600);
-    return () => window.clearTimeout(t);
-  }, [magnitudePulse, reduced]);
+    setMagBanner({ id: magnitudePulse, exp: magnitudeExp });
+    const tf = window.setTimeout(() => setMagFlash(false), 700);
+    window.clearTimeout(magBannerTimer.current);
+    magBannerTimer.current = window.setTimeout(() => setMagBanner(null), 1100);
+    return () => window.clearTimeout(tf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [magnitudePulse]);
 
   // Counter pop on change.
   useEffect(() => {
@@ -321,10 +331,20 @@ export function ClickScreen() {
       )}
       {magFlash && !reduced && (
         <div
-          className="anim-crit-flash pointer-events-none absolute inset-0 z-10"
-          style={{ background: 'radial-gradient(circle, rgba(163,255,18,0.55), rgba(0,229,255,0.25) 45%, transparent 72%)' }}
+          className="anim-mag-flash pointer-events-none absolute inset-0 z-10"
+          style={{ background: 'radial-gradient(circle, rgba(163,255,18,0.8), rgba(0,229,255,0.4) 42%, transparent 74%)' }}
           aria-hidden
         />
+      )}
+      {magBanner && !reduced && (
+        <div
+          key={magBanner.id}
+          className="anim-mag-banner pointer-events-none absolute inset-x-0 top-56 z-30 text-center"
+        >
+          <div className="font-display text-6xl text-goo text-glow-pop">
+            🔥 {formatGoo(Math.pow(10, magBanner.exp))}!
+          </div>
+        </div>
       )}
 
       {/* Goo rain: tappable drops fall down the whole screen. */}

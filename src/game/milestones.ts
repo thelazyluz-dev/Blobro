@@ -75,10 +75,28 @@ export const milestones: Milestone[] = [
     emoji: '☀️',
   },
   {
+    goo: 200_000_000_000,
+    titleHe: 'עָשִׁיר כְּמוֹ בֶּזוֹס!',
+    factHe: 'צברת גּוּ בערך כמו ההון של ג׳ף בזוס, מייסד אֲמָזוֹן (200 מיליארד)!',
+    emoji: '📦',
+  },
+  {
+    goo: 400_000_000_000,
+    titleHe: 'הֶעָשִׁיר בָּעוֹלָם!',
+    factHe: 'צברת גּוּ בערך כמו ההון של אילון מאסק — האדם הכי עשיר בעולם!',
+    emoji: '🚀',
+  },
+  {
     goo: 1_000_000_000_000,
     titleHe: 'טְרִילְיוֹן גּוּ!!!',
     factHe: 'טריליון שניות הן יותר מ־31,000 שנה — מלפני שבני האדם המציאו את הכתב!',
     emoji: '🏆',
+  },
+  {
+    goo: 3_000_000_000_000,
+    titleHe: 'שְׁוֵה כְּמוֹ אֵפֶּל!',
+    factHe: 'הגעת לשווי של אֵפֶּל, אחת החברות היקרות בעולם — בערך 3 טריליון!',
+    emoji: '🍎',
   },
   {
     goo: 37_000_000_000_000,
@@ -112,8 +130,9 @@ export const milestones: Milestone[] = [
   },
 ];
 
-/** The milestones crossed when lifetime goo went from `prev` to `next`. */
+/** The milestones crossed when lifetime goo went from `prev` to `next`,
+ * ascending by amount (so the last is always the biggest). */
 export function milestonesCrossed(prev: number, next: number): Milestone[] {
   if (next <= prev) return [];
-  return milestones.filter((m) => prev < m.goo && m.goo <= next);
+  return milestones.filter((m) => prev < m.goo && m.goo <= next).sort((a, b) => a.goo - b.goo);
 }
