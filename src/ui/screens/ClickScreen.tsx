@@ -12,6 +12,8 @@ import {
   comboRepeatEvery,
   comboWindowMs,
   frenzyMultiplier,
+  rainAllBonusMult,
+  rainDropClickMult,
   rainDropCount,
   rainDropIncomeSeconds,
   rainDropMinGoo,
@@ -75,6 +77,10 @@ export function ClickScreen() {
   const [pop, setPop] = useState(false);
   const [bonus, setBonus] = useState<{ id: number; top: number } | null>(null);
   const [rain, setRain] = useState<RainDrop[]>([]);
+  const [dropFloaters, setDropFloaters] = useState<{ id: number; x: number; y: number; amount: number }[]>([]);
+  const [rainBonus, setRainBonus] = useState<{ id: number; amount: number } | null>(null);
+  const rainStats = useRef({ popped: 0, sum: 0, total: 0 });
+  const rainBonusTimer = useRef<number>();
   const [critFlash, setCritFlash] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [combo, setCombo] = useState(0);
@@ -151,7 +157,7 @@ export function ClickScreen() {
       rainTimer.current = window.setTimeout(() => {
         const reward = Math.max(
           Math.round(rateRef.current * rainDropIncomeSeconds),
-          Math.round(clickRef.current * 2),
+          Math.round(clickRef.current * rainDropClickMult),
           rainDropMinGoo,
         );
         const drops: RainDrop[] = Array.from({ length: rainDropCount }, () => ({
@@ -161,6 +167,7 @@ export function ClickScreen() {
           delay: Math.random() * (rainDurationMs / 1000) * 0.7,
           reward,
         }));
+        rainStats.current = { popped: 0, sum: 0, total: drops.length };
         setRain(drops);
         rainClear.current = window.setTimeout(() => {
           setRain([]);
@@ -172,13 +179,36 @@ export function ClickScreen() {
     return () => {
       window.clearTimeout(rainTimer.current);
       window.clearTimeout(rainClear.current);
+      window.clearTimeout(rainBonusTimer.current);
     };
   }, []);
 
-  const onDrop = (id: number, reward: number) => {
+  const onDrop = (e: React.PointerEvent, id: number, reward: number) => {
     setRain((prev) => prev.filter((d) => d.id !== id));
     grantGoo(reward);
-    playRainDrop(useGame.getState().muted);
+    const muted = useGame.getState().muted;
+    playRainDrop(muted);
+
+    // Show the value floating up from where it was tapped.
+    const fid = ++uid;
+    setDropFloaters((prev) => [...prev, { id: fid, x: e.clientX, y: e.clientY, amount: reward }]);
+    window.setTimeout(() => setDropFloaters((prev) => prev.filter((f) => f.id !== fid)), 700);
+
+    // Track progress toward catching the whole burst.
+    const st = rainStats.current;
+    st.popped += 1;
+    st.sum += reward;
+    if (st.total > 0 && st.popped >= st.total) {
+      const bonus = Math.round(st.sum * (rainAllBonusMult - 1));
+      st.total = 0; // guard against a double-award
+      grantGoo(bonus);
+      useGame.getState().triggerConfetti('confetti');
+      playBonus(muted);
+      haptic([0, 40, 30, 60, 30, 90]);
+      setRainBonus({ id: fid, amount: bonus });
+      window.clearTimeout(rainBonusTimer.current);
+      rainBonusTimer.current = window.setTimeout(() => setRainBonus(null), 1800);
+    }
   };
 
   const handleClick = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -284,7 +314,7 @@ export function ClickScreen() {
           key={d.id}
           type="button"
           aria-label="טיפת גּוּ"
-          onPointerDown={() => onDrop(d.id, d.reward)}
+          onPointerDown={(e) => onDrop(e, d.id, d.reward)}
           className="absolute top-0 z-20 -translate-x-1/2"
           style={{ left: `${d.left}%` }}
         >
@@ -299,6 +329,31 @@ export function ClickScreen() {
           </span>
         </button>
       ))}
+
+      {/* Value floating up from each caught drop. */}
+      {dropFloaters.map((f) => (
+        <span
+          key={f.id}
+          className={`pointer-events-none fixed z-30 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-display text-2xl tabular text-goo text-glow-pop ${
+            reduced ? '' : 'anim-float-up'
+          }`}
+          style={{ left: f.x, top: f.y }}
+        >
+          +{formatGoo(f.amount)}
+        </span>
+      ))}
+
+      {/* "Caught them all" completion bonus. */}
+      {rainBonus && (
+        <div
+          key={rainBonus.id}
+          className={`pointer-events-none absolute inset-x-0 top-44 z-30 text-center ${reduced ? '' : 'anim-pop-in'}`}
+        >
+          <div className="font-display text-4xl text-cy text-glow-pop">🌧️ כָּל הַטִּפּוֹת!</div>
+          <div className="mt-1 font-display text-3xl text-goo">בּוֹנוּס +{formatGoo(rainBonus.amount)}</div>
+        </div>
+      )}
+
       <header className="mt-2 text-center">
         <div
           className={`font-display text-7xl leading-none tabular text-glow-pop ${

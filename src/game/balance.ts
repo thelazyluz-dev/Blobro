@@ -125,7 +125,11 @@ export const rainIntervalMaxMs = 150_000;
 export const rainDurationMs = 6_000;
 export const rainDropCount = 14;
 export const rainDropIncomeSeconds = 3; // each drop ≈ this many seconds of income
+export const rainDropClickMult = 10; // …or ≈ this many taps, whichever is bigger
 export const rainDropMinGoo = 5;
+// Catch EVERY drop in a rain event and the whole haul is multiplied by this,
+// as a celebratory completion bonus (rewards fast, active tapping).
+export const rainAllBonusMult = 3;
 
 // --- Eggs --------------------------------------------------------------------
 // eggCost(n) = round(eggCostBase × eggCostGrowth ^ n)   // n = eggs already hatched
