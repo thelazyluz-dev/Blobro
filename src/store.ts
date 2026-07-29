@@ -107,6 +107,7 @@ interface GameState {
   frenzyUntil: number; // epoch ms; a click frenzy is active until then
   toasts: Toast[];
   achievementsOpen: boolean;
+  statsOpen: boolean;
   confettiBursts: number; // increments to trigger a celebration
   confettiKind: ConfettiKind;
   milestone: Milestone | null; // a big number milestone currently being celebrated
@@ -142,6 +143,7 @@ interface GameState {
   toggleMute: () => void;
   tick: (dtSeconds: number) => void;
   setAchievementsOpen: (open: boolean) => void;
+  setStatsOpen: (open: boolean) => void;
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
   setLeaderboardOpen: (open: boolean) => void;
@@ -244,6 +246,7 @@ export const useGame = create<GameState>((set, get) => {
     frenzyUntil: 0,
     toasts: [],
     achievementsOpen: false,
+    statsOpen: false,
     confettiBursts: 0,
     confettiKind: 'confetti',
     milestone: null,
@@ -565,6 +568,8 @@ export const useGame = create<GameState>((set, get) => {
 
     setAchievementsOpen: (open) => set({ achievementsOpen: open }),
 
+    setStatsOpen: (open) => set({ statsOpen: open }),
+
     // Achievements are collected by hand: the player opens the trophy panel and
     // taps each finished badge to claim its permanent income star + goo grant.
     claimAchievement: (id) => {
@@ -645,6 +650,7 @@ export const useGame = create<GameState>((set, get) => {
         offlineReport: null,
         frenzyUntil: 0,
         achievementsOpen: false,
+        statsOpen: false,
         leaderboardOpen: false,
         activeTab: 'click',
       });

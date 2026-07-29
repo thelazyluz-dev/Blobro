@@ -1,0 +1,114 @@
+// Personal stats dashboard (§ user request). A button in the top corner opens a
+// panel summarising the player's whole game: economy, activity, and collection.
+
+import { achievements } from '../game/achievements';
+import { collectionOrder } from '../game/characters';
+import { formatExact, formatGoo } from '../game/format';
+import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../store';
+
+export function StatsButton() {
+  const setOpen = useGame((s) => s.setStatsOpen);
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label="סטטיסטיקות"
+      className="absolute start-3 top-16 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-lg ring-1 ring-hairline active:scale-90"
+    >
+      📊
+    </button>
+  );
+}
+
+function Tile({ icon, label, value, color = 'text-bone' }: { icon: string; label: string; value: string; color?: string }) {
+  return (
+    <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-hairline">
+      <div className="flex items-center gap-1.5 text-[11px] text-bone/55">
+        <span>{icon}</span>
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={`mt-0.5 font-display text-lg tabular ${color}`} dir="ltr">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+export function StatsOverlay() {
+  const open = useGame((s) => s.statsOpen);
+  const setOpen = useGame((s) => s.setStatsOpen);
+  const goo = useGame((s) => s.goo);
+  const lifetimeGoo = useGame((s) => s.lifetimeGoo);
+  const clicks = useGame((s) => s.clicks);
+  const totalHatches = useGame((s) => s.totalHatches);
+  const eggs = useGame((s) => s.eggs);
+  const bonusesCollected = useGame((s) => s.bonusesCollected);
+  const characters = useGame((s) => s.characters);
+  const claimed = useGame((s) => s.achievements);
+  const rate = useGame(selectGooPerSec);
+  const perTap = useGame(selectClickPower);
+  const starBonus = useGame(selectStarBonus);
+
+  if (!open) return null;
+
+  const collected = collectionOrder.filter((id) => characters[id]).length;
+  const shiny = collectionOrder.filter((id) => (characters[id]?.evolution ?? 0) > 0).length;
+  const topLevel = Math.max(0, ...collectionOrder.map((id) => characters[id]?.level ?? 0));
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-6"
+      onClick={() => setOpen(false)}
+      role="presentation"
+    >
+      <div
+        className="surface anim-pop-in flex max-h-[86vh] w-full max-w-sm flex-col rounded-3xl p-5"
+        style={{ boxShadow: '0 0 0 2px #00E5FF, 0 24px 60px -20px #000' }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="mb-3 text-center font-display text-3xl text-bone">📊 סְטָטִיסְטִיקוֹת</div>
+
+        <div className="flex flex-col gap-4 overflow-y-auto pe-1">
+          <section>
+            <h3 className="mb-1.5 font-display text-sm text-cy">כַּלְכָּלָה 💰</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Tile icon="🫧" label="גּוּ עַכְשָׁו" value={formatGoo(goo)} color="text-goo" />
+              <Tile icon="📈" label="סַךְ הַכֹּל אֵי־פַּעַם" value={formatGoo(lifetimeGoo)} color="text-goo" />
+              <Tile icon="⏱️" label="גּוּ לְשְׁנִיָּה" value={formatGoo(rate)} color="text-cy" />
+              <Tile icon="👆" label="לְכָל נְגִיעָה" value={formatGoo(perTap)} color="text-cy" />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-1.5 font-display text-sm text-cy">פְּעִילוּת ⚡</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Tile icon="👆" label="לְחִיצוֹת" value={formatExact(clicks)} />
+              <Tile icon="🥚" label="בְּקִיעוֹת" value={formatExact(totalHatches)} />
+              <Tile icon="📦" label="בֵּיצִים בַּמְּלַאי" value={formatExact(eggs)} />
+              <Tile icon="⭐" label="בּוֹנוּסֵי זָהָב" value={formatExact(bonusesCollected)} />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-1.5 font-display text-sm text-cy">אוֹסֶף ✨</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Tile icon="🐾" label="יְצוּרִים" value={`${collected}/${collectionOrder.length}`} color="text-pop" />
+              <Tile icon="✨" label="מְנַצְנְצִים" value={formatExact(shiny)} color="text-pop" />
+              <Tile icon="🏆" label="הֶשֵּׂגִים" value={`${claimed.length}/${achievements.length}`} color="text-pop" />
+              <Tile icon="🎖️" label="הָרָמָה הַגְּבוֹהָה" value={formatExact(topLevel)} color="text-pop" />
+            </div>
+            <div className="mt-2">
+              <Tile icon="⭐" label="בּוֹנוּס הֶשֵּׂגִים קָבוּעַ" value={`+${Math.round(starBonus * 100)}%`} color="text-goo" />
+            </div>
+          </section>
+        </div>
+
+        <button type="button" onClick={() => setOpen(false)} className="btn mt-4 w-full bg-cy py-3 text-lg text-void">
+          סְגוֹר
+        </button>
+      </div>
+    </div>
+  );
+}

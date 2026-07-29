@@ -50,6 +50,7 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   const level = useGame((s) => s.upgrades[id]);
   const buy = useGame((s) => s.buyUpgrade);
   const m = useGame(selectMods);
+  const rate = useGame(selectGooPerSec);
   const [shake, setShake] = useState(false);
   const shakeTimer = useRef<number>();
   // Floating "+X" that pops on each purchase, showing exactly what was gained.
@@ -102,6 +103,13 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
           <div className="text-sm text-cy">{def.effectHe}</div>
           {level > 0 && (
             <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level, tapMult)}</div>
+          )}
+          {/* Robotic hand: show the concrete goo/sec it's adding right now, so its
+              effect is visible instead of an abstract percentage. */}
+          {id === 'autoTap' && level > 0 && m.autoTapFraction > 0 && (
+            <div className="mt-0.5 text-xs text-cy tabular">
+              🤖 מוֹסִיפָה כָּעֵת +{formatGoo((rate * m.autoTapFraction) / (1 + m.autoTapFraction))} גּוּ/שנייה
+            </div>
           )}
         </div>
       </div>

@@ -118,6 +118,11 @@ export function CollectionScreen() {
             )}
           </button>
         )}
+        {ownedCount > 0 && (
+          <p className="mt-1.5 text-[11px] leading-snug text-bone/45">
+            קוֹנֶה בְּבַת אַחַת אֶת הָרָמוֹת הַזּוֹלוֹת בְּיוֹתֵר לְכָל הַיְצוּרִים. הָעֲמֵלָה הִיא תַּשְׁלוּם חַד־פַּעֲמִי שֶׁגָּדֵל בְּכָל שִׁמּוּשׁ, וְאַחֲרֵי כָּל לְחִיצָה יֵשׁ הַמְתָּנָה קְצָרָה.
+          </p>
+        )}
       </header>
 
       <div className="flex flex-col gap-5 pb-4">

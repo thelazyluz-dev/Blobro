@@ -11,6 +11,7 @@ import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
+import { StatsButton, StatsOverlay } from './ui/StatsOverlay';
 import { Toaster } from './ui/Toaster';
 import { useEventMusic } from './ui/useEventMusic';
 import { useFrenzyAudio } from './ui/useFrenzyAudio';
@@ -51,6 +52,7 @@ export function App() {
     <div className="relative mx-auto flex h-full max-w-md flex-col">
       <div className="bg-aurora" aria-hidden style={{ backgroundImage: bgGradient }} />
       <MuteButton />
+      <StatsButton />
       <AchievementsButton />
       <LeaderboardButton />
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
@@ -73,6 +75,7 @@ export function App() {
       <MilestoneReveal />
       <AchievementsOverlay />
       <LeaderboardOverlay />
+      <StatsOverlay />
     </div>
   );
 }
