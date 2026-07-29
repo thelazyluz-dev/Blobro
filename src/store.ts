@@ -357,7 +357,8 @@ export const useGame = create<GameState>((set, get) => {
       const stage = held.evolution ?? 0;
       if (stage >= maxEvolution || held.level < evolveLevels[stage]) return; // not eligible yet
       const def = charactersById[id];
-      const cost = evolveCost(def.rarity, held, mods());
+      const m = mods();
+      const cost = evolveCost(def.rarity, held, m, gooPerSec(s.characters, m));
       if (s.goo < cost) return;
       set({
         goo: s.goo - cost,
@@ -372,7 +373,8 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const held = s.characters[id];
       if (!held) return;
-      const cost = creatureLevelCost(charactersById[id].rarity, held, mods());
+      const m = mods();
+      const cost = creatureLevelCost(charactersById[id].rarity, held, m, gooPerSec(s.characters, m));
       if (s.goo < cost) return;
       set({
         goo: s.goo - cost,
@@ -387,10 +389,11 @@ export const useGame = create<GameState>((set, get) => {
       if (!held) return;
       const rarity = charactersById[id].rarity;
       const m = mods();
-      const n = affordableCreatureLevels(rarity, held, m, s.goo);
+      const rate = gooPerSec(s.characters, m);
+      const n = affordableCreatureLevels(rarity, held, m, s.goo, rate);
       if (n <= 0) return;
       let spent = 0;
-      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, evolution: held.evolution }, m);
+      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, evolution: held.evolution }, m, rate);
       set({
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },
@@ -407,7 +410,8 @@ export const useGame = create<GameState>((set, get) => {
       const now = Date.now();
       if (now < s.upgradeAllReadyAt) return; // still cooling down
       const m = mods();
-      const fee = upgradeAllFee(s.upgradeAllFeeTier, gooPerSec(s.characters, m));
+      const rate = gooPerSec(s.characters, m);
+      const fee = upgradeAllFee(s.upgradeAllFeeTier, rate);
       if (s.goo <= fee) {
         get().pushToast({ text: `צָרִיךְ יוֹתֵר גּוּ לַעֲמֵלָה (${Math.round(fee)})`, icon: '🚫', tone: 'pop' });
         return;
@@ -420,7 +424,7 @@ export const useGame = create<GameState>((set, get) => {
         let bestId: CharId | null = null;
         let bestCost = Infinity;
         for (const id of Object.keys(chars) as CharId[]) {
-          const cost = creatureLevelCost(charactersById[id].rarity, chars[id]!, m);
+          const cost = creatureLevelCost(charactersById[id].rarity, chars[id]!, m, rate);
           if (cost <= goo && cost < bestCost) {
             bestCost = cost;
             bestId = id;

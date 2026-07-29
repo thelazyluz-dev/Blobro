@@ -65,7 +65,7 @@ export function CollectionScreen() {
   // Cheapest single level available across owned creatures — enables "upgrade all".
   const cheapest = collectionOrder.reduce((min, id) => {
     const h = owned[id];
-    return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m)) : min;
+    return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m, gooPerSecNow)) : min;
   }, Infinity);
   // The escalating service fee for THIS press, plus a level actually being buyable.
   const fee = upgradeAllFee(feeTier, gooPerSecNow);
@@ -161,7 +161,7 @@ export function CollectionScreen() {
                   const stage = held.evolution ?? 0;
                   const evolved = stage > 0;
                   const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
-                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo);
+                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow);
                   // Ready to evolve = reached the next stage's level threshold and
                   // not already maxed. Glows gold so it's visible without opening.
                   const evolveReady = stage < maxEvolution && held.level >= evolveLevels[stage];
@@ -219,6 +219,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const held = useGame((s) => s.characters[id]);
   const goo = useGame((s) => s.goo);
   const m = useGame(selectMods);
+  const rate = useGame(selectGooPerSec);
   const evolveCreature = useGame((s) => s.evolveCreature);
   const levelUp = useGame((s) => s.levelUpCreature);
   const levelUpMax = useGame((s) => s.levelUpCreatureMax);
@@ -234,14 +235,14 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const maxedEvolution = stage >= maxEvolution;
   const nextEvolveLevel = maxedEvolution ? Infinity : evolveLevels[stage];
   const canEvolve = !maxedEvolution && held.level >= nextEvolveLevel;
-  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m);
+  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m, rate);
   const affordEvolve = goo >= evolveCostGoo;
   const evolveMultNext = maxedEvolution ? 1 : evolveMultiplierByStage[stage + 1] / evolveMultiplierByStage[stage];
 
   // Direct goo leveling.
-  const levelCost = creatureLevelCost(def.rarity, held, m);
+  const levelCost = creatureLevelCost(def.rarity, held, m, rate);
   const affordLevel = goo >= levelCost;
-  const affordN = affordableCreatureLevels(def.rarity, held, m, goo);
+  const affordN = affordableCreatureLevels(def.rarity, held, m, goo, rate);
   const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, evolution: held.evolution }, m);
   const levelGain = nextIncome - income;
 

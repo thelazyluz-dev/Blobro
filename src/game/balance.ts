@@ -62,6 +62,15 @@ export const evolveLevel = evolveLevels[0]; // first evolution level (back-compa
 // sensible at every level (never a multi-day payback), and it scales up naturally
 // as the creature — and your whole economy — grow stronger.
 export const creatureLevelPaybackSeconds = 180;
+// The price-to-payoff ratio is NOT flat — it scales with your wealth (current
+// passive goo/sec). Upgrades are cheap when you're poor (a snappy, rewarding
+// start) and get progressively pricier as you get rich, so the late game stays
+// a challenge instead of trivially doubling every couple of minutes forever.
+// multiplier = 1 at the pivot rate, floored below it, +slope per 10× above.
+export const paybackPivotRate = 1000; // goo/sec at which the ratio equals the base
+export const paybackSlopePerDecade = 0.5; // +0.5× payback for each 10× richer
+export const paybackMultMin = 0.5; // early game: half-price upgrades
+export const paybackMultMax = 20; // hard ceiling so it can never explode
 
 // --- "Upgrade all" convenience (paced so it isn't a free fast-forward) --------
 // Pressing it charges a service fee (this many seconds of your income) that

@@ -21,6 +21,10 @@ import {
   fingerBonusGrowth,
   globalMultiplier,
   luckCap,
+  paybackMultMax,
+  paybackMultMin,
+  paybackPivotRate,
+  paybackSlopePerDecade,
   upgradeConfig,
 } from './balance';
 import { characters } from './characters';
@@ -139,24 +143,46 @@ export function eggCost(n: number): number {
 }
 
 /**
- * Goo cost to level a creature from its current level → +1. Priced as a fixed
- * number of seconds of the EXTRA income that level grants (all multipliers
- * folded in), so the price-to-payoff ratio is always sensible.
+ * Wealth-scaled payback multiplier (see balance.ts). Cheap when poor, pricier
+ * when rich, so growth decelerates gracefully at the top end. Pass the player's
+ * current passive goo/sec as the wealth reference.
  */
-export function creatureLevelCost(rarity: Rarity, held: { level: number; evolution?: number }, m: Modifiers): number {
+export function wealthPaybackMult(gooPerSecValue: number): number {
+  const r = Math.max(1, gooPerSecValue);
+  const mult = 1 + paybackSlopePerDecade * Math.log10(r / paybackPivotRate);
+  return Math.min(paybackMultMax, Math.max(paybackMultMin, mult));
+}
+
+/**
+ * Goo cost to level a creature from its current level → +1. Priced as a number
+ * of seconds of the EXTRA income that level grants (all multipliers folded in),
+ * where that second-count scales with the player's wealth (`gooPerSecValue`) —
+ * so the price-to-payoff ratio is gentle early and steep late.
+ */
+export function creatureLevelCost(
+  rarity: Rarity,
+  held: { level: number; evolution?: number },
+  m: Modifiers,
+  gooPerSecValue: number,
+): number {
   const gain =
     creatureContribution(rarity, { level: held.level + 1, evolution: held.evolution }, m) -
     creatureContribution(rarity, held, m);
-  return Math.max(1, Math.round(gain * creatureLevelPaybackSeconds));
+  return Math.max(1, Math.round(gain * creatureLevelPaybackSeconds * wealthPaybackMult(gooPerSecValue)));
 }
 
-/** Goo cost to evolve to the next stage — a fixed payback of the income boost. */
-export function evolveCost(rarity: Rarity, held: { level: number; evolution?: number }, m: Modifiers): number {
+/** Goo cost to evolve to the next stage — a wealth-scaled payback of the boost. */
+export function evolveCost(
+  rarity: Rarity,
+  held: { level: number; evolution?: number },
+  m: Modifiers,
+  gooPerSecValue: number,
+): number {
   const stage = held.evolution ?? 0;
   const gain =
     creatureContribution(rarity, { level: held.level, evolution: stage + 1 }, m) -
     creatureContribution(rarity, held, m);
-  return Math.max(1, Math.round(gain * evolvePaybackSeconds));
+  return Math.max(1, Math.round(gain * evolvePaybackSeconds * wealthPaybackMult(gooPerSecValue)));
 }
 
 /**
@@ -169,11 +195,12 @@ export function affordableCreatureLevels(
   held: { level: number; evolution?: number },
   m: Modifiers,
   goo: number,
+  gooPerSecValue: number,
 ): number {
   let count = 0;
   let spent = 0;
   while (count < 999) {
-    const cost = creatureLevelCost(rarity, { level: held.level + count, evolution: held.evolution }, m);
+    const cost = creatureLevelCost(rarity, { level: held.level + count, evolution: held.evolution }, m, gooPerSecValue);
     if (spent + cost > goo) break;
     spent += cost;
     count += 1;
