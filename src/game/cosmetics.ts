@@ -5,7 +5,7 @@
 // Each carries a small bonus. Prices range from cheap to deliberately
 // out-of-reach, so there's always something big to save toward.
 
-export type CosmeticKind = 'blob' | 'background' | 'accessory';
+export type CosmeticKind = 'blob' | 'background' | 'accessory' | 'sound';
 export type BlobShape = 'goo' | 'round' | 'star' | 'ghost' | 'spiky' | 'heart';
 export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo';
 
@@ -37,11 +37,20 @@ export interface Accessory {
   art: AccessoryArt;
 }
 
-export type Cosmetic = BlobSkin | BackgroundSkin | Accessory;
+export interface SoundSkin {
+  id: string;
+  kind: 'sound';
+  nameHe: string;
+  cost: number;
+  melody: number[]; // the 8-bit combo melody (note frequencies in Hz) this pack plays
+}
+
+export type Cosmetic = BlobSkin | BackgroundSkin | Accessory | SoundSkin;
 
 export const DEFAULT_BLOB = 'blob-goo';
 export const DEFAULT_BACKGROUND = 'bg-aurora';
 export const DEFAULT_ACCESSORY = 'acc-none';
+export const DEFAULT_SOUND = 'sound-classic';
 
 export const blobSkins: BlobSkin[] = [
   {
@@ -220,8 +229,56 @@ export const accessories: Accessory[] = [
   { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 150_000_000_000, clickBonus: 0.28, art: 'halo' },
 ];
 
+// Sound packs: each is a different 8-bit combo melody that plays once your tap
+// combo runs high. Pure cosmetic — no gameplay bonus, just personality. Preview
+// them in the shop before buying, and pick your favourite.
+export const soundSkins: SoundSkin[] = [
+  {
+    id: DEFAULT_SOUND,
+    kind: 'sound',
+    nameHe: 'קְלַאסִי',
+    cost: 0,
+    melody: [659, 784, 880, 784, 988, 880, 784, 659, 587, 659, 784, 988, 1047, 988, 880, 784],
+  },
+  {
+    id: 'sound-pleasant',
+    kind: 'sound',
+    nameHe: 'נָעִים',
+    cost: 15_000,
+    melody: [523, 587, 659, 784, 880, 784, 659, 587, 523, 659, 784, 880, 1047, 880, 784, 659],
+  },
+  {
+    id: 'sound-energetic',
+    kind: 'sound',
+    nameHe: 'אֶנֶרְגֶּטִי',
+    cost: 120_000,
+    melody: [659, 988, 1319, 988, 587, 880, 1175, 880, 523, 784, 1047, 784, 587, 880, 1175, 1319],
+  },
+  {
+    id: 'sound-calm',
+    kind: 'sound',
+    nameHe: 'רָגוּעַ',
+    cost: 2_500_000,
+    melody: [392, 440, 523, 587, 523, 440, 392, 440, 523, 659, 587, 523, 440, 392, 440, 523],
+  },
+  {
+    id: 'sound-space',
+    kind: 'sound',
+    nameHe: 'חָלָל',
+    cost: 60_000_000,
+    melody: [440, 523, 659, 880, 659, 523, 494, 587, 740, 988, 740, 587, 440, 523, 659, 880],
+  },
+  {
+    id: 'sound-royal',
+    kind: 'sound',
+    nameHe: 'מַלְכוּתִי',
+    cost: 1_500_000_000,
+    melody: [523, 659, 784, 1047, 784, 1047, 1319, 1047, 880, 1047, 1319, 1568, 1319, 1047, 880, 784],
+  },
+];
+
 export const cosmeticsById = new Map<string, Cosmetic>(
-  [...blobSkins, ...backgroundSkins, ...accessories].map((c) => [c.id, c]),
+  [...blobSkins, ...backgroundSkins, ...accessories, ...soundSkins].map((c) => [c.id, c]),
 );
 
 export function blobById(id: string): BlobSkin {
@@ -237,6 +294,11 @@ export function backgroundById(id: string): BackgroundSkin {
 export function accessoryById(id: string): Accessory {
   const c = cosmeticsById.get(id);
   return c && c.kind === 'accessory' ? c : accessories[0];
+}
+
+export function soundById(id: string): SoundSkin {
+  const c = cosmeticsById.get(id);
+  return c && c.kind === 'sound' ? c : soundSkins[0];
 }
 
 /** Small tap-power bonus from the equipped blob skin + accessory (they stack). */

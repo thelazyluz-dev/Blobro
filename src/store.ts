@@ -31,9 +31,11 @@ import {
   DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
   DEFAULT_BLOB,
+  DEFAULT_SOUND,
   backgroundIncomeBonus,
   clickCosmeticBonus,
   cosmeticsById,
+  soundById,
   type CosmeticKind,
 } from './game/cosmetics';
 import {
@@ -92,6 +94,7 @@ interface GameState {
   equippedBlob: string;
   equippedBackground: string;
   equippedAccessory: string;
+  equippedSound: string;
   muted: boolean;
 
   // --- transient UI / session ---
@@ -164,6 +167,7 @@ const achievementsById = new Map(achievementDefs.map((a) => [a.id, a]));
 function equipPatch(kind: CosmeticKind, id: string): Partial<GameState> {
   if (kind === 'blob') return { equippedBlob: id };
   if (kind === 'background') return { equippedBackground: id };
+  if (kind === 'sound') return { equippedSound: id };
   return { equippedAccessory: id };
 }
 
@@ -187,7 +191,7 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 8,
+    version: 9,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
@@ -203,6 +207,7 @@ function snapshot(s: GameState, now: number): SaveState {
     equippedBlob: s.equippedBlob,
     equippedBackground: s.equippedBackground,
     equippedAccessory: s.equippedAccessory,
+    equippedSound: s.equippedSound,
     lastSeen: now,
     muted: s.muted,
   };
@@ -223,10 +228,11 @@ export const useGame = create<GameState>((set, get) => {
     clicks: 0,
     leaderboard: [],
     achievements: [],
-    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY],
+    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY, DEFAULT_SOUND],
     equippedBlob: DEFAULT_BLOB,
     equippedBackground: DEFAULT_BACKGROUND,
     equippedAccessory: DEFAULT_ACCESSORY,
+    equippedSound: DEFAULT_SOUND,
     muted: false,
 
     loaded: false,
@@ -276,6 +282,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedBlob: save.equippedBlob,
         equippedBackground: save.equippedBackground,
         equippedAccessory: save.equippedAccessory,
+        equippedSound: save.equippedSound,
         muted: save.muted,
         loaded: true,
         offlineReport: report,
@@ -632,6 +639,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedBlob: fresh.equippedBlob,
         equippedBackground: fresh.equippedBackground,
         equippedAccessory: fresh.equippedAccessory,
+        equippedSound: fresh.equippedSound,
         hatchResult: null,
         multiHatchResult: null,
         offlineReport: null,
@@ -689,6 +697,8 @@ export const selectEggCost = (s: GameState) =>
   Math.max(1, Math.round(eggCost(s.totalHatches + s.eggs) * currentEvent(Date.now()).eggCostMult));
 export const selectClickPower = (s: GameState) =>
   clickPower(modsOf(s)) * currentEvent(Date.now()).clickMult;
+/** The combo melody (note frequencies) of the equipped sound pack. */
+export const selectComboMelody = (s: GameState) => soundById(s.equippedSound).melody;
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);
 export const selectAchContext = (s: GameState): AchievementContext => achContextOf(s);
 /** Ids of achievements finished but not yet claimed — the "ready to collect" set. */

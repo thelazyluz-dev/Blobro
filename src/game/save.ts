@@ -17,10 +17,12 @@ import {
   DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
   DEFAULT_BLOB,
+  DEFAULT_SOUND,
   accessoryById,
   backgroundById,
   blobById,
   cosmeticsById,
+  soundById,
 } from './cosmetics';
 import { defaultUpgrades } from './upgrades';
 import type {
@@ -32,7 +34,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 8 as const;
+export const CURRENT_VERSION = 9 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -60,10 +62,11 @@ export function defaultSaveState(now: number): SaveState {
     clicks: 0,
     leaderboard: [],
     achievements: [],
-    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY],
+    ownedCosmetics: [DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY, DEFAULT_SOUND],
     equippedBlob: DEFAULT_BLOB,
     equippedBackground: DEFAULT_BACKGROUND,
     equippedAccessory: DEFAULT_ACCESSORY,
+    equippedSound: DEFAULT_SOUND,
     lastSeen: now,
     muted: false,
   };
@@ -134,7 +137,7 @@ function sanitizeLeaderboard(raw: unknown): LeaderboardEntry[] {
 
 /** Keep only real cosmetic ids; always include the free defaults. */
 function sanitizeCosmetics(raw: unknown): string[] {
-  const out = new Set<string>([DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY]);
+  const out = new Set<string>([DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY, DEFAULT_SOUND]);
   if (Array.isArray(raw)) {
     for (const id of raw) if (typeof id === 'string' && cosmeticsById.has(id)) out.add(id);
   }
@@ -165,6 +168,8 @@ export function migrate(raw: unknown, now: number): SaveState {
   const equippedAccessory = ownedCosmetics.includes(accPick)
     ? accessoryById(accPick).id
     : DEFAULT_ACCESSORY;
+  const soundPick = typeof data.equippedSound === 'string' ? data.equippedSound : '';
+  const equippedSound = ownedCosmetics.includes(soundPick) ? soundById(soundPick).id : DEFAULT_SOUND;
 
   return {
     version: CURRENT_VERSION,
@@ -183,6 +188,7 @@ export function migrate(raw: unknown, now: number): SaveState {
     equippedBlob,
     equippedBackground,
     equippedAccessory,
+    equippedSound,
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
   };

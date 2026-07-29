@@ -56,7 +56,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 8;
+  version: 9;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;
@@ -72,6 +72,7 @@ export interface SaveState {
   equippedBlob: string; // currently-worn main blob skin id
   equippedBackground: string; // currently-applied background id
   equippedAccessory: string; // currently-worn accessory id
+  equippedSound: string; // currently-selected combo-melody sound pack id
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
 }

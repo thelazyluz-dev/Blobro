@@ -4,16 +4,18 @@
 // money, ever. Prices climb into the trillions so there's always a goal.
 
 import { useState } from 'react';
-import { playError, playPurchase } from '../../audio/sfx';
+import { playError, playMelodyPreview, playPurchase } from '../../audio/sfx';
 import {
   DEFAULT_BLOB,
   accessories,
   backgroundSkins,
   blobById,
   blobSkins,
+  soundSkins,
   type Accessory,
   type BackgroundSkin,
   type BlobSkin,
+  type SoundSkin,
 } from '../../game/cosmetics';
 import { formatGoo } from '../../game/format';
 import { useGame } from '../../store';
@@ -56,6 +58,16 @@ export function ShopScreen() {
         <div className="grid grid-cols-2 gap-3">
           {backgroundSkins.map((skin) => (
             <BackgroundCard key={skin.id} skin={skin} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-6">
+        <h2 className="mb-2 font-display text-xl text-cy">צְלִילִים 🎵</h2>
+        <p className="mb-2 text-xs text-bone/50">מְלוֹדִיַּת 8-בִּיט שֶׁמִּתְנַגֶּנֶת בְּקוֹמְבּוֹ גָּבוֹהַּ. לְחַץ ▶ לְהַאֲזָנָה.</p>
+        <div className="grid grid-cols-2 gap-3">
+          {soundSkins.map((snd) => (
+            <SoundCard key={snd.id} snd={snd} />
           ))}
         </div>
       </section>
@@ -116,9 +128,11 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
   const equippedBlob = useGame((s) => s.equippedBlob);
   const equippedBackground = useGame((s) => s.equippedBackground);
   const equippedAccessory = useGame((s) => s.equippedAccessory);
+  const equippedSound = useGame((s) => s.equippedSound);
   const buy = useGame((s) => s.buyCosmetic);
   const equip = useGame((s) => s.equipCosmetic);
-  const equipped = id === equippedBlob || id === equippedBackground || id === equippedAccessory;
+  const equipped =
+    id === equippedBlob || id === equippedBackground || id === equippedAccessory || id === equippedSound;
 
   const onClick = () => {
     const muted = useGame.getState().muted;
@@ -193,6 +207,29 @@ function AccessoryCard({ acc }: { acc: Accessory }) {
         {acc.clickBonus > 0 ? `+${Math.round(acc.clickBonus * 100)}% לנגיעה` : 'בְּלִי בּוֹנוּס'}
       </div>
       <ActionButton id={acc.id} cost={acc.cost} />
+    </CardShell>
+  );
+}
+
+function SoundCard({ snd }: { snd: SoundSkin }) {
+  const onPreview = () => {
+    playMelodyPreview(useGame.getState().muted, snd.melody);
+    haptic(10);
+  };
+  return (
+    <CardShell>
+      <button
+        type="button"
+        onClick={onPreview}
+        aria-label={`האזנה ל${snd.nameHe}`}
+        className="mx-auto flex h-20 w-full items-center justify-center gap-2 rounded-xl bg-black/30 ring-hairline transition active:scale-95"
+      >
+        <span className="text-3xl">🎵</span>
+        <span className="font-display text-lg text-cy">▶ הַאֲזָנָה</span>
+      </button>
+      <div className="mt-1 text-center font-display text-base text-bone">{snd.nameHe}</div>
+      <div className="text-center text-[11px] text-cy tabular">מְלוֹדְיָה</div>
+      <ActionButton id={snd.id} cost={snd.cost} />
     </CardShell>
   );
 }

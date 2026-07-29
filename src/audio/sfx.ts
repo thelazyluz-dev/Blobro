@@ -61,21 +61,37 @@ const COMBO_MELODY = [
 ];
 const COMBO_MELODY_START = 20;
 
+/** One 8-bit melody note (square lead + triangle sub) — the combo-melody voice. */
+function melodyNote(ctx: AudioContext, freq: number, when: number, gain = 0.12): void {
+  voice(ctx, freq, when, 0.09, { type: 'square', gain, filter: 7000, decay: 0.05 });
+  voice(ctx, freq / 2, when, 0.07, { type: 'triangle', gain: gain * 0.5, filter: 3500, decay: 0.05 });
+}
+
 /** A tiny blip whose pitch rises with the tap combo — rapid tapping "runs up".
- * Past a high combo it flips into a looping 8-bit melody instead of a stuck note. */
-export function playClick(muted: boolean, combo = 1): void {
+ * Past a high combo it flips into a looping 8-bit melody (the equipped sound
+ * pack, or the classic one) instead of a stuck note. */
+export function playClick(muted: boolean, combo = 1, melody: number[] = COMBO_MELODY): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
   if (combo >= COMBO_MELODY_START) {
-    const f = COMBO_MELODY[(combo - COMBO_MELODY_START) % COMBO_MELODY.length];
-    voice(ctx, f, now, 0.09, { type: 'square', gain: 0.12, filter: 7000, decay: 0.05 });
-    voice(ctx, f / 2, now, 0.07, { type: 'triangle', gain: 0.06, filter: 3500, decay: 0.05 });
+    const tune = melody.length ? melody : COMBO_MELODY;
+    melodyNote(ctx, tune[(combo - COMBO_MELODY_START) % tune.length], now);
     return;
   }
   const freq = Math.min(1300, 520 + combo * 42);
   voice(ctx, freq, now, 0.04, { type: 'square', gain: 0.1, filter: 6000, decay: 0.03 });
+}
+
+/** Play a whole sound-pack melody as a quick preview (used in the shop). */
+export function playMelodyPreview(muted: boolean, melody: number[]): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const start = ctx.currentTime + 0.02;
+  const step = 0.13;
+  melody.forEach((f, i) => melodyNote(ctx, f, start + i * step, 0.13));
 }
 
 // A looping original 8-bit chiptune (lead + bass), played step-by-step during

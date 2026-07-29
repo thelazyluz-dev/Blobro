@@ -23,7 +23,7 @@ import {
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { accessoryById, blobById } from '../../game/cosmetics';
-import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../../store';
+import { selectClickPower, selectComboMelody, selectGooPerSec, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
 import { useReducedMotion } from '../useReducedMotion';
@@ -61,6 +61,7 @@ export function ClickScreen() {
   const goo = useGame((s) => s.goo);
   const rate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
+  const comboMelody = useGame(selectComboMelody);
   const starBonus = useGame(selectStarBonus);
   const click = useGame((s) => s.click);
   const collectBonus = useGame((s) => s.collectBonus);
@@ -269,7 +270,7 @@ export function ClickScreen() {
       playCrit(muted);
       haptic([0, 30, 20, 50]);
     } else {
-      playClick(muted, frenzy ? c.count + 8 : c.count);
+      playClick(muted, frenzy ? c.count + 8 : c.count, comboMelody);
       if (frenzy) haptic(12);
     }
 
