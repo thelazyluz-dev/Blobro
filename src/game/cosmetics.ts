@@ -238,7 +238,7 @@ export const soundSkins: SoundSkin[] = [
     kind: 'sound',
     nameHe: 'קְלַאסִי',
     cost: 0,
-    melody: [659, 784, 880, 784, 988, 880, 784, 659, 587, 659, 784, 988, 1047, 988, 880, 784],
+    melody: [], // empty = our original tap sound (the rising blip), no melody
   },
   {
     id: 'sound-pleasant',

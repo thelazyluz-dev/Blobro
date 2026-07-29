@@ -44,15 +44,18 @@ export function useGameEngine(): boolean {
     };
   }, [loaded]);
 
-  // Celebrate progress: fire an order-of-magnitude "whoosh" every time the goo
-  // counter gains a digit, and the full milestone celebration (fact + fanfare +
-  // spoken compliment + confetti) when lifetime goo crosses a named milestone.
+  // Celebrate progress based on the number shown on the main screen — the
+  // current goo counter — as it reaches new highs (§ user request: by the
+  // on-screen number, not the hidden lifetime total). Spending and re-earning
+  // below your previous peak never re-fires, so it's not spammy.
   useEffect(() => {
     if (!loaded) return;
-    const unsub = useGame.subscribe((s, prev) => {
-      const next = s.lifetimeGoo;
-      const before = prev.lifetimeGoo;
-      if (next <= before) return;
+    let peak = useGame.getState().goo;
+    const unsub = useGame.subscribe((s) => {
+      const next = s.goo;
+      if (next <= peak) return; // no new high → nothing
+      const before = peak;
+      peak = next;
 
       const crossed = milestonesCrossed(before, next);
       const muted = useGame.getState().muted;

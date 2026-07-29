@@ -286,6 +286,16 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
       onClick={onClose}
       role="presentation"
     >
+      {/* Always-reachable close button, pinned to the screen corner so you never
+          have to scroll the card to find it. */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="סגור"
+        className="absolute end-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-2xl text-bone ring-1 ring-bone/30 active:scale-90"
+      >
+        ✕
+      </button>
       <div
         className="surface anim-pop-in max-h-[88vh] w-full max-w-xs overflow-y-auto rounded-3xl p-6 text-center"
         style={{ boxShadow: `0 0 0 2px ${ringColor}, 0 24px 60px -20px #000` }}

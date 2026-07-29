@@ -53,12 +53,9 @@ function sequence(
   notes.forEach((f, i) => voice(ctx, f, now + i * step, dur, opts));
 }
 
-// Once the combo is high enough that the rising blip would just cap out, each
-// tap instead plays the next note of a catchy 8-bit riff, so fast tapping turns
-// into a little chiptune melody (§ user request).
-const COMBO_MELODY = [
-  659, 784, 880, 784, 988, 880, 784, 659, 587, 659, 784, 988, 1047, 988, 880, 784,
-];
+// Once the combo is high enough that the rising blip would just cap out, an
+// equipped sound pack's melody takes over instead — each tap plays the next
+// note, so fast tapping turns into a little chiptune (§ user request).
 const COMBO_MELODY_START = 20;
 
 /** One 8-bit melody note (square lead + triangle sub) — the combo-melody voice. */
@@ -68,28 +65,40 @@ function melodyNote(ctx: AudioContext, freq: number, when: number, gain = 0.12):
 }
 
 /** A tiny blip whose pitch rises with the tap combo — rapid tapping "runs up".
- * Past a high combo it flips into a looping 8-bit melody (the equipped sound
- * pack, or the classic one) instead of a stuck note. */
-export function playClick(muted: boolean, combo = 1, melody: number[] = COMBO_MELODY): void {
+ * With a non-empty `melody` (a bought sound pack), a high combo flips into that
+ * 8-bit melody; with an empty melody (the CLASSIC pack) it stays the original
+ * rising blip, exactly as the game shipped. */
+export function playClick(muted: boolean, combo = 1, melody: number[] = []): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
-  if (combo >= COMBO_MELODY_START) {
-    const tune = melody.length ? melody : COMBO_MELODY;
-    melodyNote(ctx, tune[(combo - COMBO_MELODY_START) % tune.length], now);
+  if (combo >= COMBO_MELODY_START && melody.length > 0) {
+    melodyNote(ctx, melody[(combo - COMBO_MELODY_START) % melody.length], now);
     return;
   }
   const freq = Math.min(1300, 520 + combo * 42);
   voice(ctx, freq, now, 0.04, { type: 'square', gain: 0.1, filter: 6000, decay: 0.03 });
 }
 
-/** Play a whole sound-pack melody as a quick preview (used in the shop). */
+/** Preview a sound pack in the shop. An empty melody = the classic pack, so we
+ * demo the original rising blip instead. */
 export function playMelodyPreview(muted: boolean, melody: number[]): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
   const start = ctx.currentTime + 0.02;
+  if (melody.length === 0) {
+    for (let i = 1; i <= 9; i++) {
+      voice(ctx, Math.min(1300, 520 + i * 80), start + i * 0.08, 0.05, {
+        type: 'square',
+        gain: 0.11,
+        filter: 6000,
+        decay: 0.04,
+      });
+    }
+    return;
+  }
   const step = 0.13;
   melody.forEach((f, i) => melodyNote(ctx, f, start + i * step, 0.13));
 }
