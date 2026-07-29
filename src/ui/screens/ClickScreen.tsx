@@ -23,11 +23,9 @@ import {
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { accessoryById, blobById } from '../../game/cosmetics';
-import { collectionOrder } from '../../game/characters';
 import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
-import { shareProgress } from '../shareCard';
 import { useReducedMotion } from '../useReducedMotion';
 
 const COMBO_WINDOW_MS = comboWindowMs;
@@ -420,7 +418,6 @@ export function ClickScreen() {
             </div>
           )}
         </div>
-        <QuickShare />
       </header>
 
       {frenzyActive && (
@@ -517,46 +514,6 @@ export function ClickScreen() {
         לוחצים על הבלוב — צוברים גּוּ! ({formatGoo(perClick)} לכל נגיעה)
       </p>
     </div>
-  );
-}
-
-function QuickShare() {
-  const goo = useGame((s) => s.goo);
-  const characters = useGame((s) => s.characters);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-
-  const onShare = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await shareProgress({
-        goo,
-        collectionCount: collectionOrder.filter((id) => characters[id]).length,
-        total: collectionOrder.length,
-      });
-      setDone(true);
-      window.setTimeout(() => setDone(false), 2500);
-    } catch {
-      /* ignore — can retry */
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onShare}
-      disabled={busy}
-      className="btn mt-3 inline-flex items-center gap-1.5 bg-pop/90 px-5 py-1.5 text-sm text-void"
-    >
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1A0B2E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="9" width="18" height="12" rx="2" />
-        <path d="M12 15V3M12 3l-4 4M12 3l4 4" />
-      </svg>
-      {done ? 'נשמר!' : busy ? 'רגע…' : 'שַׁתֵּף'}
-    </button>
   );
 }
 

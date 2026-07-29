@@ -8,6 +8,7 @@ import { pityLegendaryThreshold, pityRareThreshold } from '../../game/balance';
 import { formatGoo } from '../../game/format';
 import { isLegendaryOwned } from '../../game/hatching';
 import { selectEggCost, useGame } from '../../store';
+import { EggArt } from '../EggArt';
 import { haptic } from '../haptics';
 import { useReducedMotion } from '../useReducedMotion';
 
@@ -95,12 +96,7 @@ export function HatchScreen() {
             hasEggs ? 'active:scale-95' : 'opacity-60'
           }`}
         >
-          <svg viewBox="0 0 120 150" width="168" height="210" className={reduced || !hasEggs ? '' : 'anim-idle'} aria-hidden>
-            <ellipse cx="60" cy="82" rx="46" ry="58" fill="#FFF4E0" stroke="#2A1508" strokeWidth="6" strokeLinejoin="round" />
-            <path d="M30 78 l10 -10 l8 10 l10 -12 l9 12 l9 -10 l9 10" fill="none" stroke="#A3FF12" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-            <ellipse cx="45" cy="58" rx="9" ry="13" fill="#A3FF12" opacity="0.4" />
-            <circle cx="74" cy="66" r="3" fill="#FFD84D" opacity="0.7" />
-          </svg>
+          <EggArt spotColor="#A3FF12" className={`h-[210px] w-[168px] ${reduced || !hasEggs ? '' : 'anim-idle'}`} />
           {/* inventory count badge */}
           <span
             className="absolute -end-1 -top-1 flex h-9 min-w-9 items-center justify-center rounded-full bg-hot px-2 font-display text-lg text-bone tabular ring-2 ring-void/60"
@@ -113,21 +109,17 @@ export function HatchScreen() {
 
       <div className="w-full max-w-xs text-center">
         {hasEggs ? (
-          <p className="mb-3 text-sm text-bone/70">לְחַץ עַל הַבֵּיצָה לִפְתֹּחַ אוֹתָהּ! 🥚</p>
+          <p className="mb-3 text-sm text-bone/70">לְחַץ עַל הַבֵּיצָה כְּדֵי לִשְׁבֹּר אוֹתָהּ! 🥚</p>
         ) : (
           <p className="mb-3 text-sm text-bone/70">אֵין לְךָ בֵּיצִים — קְנֵה אַחַת!</p>
         )}
 
-        {/* Open controls appear once you have a stash. */}
+        {/* One quick-hatch button opens the whole stash instantly (tapping the
+            egg above is the slow, satisfying way to open them one at a time). */}
         {hasEggs && (
-          <div className="mb-2 grid grid-cols-2 gap-2">
-            <button type="button" onClick={open} className="btn bg-hot py-3 text-lg text-bone glow-hot">
-              פְּתַח בֵּיצָה
-            </button>
-            <button type="button" onClick={openAll} className="btn bg-cy py-3 text-lg text-void">
-              בְּקַע הַכֹּל ({eggs})
-            </button>
-          </div>
+          <button type="button" onClick={openAll} className="btn mb-2 w-full bg-hot py-3 text-lg text-bone glow-hot">
+            ⚡ בְּקִיעָה מְהִירָה ({eggs})
+          </button>
         )}
 
         {/* Buy controls. */}

@@ -162,9 +162,13 @@ export function CollectionScreen() {
                   const evolved = stage > 0;
                   const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
                   const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow);
-                  // Ready to evolve = reached the next stage's level threshold and
-                  // not already maxed. Glows gold so it's visible without opening.
-                  const evolveReady = stage < maxEvolution && held.level >= evolveLevels[stage];
+                  // Ready to evolve = reached the next stage's level threshold AND
+                  // you can afford it right now. Shown only as a pulsing gold frame
+                  // (like the evolve button), so it means "you can evolve this now".
+                  const evolveReady =
+                    stage < maxEvolution &&
+                    held.level >= evolveLevels[stage] &&
+                    goo >= evolveCost(def.rarity, held, m, gooPerSecNow);
                   return (
                     <button
                       key={id}
@@ -185,10 +189,7 @@ export function CollectionScreen() {
                           {canLevel > 99 ? '99' : canLevel}
                         </span>
                       )}
-                      {evolveReady && (
-                        <span className="absolute end-1 top-1 z-10 text-sm" title="מוכן לאבולוציה">⬆️✨</span>
-                      )}
-                      {evolved && !evolveReady && (
+                      {evolved && (
                         <span className="absolute end-1 top-1 text-sm">✨{stage}</span>
                       )}
                       <CharacterBody id={id} className="h-12 w-12" />
