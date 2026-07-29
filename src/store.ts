@@ -43,6 +43,7 @@ import {
   modifiersFrom,
   upgradeAllFee,
 } from './game/economy';
+import { formatGoo } from './game/format';
 import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
@@ -119,6 +120,7 @@ interface GameState {
   buyCosmetic: (id: string) => void;
   equipCosmetic: (id: string) => void;
   collectBonus: () => number;
+  applyAwayEarnings: (seconds: number) => OfflineReport | null;
   grantGoo: (amount: number) => void;
   dismissMultiHatch: () => void;
   dismissHatch: () => void;
@@ -459,6 +461,21 @@ export const useGame = create<GameState>((set, get) => {
       const c = cosmeticsById.get(id);
       if (!c || !s.ownedCosmetics.includes(id)) return;
       set(equipPatch(c.kind, id));
+    },
+
+    // Credit earnings for time the app was alive but backgrounded (phone locked,
+    // switched to another app). requestAnimationFrame is paused while hidden, so
+    // the tick never runs — without this, background time would earn nothing. Uses
+    // the SAME offline model (capped + reduced rate) as a cold start, so "closed"
+    // and "backgrounded" behave identically. A toast (not the big modal) keeps
+    // quick tab-switches unobtrusive.
+    applyAwayEarnings: (seconds) => {
+      const s = get();
+      const report = computeOffline(gooPerSec(s.characters, mods()), seconds);
+      if (!report) return null;
+      set({ goo: s.goo + report.goo, lifetimeGoo: s.lifetimeGoo + report.goo });
+      get().pushToast({ text: `בֵּינְתַיִם צָבַרְתָּ +${formatGoo(report.goo)} גּוּ 💤`, icon: '💤', tone: 'goo' });
+      return report;
     },
 
     grantGoo: (amount) => {
