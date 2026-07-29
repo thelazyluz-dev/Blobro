@@ -16,7 +16,8 @@ export interface GameEvent {
   music?: boolean; // play the 8-bit chiptune loop during this event
 }
 
-export const eventPeriodMs = 10 * 60 * 1000; // a new event every 10 minutes
+export const eventPeriodMs = 10 * 60 * 1000; // one event window every 10 minutes
+export const eventActiveMs = 30 * 1000; // …and each event lasts just 30 seconds
 
 export const EVENTS: GameEvent[] = [
   {
@@ -78,22 +79,38 @@ export const EVENTS: GameEvent[] = [
   },
 ];
 
-export interface ActiveEvent {
-  event: GameEvent;
-  startedAt: number; // epoch ms this event window began
-  endsAt: number; // epoch ms it flips to the next one
-  index: number;
+// The "no event running" state — all multipliers neutral, no music.
+const NEUTRAL: GameEvent = {
+  id: 'none',
+  nameHe: '',
+  descHe: '',
+  emoji: '',
+  color: '#FFF4E0',
+  incomeMult: 1,
+  clickMult: 1,
+  eggCostMult: 1,
+  luckBonus: 0,
+};
+
+export interface EventState {
+  active: boolean; // is an event running right now (within its 30s window)?
+  event: GameEvent; // the active event, or NEUTRAL between events
+  next: GameEvent; // the current-or-upcoming event (for the "next" preview)
+  msLeft: number; // active: ms until it ends; otherwise: ms until the next one starts
 }
 
-/** Which event is active at time `now`, and when it started/ends. */
-export function activeEventAt(now: number): ActiveEvent {
-  const index = Math.floor(now / eventPeriodMs);
-  const event = EVENTS[((index % EVENTS.length) + EVENTS.length) % EVENTS.length];
-  const startedAt = index * eventPeriodMs;
-  return { event, startedAt, endsAt: startedAt + eventPeriodMs, index };
+/** The event picture at time `now`: which one runs (if any) and the countdown. */
+export function eventStateAt(now: number): EventState {
+  const slot = Math.floor(now / eventPeriodMs);
+  const into = now - slot * eventPeriodMs; // ms elapsed into this 10-minute slot
+  const at = (s: number) => EVENTS[((s % EVENTS.length) + EVENTS.length) % EVENTS.length];
+  if (into < eventActiveMs) {
+    return { active: true, event: at(slot), next: at(slot), msLeft: eventActiveMs - into };
+  }
+  return { active: false, event: NEUTRAL, next: at(slot + 1), msLeft: eventPeriodMs - into };
 }
 
-/** Just the current event's multipliers — a convenient hot-path accessor. */
+/** The event whose multipliers apply right now (NEUTRAL between events). */
 export function currentEvent(now: number): GameEvent {
-  return activeEventAt(now).event;
+  return eventStateAt(now).event;
 }

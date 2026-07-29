@@ -94,11 +94,31 @@ export function playMelodyPreview(muted: boolean, melody: number[]): void {
   melody.forEach((f, i) => melodyNote(ctx, f, start + i * step, 0.13));
 }
 
-// A looping original 8-bit chiptune (lead + bass), played step-by-step during
-// music events. All synthesized — no files, no copyright. 0 = a rest.
-const MUSIC_LEAD = [523, 659, 784, 659, 523, 659, 784, 880, 784, 659, 523, 587, 659, 784, 587, 523];
-const MUSIC_BASS = [131, 0, 131, 0, 175, 0, 175, 0, 196, 0, 196, 0, 175, 0, 131, 0];
-export const MUSIC_STEP_MS = 145;
+// A longer original 8-bit chiptune (lead + bass) over a I–V–vi–IV progression
+// (C · G · Am · F), 64 steps so it doesn't feel like a few notes on repeat.
+// Played step-by-step during music events. All synthesized — no files,
+// no copyright. 0 = a rest.
+const MUSIC_LEAD = [
+  // C
+  659, 784, 1047, 784, 880, 784, 659, 0, 784, 659, 587, 659, 784, 0, 659, 0,
+  // G
+  587, 784, 988, 784, 1175, 988, 784, 0, 880, 988, 1175, 988, 880, 0, 784, 0,
+  // Am
+  659, 880, 1047, 880, 1319, 1047, 880, 0, 784, 880, 1047, 880, 659, 0, 880, 0,
+  // F
+  698, 880, 1047, 880, 1175, 1047, 880, 0, 784, 698, 659, 698, 784, 0, 0, 0,
+];
+const MUSIC_BASS = [
+  // C
+  131, 0, 131, 0, 131, 0, 196, 0, 131, 0, 131, 0, 131, 0, 196, 0,
+  // G
+  98, 0, 98, 0, 98, 0, 147, 0, 98, 0, 98, 0, 98, 0, 147, 0,
+  // Am
+  110, 0, 110, 0, 110, 0, 165, 0, 110, 0, 110, 0, 110, 0, 165, 0,
+  // F
+  87, 0, 87, 0, 87, 0, 131, 0, 87, 0, 87, 0, 87, 0, 131, 0,
+];
+export const MUSIC_STEP_MS = 150;
 export const MUSIC_STEPS = MUSIC_LEAD.length;
 
 /** Play one step of the event chiptune loop. Kept quiet — it's a backdrop. */
