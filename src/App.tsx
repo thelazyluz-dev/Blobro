@@ -6,6 +6,7 @@ import { Confetti } from './ui/Confetti';
 import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
 import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
+import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
 import { OfflineModal } from './ui/OfflineModal';
@@ -65,6 +66,7 @@ export function App() {
       <OfflineModal />
       <HatchReveal />
       <MultiHatchResult />
+      <MilestoneReveal />
       <AchievementsOverlay />
       <LeaderboardOverlay />
     </div>

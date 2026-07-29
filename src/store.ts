@@ -45,6 +45,7 @@ import {
 } from './game/economy';
 import { formatGoo } from './game/format';
 import { hatch, hatchBatch, type BatchResult, type HatchOutcome } from './game/hatching';
+import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
@@ -100,6 +101,8 @@ interface GameState {
   achievementsOpen: boolean;
   confettiBursts: number; // increments to trigger a celebration
   confettiKind: ConfettiKind;
+  milestone: Milestone | null; // a big number milestone currently being celebrated
+  magnitudePulse: number; // increments each time goo crosses an order of magnitude
   // "Upgrade all" pacing (session-only, never persisted): the button is locked
   // until this epoch-ms, and its service fee doubles with each use this session.
   upgradeAllReadyAt: number;
@@ -137,6 +140,9 @@ interface GameState {
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
   triggerConfetti: (kind: ConfettiKind) => void;
+  showMilestone: (m: Milestone) => void;
+  dismissMilestone: () => void;
+  pulseMagnitude: () => void;
 }
 
 let toastId = 0;
@@ -229,6 +235,8 @@ export const useGame = create<GameState>((set, get) => {
     achievementsOpen: false,
     confettiBursts: 0,
     confettiKind: 'confetti',
+    milestone: null,
+    magnitudePulse: 0,
     upgradeAllReadyAt: 0,
     upgradeAllFeeTier: 0,
 
@@ -610,6 +618,14 @@ export const useGame = create<GameState>((set, get) => {
     dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     triggerConfetti: (kind) =>
       set((s) => ({ confettiBursts: s.confettiBursts + 1, confettiKind: kind })),
+
+    // Only surface a milestone if one isn't already on screen (avoid stacking).
+    showMilestone: (m) => {
+      if (get().milestone) return;
+      set({ milestone: m });
+    },
+    dismissMilestone: () => set({ milestone: null }),
+    pulseMagnitude: () => set((s) => ({ magnitudePulse: s.magnitudePulse + 1 })),
   };
 });
 

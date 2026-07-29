@@ -23,9 +23,11 @@ import {
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { accessoryById, blobById } from '../../game/cosmetics';
+import { collectionOrder } from '../../game/characters';
 import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
+import { shareProgress } from '../shareCard';
 import { useReducedMotion } from '../useReducedMotion';
 
 const COMBO_WINDOW_MS = comboWindowMs;
@@ -82,6 +84,8 @@ export function ClickScreen() {
   const rainStats = useRef({ popped: 0, sum: 0, total: 0 });
   const rainBonusTimer = useRef<number>();
   const [critFlash, setCritFlash] = useState(false);
+  const [magFlash, setMagFlash] = useState(false);
+  const magnitudePulse = useGame((s) => s.magnitudePulse);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [combo, setCombo] = useState(0);
   const [comboBurst, setComboBurst] = useState<{ id: number; milestone: number; amount: number } | null>(null);
@@ -113,6 +117,14 @@ export function ClickScreen() {
     }, 150);
     return () => window.clearInterval(iv);
   }, [frenzyUntil]);
+
+  // Order-of-magnitude flash: brief screen glow when the counter gains a digit.
+  useEffect(() => {
+    if (magnitudePulse === 0 || reduced) return;
+    setMagFlash(true);
+    const t = window.setTimeout(() => setMagFlash(false), 600);
+    return () => window.clearTimeout(t);
+  }, [magnitudePulse, reduced]);
 
   // Counter pop on change.
   useEffect(() => {
@@ -307,6 +319,13 @@ export function ClickScreen() {
           aria-hidden
         />
       )}
+      {magFlash && !reduced && (
+        <div
+          className="anim-crit-flash pointer-events-none absolute inset-0 z-10"
+          style={{ background: 'radial-gradient(circle, rgba(163,255,18,0.55), rgba(0,229,255,0.25) 45%, transparent 72%)' }}
+          aria-hidden
+        />
+      )}
 
       {/* Goo rain: tappable drops fall down the whole screen. */}
       {rain.map((d) => (
@@ -381,6 +400,7 @@ export function ClickScreen() {
             </div>
           )}
         </div>
+        <QuickShare />
       </header>
 
       {frenzyActive && (
@@ -477,6 +497,46 @@ export function ClickScreen() {
         לוחצים על הבלוב — צוברים גּוּ! ({formatGoo(perClick)} לכל נגיעה)
       </p>
     </div>
+  );
+}
+
+function QuickShare() {
+  const goo = useGame((s) => s.goo);
+  const characters = useGame((s) => s.characters);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const onShare = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await shareProgress({
+        goo,
+        collectionCount: collectionOrder.filter((id) => characters[id]).length,
+        total: collectionOrder.length,
+      });
+      setDone(true);
+      window.setTimeout(() => setDone(false), 2500);
+    } catch {
+      /* ignore — can retry */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onShare}
+      disabled={busy}
+      className="btn mt-3 inline-flex items-center gap-1.5 bg-pop/90 px-5 py-1.5 text-sm text-void"
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1A0B2E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="9" width="18" height="12" rx="2" />
+        <path d="M12 15V3M12 3l-4 4M12 3l4 4" />
+      </svg>
+      {done ? 'נשמר!' : busy ? 'רגע…' : 'שַׁתֵּף'}
+    </button>
   );
 }
 

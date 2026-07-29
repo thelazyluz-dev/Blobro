@@ -2,7 +2,10 @@
 // tick, and persists on an interval + visibilitychange + beforeunload (§12).
 
 import { useEffect } from 'react';
+import { playMagnitude, playMilestone } from '../audio/sfx';
+import { speakCompliment } from '../audio/speech';
 import { saveIntervalMs } from '../game/balance';
+import { milestonesCrossed } from '../game/milestones';
 import { useGame } from '../store';
 
 export function useGameEngine(): boolean {
@@ -39,6 +42,40 @@ export function useGameEngine(): boolean {
       cancelAnimationFrame(raf);
       document.removeEventListener('visibilitychange', resetClock);
     };
+  }, [loaded]);
+
+  // Celebrate progress: fire an order-of-magnitude "whoosh" every time the goo
+  // counter gains a digit, and the full milestone celebration (fact + fanfare +
+  // spoken compliment + confetti) when lifetime goo crosses a named milestone.
+  useEffect(() => {
+    if (!loaded) return;
+    const unsub = useGame.subscribe((s, prev) => {
+      const next = s.lifetimeGoo;
+      const before = prev.lifetimeGoo;
+      if (next <= before) return;
+
+      const crossed = milestonesCrossed(before, next);
+      const muted = useGame.getState().muted;
+      if (crossed.length > 0) {
+        // Fire the biggest one crossed in this step.
+        const top = crossed[crossed.length - 1];
+        if (!useGame.getState().milestone) {
+          useGame.getState().showMilestone(top);
+          playMilestone(muted);
+          useGame.getState().triggerConfetti('rainbow');
+          speakCompliment(muted);
+        }
+        return;
+      }
+
+      const beforeMag = Math.floor(Math.log10(Math.max(1, before)));
+      const nextMag = Math.floor(Math.log10(Math.max(1, next)));
+      if (nextMag > beforeMag && nextMag >= 2) {
+        playMagnitude(muted, nextMag);
+        useGame.getState().pulseMagnitude();
+      }
+    });
+    return unsub;
   }, [loaded]);
 
   // Persistence + background-earning: save on hide, and on resume credit the

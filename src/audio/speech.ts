@@ -26,21 +26,34 @@ if (typeof window !== 'undefined' && window.speechSynthesis) {
 
 const NIKUD = /[֑-ׇ]/g;
 
-/** Speak a Hebrew name. Nikud is stripped so the voice reads it cleanly. */
-export function speakName(nameHe: string, muted: boolean): void {
+/** Speak a short Hebrew phrase aloud. Nikud is stripped for clean reading. */
+export function speak(text: string, muted: boolean, pitch = 1.15, rate = 0.95): void {
   if (muted) return;
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   try {
     const synth = window.speechSynthesis;
     synth.cancel(); // don't stack utterances
-    const u = new SpeechSynthesisUtterance(nameHe.replace(NIKUD, '').trim());
+    const u = new SpeechSynthesisUtterance(text.replace(NIKUD, '').trim());
     u.lang = 'he-IL';
-    u.rate = 0.95;
-    u.pitch = 1.15; // a touch playful for kids
+    u.rate = rate;
+    u.pitch = pitch;
     const v = pickVoice();
     if (v) u.voice = v;
     synth.speak(u);
   } catch {
     /* speech is a nicety — ignore failures */
   }
+}
+
+/** Speak a creature's name. */
+export function speakName(nameHe: string, muted: boolean): void {
+  speak(nameHe, muted);
+}
+
+const COMPLIMENTS = ['תּוֹתָח!', 'וָואוּ!', 'אַלּוּף!', 'מְטֹרָף!', 'פְּצָצָה!', 'אֵלּוּף אֲמִיתִּי!'];
+
+/** Speak a random excited compliment — used on big milestone celebrations. */
+export function speakCompliment(muted: boolean): void {
+  const phrase = COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
+  speak(phrase, muted, 1.3, 1.0);
 }

@@ -170,6 +170,56 @@ export function playRainDrop(muted: boolean): void {
   });
 }
 
+/** A quick rising "whoosh + ping" each time the goo counter crosses a new
+ * order of magnitude (100 → 1,000 → …). Pitch climbs with the exponent so
+ * bigger jumps sound higher and more triumphant. */
+export function playMagnitude(muted: boolean, exponent: number): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const base = Math.min(1400, 300 + exponent * 90);
+  // upward sweep
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(base * 0.6, now);
+  osc.frequency.exponentialRampToValueAtTime(base * 1.6, now + 0.16);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, now);
+  env.gain.exponentialRampToValueAtTime(0.12, now + 0.03);
+  env.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 6000;
+  osc.connect(env);
+  env.connect(lp);
+  lp.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.24);
+  // a bright ping on top
+  voice(ctx, base * 2, now + 0.1, 0.09, { type: 'sine', gain: 0.1, filter: 9000, decay: 0.12 });
+}
+
+/** The full "you hit a milestone" fanfare — big, a little crazy. */
+export function playMilestone(muted: boolean): void {
+  if (muted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  // deep boom
+  voice(ctx, 80, now, 0.3, { type: 'sine', gain: 0.28, filter: 700, decay: 0.3 });
+  voice(ctx, 120, now, 0.24, { type: 'square', gain: 0.2, filter: 1200, decay: 0.24 });
+  // triumphant rising fanfare
+  const fanfare = [392, 523, 659, 784, 1047, 1319];
+  fanfare.forEach((f, i) =>
+    voice(ctx, f, now + 0.12 + i * 0.1, 0.14, { type: 'triangle', gain: 0.16, filter: 8000, decay: 0.16 }),
+  );
+  // sparkle tail
+  [1568, 2093, 2637].forEach((f, i) =>
+    voice(ctx, f, now + 0.72 + i * 0.06, 0.06, { type: 'sine', gain: 0.1, filter: 9000, decay: 0.1 }),
+  );
+}
+
 // A cheerful major arpeggio, rotated each call, looped during a frenzy.
 const FRENZY_ARP = [523, 659, 784, 1047, 784, 659];
 export function playFrenzyStep(muted: boolean, step: number): void {

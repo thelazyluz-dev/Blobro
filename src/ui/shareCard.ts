@@ -4,6 +4,7 @@
 
 import { createElement } from 'react';
 import { charactersById } from '../game/characters';
+import { formatGooHero } from '../game/format';
 import type { CharId } from '../game/types';
 import { CharacterBody } from './characters';
 import { rarityColor, rarityLabelHe } from './rarity';
@@ -118,6 +119,141 @@ async function buildBlob(id: CharId): Promise<Blob> {
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png');
   });
+}
+
+export interface ProgressShare {
+  goo: number;
+  collectionCount: number;
+  total: number;
+  titleHe?: string; // e.g. a milestone headline
+  factHe?: string; // e.g. the milestone fact
+}
+
+/** Draw a "look how far I got" brag card: the big goo total + an optional
+ * milestone fact + collection progress. All on-device; nothing is uploaded. */
+async function buildProgress(s: ProgressShare): Promise<Blob> {
+  try {
+    await document.fonts.load('700 120px "Suez One"');
+    await document.fonts.load('700 48px Rubik');
+    await document.fonts.ready;
+  } catch {
+    /* fallback fonts are fine */
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('no 2d context');
+
+  ctx.fillStyle = '#1A0B2E';
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, 760, 80, W / 2, 760, 820);
+  glow.addColorStop(0, 'rgba(163,255,18,0.42)');
+  glow.addColorStop(0.5, 'rgba(255,46,136,0.28)');
+  glow.addColorStop(1, 'rgba(26,11,46,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = '#A3FF12';
+  roundRect(ctx, 48, 48, W - 96, H - 96, 64);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.direction = 'rtl';
+
+  // Optional milestone emoji + headline up top.
+  if (s.titleHe) {
+    ctx.fillStyle = '#FFD84D';
+    ctx.font = '400 92px "Suez One"';
+    ctx.fillText(s.titleHe, W / 2, 470);
+  }
+
+  // The giant goo number — the hero of the card.
+  ctx.fillStyle = '#FFF4E0';
+  ctx.font = '400 92px Rubik';
+  ctx.fillText('צברתי', W / 2, 690);
+  ctx.fillStyle = '#A3FF12';
+  ctx.font = '400 230px "Suez One"';
+  ctx.fillText(formatGooHero(s.goo), W / 2, 900);
+  ctx.fillStyle = '#FFF4E0';
+  ctx.font = '400 92px Rubik';
+  ctx.fillText('גּוּ!', W / 2, 1010);
+
+  // The fact, wrapped to fit.
+  if (s.factHe) {
+    ctx.fillStyle = '#00E5FF';
+    ctx.font = '400 52px Rubik';
+    wrapText(ctx, s.factHe, W / 2, 1180, W - 220, 74);
+  }
+
+  // Collection progress line.
+  ctx.fillStyle = '#FFF4E0';
+  ctx.font = '400 56px Rubik';
+  ctx.fillText(`אספתי ${s.collectionCount} מתוך ${s.total} יצורים`, W / 2, 1560);
+
+  // Wordmark.
+  ctx.fillStyle = '#A3FF12';
+  ctx.font = '400 96px "Suez One"';
+  ctx.fillText('בלורבו', W / 2, 1760);
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png');
+  });
+}
+
+/** Center-wrapped text helper. */
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+): void {
+  const words = text.split(' ');
+  let line = '';
+  let cy = y;
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, cy);
+      line = word;
+      cy += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, x, cy);
+}
+
+async function deliver(blob: Blob, filename: string, title: string): Promise<ShareResult> {
+  const file = new File([blob], filename, { type: 'image/png' });
+  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+  if (nav.canShare?.({ files: [file] }) && typeof nav.share === 'function') {
+    try {
+      await nav.share({ files: [file], title });
+      return 'shared';
+    } catch {
+      /* cancelled — fall through to download */
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return 'downloaded';
+}
+
+/** Build and share the progress brag card. */
+export async function shareProgress(s: ProgressShare): Promise<ShareResult> {
+  const blob = await buildProgress(s);
+  return deliver(blob, 'blorbo-progress.png', 'בלורבו — כמה גּוּ צברתי!');
 }
 
 export type ShareResult = 'shared' | 'downloaded';
