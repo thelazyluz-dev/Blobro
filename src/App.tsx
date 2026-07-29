@@ -3,6 +3,7 @@ import { unlockAudio } from './audio/synth';
 import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
 import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
+import { EventBanner } from './ui/EventBanner';
 import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
 import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
@@ -58,6 +59,7 @@ export function App() {
         {activeTab === 'shop' && <ShopScreen />}
       </main>
 
+      <EventBanner />
       <BottomNav />
 
       <FeedbackController />

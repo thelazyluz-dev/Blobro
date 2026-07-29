@@ -13,6 +13,7 @@ import {
   frenzyDurationMs,
   frenzyMultiplier,
   leaderboardMaxEntries,
+  luckCap,
   openAllCap,
   leaderboardNameMaxLen,
   maxEvolution,
@@ -46,6 +47,7 @@ import {
   upgradeAllFee,
 } from './game/economy';
 import { formatGoo } from './game/format';
+import { currentEvent } from './game/events';
 import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
@@ -153,6 +155,9 @@ interface GameState {
 
 let toastId = 0;
 
+/** Egg price function with an event discount folded in (e.g. half-price sale). */
+const eggPricer = (mult: number) => (n: number) => Math.max(1, Math.round(eggCost(n) * mult));
+
 const achievementsById = new Map(achievementDefs.map((a) => [a.id, a]));
 
 /** Which "equipped" field a cosmetic kind sets. */
@@ -204,15 +209,7 @@ function snapshot(s: GameState, now: number): SaveState {
 }
 
 export const useGame = create<GameState>((set, get) => {
-  const mods = (): Modifiers => {
-    const s = get();
-    return modifiersFrom(
-      s.upgrades,
-      starBonusFor(s.achievements),
-      clickCosmeticBonus(s.equippedBlob, s.equippedAccessory),
-      backgroundIncomeBonus(s.equippedBackground),
-    );
-  };
+  const mods = (): Modifiers => modsOf(get());
 
   return {
     goo: 0,
@@ -300,6 +297,7 @@ export const useGame = create<GameState>((set, get) => {
       let gain = clickPower(m);
       if (crit) gain *= critMultiplier;
       if (frenzy) gain *= frenzyMultiplier;
+      gain *= currentEvent(Date.now()).clickMult;
       set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1 }));
       return { gain, frenzy, crit };
     },
@@ -315,7 +313,8 @@ export const useGame = create<GameState>((set, get) => {
     // (opened + still held), so it keeps rising however you pace your opening.
     buyEgg: () => {
       const s = get();
-      const cost = eggCost(s.totalHatches + s.eggs);
+      const priced = eggPricer(currentEvent(Date.now()).eggCostMult);
+      const cost = priced(s.totalHatches + s.eggs);
       if (s.goo < cost) return;
       set({ goo: s.goo - cost, eggs: s.eggs + 1 });
     },
@@ -323,7 +322,8 @@ export const useGame = create<GameState>((set, get) => {
     // Buy as many eggs as you can afford right now (capped), at escalating price.
     buyEggsMax: () => {
       const s = get();
-      const { count, spent } = buyableEggs(s.goo, s.totalHatches + s.eggs, eggBuyMaxPerPress, eggCost);
+      const priced = eggPricer(currentEvent(Date.now()).eggCostMult);
+      const { count, spent } = buyableEggs(s.goo, s.totalHatches + s.eggs, eggBuyMaxPerPress, priced);
       if (count === 0) return;
       set({ goo: s.goo - spent, eggs: s.eggs + count });
     },
@@ -552,7 +552,7 @@ export const useGame = create<GameState>((set, get) => {
       // so the goo you actually earn matches the displayed goo/sec exactly.
       const rate = gooPerSec(s.characters, mods());
       if (rate <= 0) return;
-      const gain = rate * dtSeconds;
+      const gain = rate * dtSeconds * currentEvent(Date.now()).incomeMult;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
     },
 
@@ -665,19 +665,30 @@ if (import.meta.env.DEV) {
 }
 
 // Convenience selectors used across screens.
-const modsOf = (s: GameState) =>
-  modifiersFrom(
+const modsOf = (s: GameState): Modifiers => {
+  const m = modifiersFrom(
     s.upgrades,
     starBonusFor(s.achievements),
     clickCosmeticBonus(s.equippedBlob, s.equippedAccessory),
     backgroundIncomeBonus(s.equippedBackground),
   );
+  // A "lucky hour" event temporarily boosts hatch odds (luck only affects
+  // hatching, never costs, so it's safe to fold in here).
+  const ev = currentEvent(Date.now());
+  if (ev.luckBonus > 0) m.luck = Math.min(luckCap, m.luck + ev.luckBonus);
+  return m;
+};
 export const selectMods = (s: GameState): Modifiers => modsOf(s);
-export const selectGooPerSec = (s: GameState) => gooPerSec(s.characters, modsOf(s));
+// Display selectors fold in the active event's multipliers so the numbers the
+// player sees (rate, tap power, egg price) match what they actually get.
+export const selectGooPerSec = (s: GameState) =>
+  gooPerSec(s.characters, modsOf(s)) * currentEvent(Date.now()).incomeMult;
 /** The active permanent income bonus (star) as a fraction, e.g. 0.2 = +20%. */
 export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
-export const selectEggCost = (s: GameState) => eggCost(s.totalHatches + s.eggs);
-export const selectClickPower = (s: GameState) => clickPower(modsOf(s));
+export const selectEggCost = (s: GameState) =>
+  Math.max(1, Math.round(eggCost(s.totalHatches + s.eggs) * currentEvent(Date.now()).eggCostMult));
+export const selectClickPower = (s: GameState) =>
+  clickPower(modsOf(s)) * currentEvent(Date.now()).clickMult;
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);
 export const selectAchContext = (s: GameState): AchievementContext => achContextOf(s);
 /** Ids of achievements finished but not yet claimed — the "ready to collect" set. */
