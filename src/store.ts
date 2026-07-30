@@ -458,6 +458,7 @@ export const useGame = create<GameState>((set, get) => {
       const rate = gooPerSec(s.characters, m);
       let goo = s.goo;
       const chars: OwnedCharacters = { ...s.characters };
+      const upgraded = new Set<CharId>();
       let bought = 0;
       const CAP = 300;
       while (bought < CAP) {
@@ -474,11 +475,17 @@ export const useGame = create<GameState>((set, get) => {
         goo -= bestCost;
         const h = chars[bestId]!;
         chars[bestId] = { ...h, level: h.level + 1 };
+        upgraded.add(bestId);
         bought += 1;
       }
       if (bought === 0) return; // nothing affordable — don't lock
+      const gained = gooPerSec(chars, m) - rate; // extra goo/sec from this batch
       set({ goo, characters: chars, upgradeAllReadyAt: now + upgradeAllCooldownMs });
-      get().pushToast({ text: `שִׁדְרַגְתָּ ${bought} רָמוֹת! ⬆️`, icon: '⬆️', tone: 'goo' });
+      get().pushToast({
+        text: `⬆️ ${bought} רָמוֹת בְּ־${upgraded.size} יְצוּרִים · +${formatGoo(gained)} גּוּ/שנייה`,
+        icon: '⬆️',
+        tone: 'goo',
+      });
     },
 
     // Shop: buy a cosmetic with goo (auto-equips it), or equip one already owned.
