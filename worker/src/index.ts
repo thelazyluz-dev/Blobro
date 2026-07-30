@@ -41,14 +41,19 @@ const MAX_NAME_LEN = 12;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
 
-// Sane ceilings. Clicks are physical taps; goo is total earned.
+// Sane ceilings. Clicks are physical taps; goo is total earned. Anything above
+// these is impossible and hard-rejected (4xx) rather than clamped.
 const MAX_CLICKS = 5_000_000; // ~weeks of nonstop tapping — no human exceeds this
 const MAX_GOO = 1e18; // a quintillion: generous for deep play, blocks absurd junk
 
 // Clicks plausibility: at most this many taps per second since first-seen, plus
-// a grace baseline for taps made before joining the board.
+// a small grace for taps made in the session before the first submit.
 const CLICK_RATE_PER_SEC = 25; // well above a human's ~10/s
-const CLICK_BASELINE = 100_000;
+const CLICK_BASELINE = 5_000;
+// Goo can't be time-bounded (idle income is exponential), so a fresh identity's
+// FIRST submit is capped low — this kills the one-shot "new player → millions"
+// drive-by. Established rows may grow up to MAX_GOO.
+const GOO_FIRST_CAP = 1_000_000;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -129,6 +134,9 @@ export default {
       if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
       if (!name) return json({ error: 'bad-name' }, 400);
       if (!Number.isFinite(rawClicks) || !Number.isFinite(rawGoo)) return json({ error: 'bad-score' }, 400);
+      // Hard-reject the flat-out impossible (a clear 4xx, not a silent clamp).
+      if (rawClicks < 0 || rawClicks > MAX_CLICKS) return json({ error: 'clicks-out-of-range' }, 400);
+      if (rawGoo < 0 || rawGoo > MAX_GOO) return json({ error: 'goo-out-of-range' }, 400);
 
       try {
         const now = Date.now();
@@ -147,7 +155,9 @@ export default {
           : Math.min(MAX_CLICKS, Math.floor(CLICK_RATE_PER_SEC * elapsedSec + CLICK_BASELINE));
 
         const clicks = clamp(rawClicks, 0, clickCap);
-        const goo = clamp(rawGoo, 0, MAX_GOO);
+        // A brand-new identity (no row yet) can't claim big goo in one shot.
+        const gooCap = existing ? MAX_GOO : Math.min(MAX_GOO, GOO_FIRST_CAP);
+        const goo = clamp(rawGoo, 0, gooCap);
 
         await env.DB.prepare(
           `INSERT INTO scores (code, name, clicks, goo, created, updated)
