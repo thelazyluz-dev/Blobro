@@ -24,7 +24,8 @@ import {
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { autoTapFraction } from '../../game/economy';
 import { accessoryById, blobById } from '../../game/cosmetics';
-import { selectClickPower, selectComboMelody, selectGooPerSec, selectMods, selectStarBonus, useGame } from '../../store';
+import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, selectMods, selectStarBonus, useGame } from '../../store';
+import { ABILITY_META, abilityPct } from '../../game/abilities';
 import { haptic } from '../haptics';
 import { CharacterBody } from '../characters';
 import { MainBlob } from '../MainBlob';
@@ -69,6 +70,7 @@ export function ClickScreen() {
   const collectBonus = useGame((s) => s.collectBonus);
   const grantGoo = useGame((s) => s.grantGoo);
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
+  const activeAbility = useGame(selectActiveAbility);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   const blobColors = useGame((s) => blobById(s.equippedBlob).colors);
   const blobShape = useGame((s) => blobById(s.equippedBlob).shape);
@@ -285,7 +287,8 @@ export function ClickScreen() {
       comboMilestones.includes(c.count) ||
       (c.count >= comboRepeatEvery && c.count % comboRepeatEvery === 0);
     if (isMilestone) {
-      const amount = c.count * clickRef.current;
+      const comboMult = activeAbility?.type === 'combo' ? 1 + activeAbility.value : 1;
+      const amount = c.count * clickRef.current * comboMult;
       grantGoo(amount);
       const m = useGame.getState().muted;
       playBonus(m);
@@ -461,6 +464,13 @@ export function ClickScreen() {
           <div className="mt-1.5 flex items-center justify-center">
             <span className="inline-flex items-center gap-1 rounded-full bg-cy/15 px-3 py-0.5 text-sm text-cy ring-1 ring-cy/30">
               🤖 +{formatGoo(robotPerSec)} גּוּ/שנייה
+            </span>
+          </div>
+        )}
+        {activeAbility && (
+          <div className="mt-1.5 flex items-center justify-center">
+            <span className="inline-flex items-center gap-1 rounded-full bg-pop/15 px-3 py-0.5 text-sm text-pop ring-1 ring-pop/30">
+              {ABILITY_META[activeAbility.type].icon} {ABILITY_META[activeAbility.type].descHe(abilityPct(activeAbility))}
             </span>
           </div>
         )}

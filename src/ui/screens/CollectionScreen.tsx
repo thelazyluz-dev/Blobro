@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
+import { ABILITY_META, abilityOf, abilityPct } from '../../game/abilities';
 import { evolveLevels, evolveMultiplierByStage, maxEvolution } from '../../game/balance';
 import { charactersById, collectionOrder, incomeMultOf } from '../../game/characters';
 import {
@@ -358,6 +359,20 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         </div>
         <div className="mt-4 text-lg text-pop tabular">רמה {held.level}</div>
         <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
+
+        {/* The special ability this creature grants when it's your main. */}
+        {(() => {
+          const ab = abilityOf(id, def.rarity);
+          const meta = ABILITY_META[ab.type];
+          return (
+            <div className="mt-3 rounded-2xl bg-pop/10 px-3 py-2 ring-1 ring-pop/30">
+              <div className="text-xs text-bone/55">יְכֹלֶת מְיֻחֶדֶת (כְּשֶׁמּוּצֶגֶת בַּמָּסָךְ)</div>
+              <div className="mt-0.5 font-display text-base text-pop">
+                {meta.icon} {meta.descHe(abilityPct(ab))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Direct level-up with goo — the always-available progression. */}
         <button

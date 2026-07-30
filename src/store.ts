@@ -10,6 +10,7 @@ import {
   bonusClickEquivalent,
   bonusIncomeSeconds,
   bonusMinGoo,
+  critChanceCap,
   critMultiplier,
   eggBuyMaxPerPress,
   evolveLevels,
@@ -29,6 +30,7 @@ import {
   starBonusFor,
   type AchievementContext,
 } from './game/achievements';
+import { abilityOf, type Ability } from './game/abilities';
 import { charactersById, incomeMultById, unlockCreatures } from './game/characters';
 import {
   DEFAULT_ACCESSORY,
@@ -585,10 +587,14 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const m = mods();
       const perSec = gooPerSec(s.characters, m);
-      const reward = Math.max(
-        Math.round(perSec * bonusIncomeSeconds),
-        Math.round(clickPower(m) * bonusClickEquivalent),
-        bonusMinGoo,
+      const ab = selectActiveAbility(s);
+      const bonusMult = ab?.type === 'bonus' ? 1 + ab.value : 1;
+      const reward = Math.round(
+        Math.max(
+          Math.round(perSec * bonusIncomeSeconds),
+          Math.round(clickPower(m) * bonusClickEquivalent),
+          bonusMinGoo,
+        ) * bonusMult,
       );
       set({
         goo: s.goo + reward,
@@ -800,6 +806,13 @@ if (import.meta.env.DEV) {
   (window as unknown as { __game?: typeof useGame }).__game = useGame;
 }
 
+// The ability granted by the equipped main creature (only if it's owned).
+export const selectActiveAbility = (s: GameState): Ability | null => {
+  const id = s.equippedMain;
+  if (!id || !s.characters[id]) return null;
+  return abilityOf(id, charactersById[id].rarity);
+};
+
 // Convenience selectors used across screens.
 const modsOf = (s: GameState): Modifiers => {
   const m = modifiersFrom(
@@ -812,6 +825,15 @@ const modsOf = (s: GameState): Modifiers => {
   // hatching, never costs, so it's safe to fold in here).
   const ev = currentEvent(Date.now());
   if (ev.luckBonus > 0) m.luck = Math.min(luckCap, m.luck + ev.luckBonus);
+  // The equipped main creature's ability (tap/income/crit/luck fold into the
+  // modifiers here; combo/bonus are applied where those mechanics live).
+  const ab = selectActiveAbility(s);
+  if (ab) {
+    if (ab.type === 'tap') m.clickMultiplier *= 1 + ab.value;
+    else if (ab.type === 'income') m.incomeMultiplier *= 1 + ab.value;
+    else if (ab.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab.value);
+    else if (ab.type === 'luck') m.luck = Math.min(luckCap, m.luck + ab.value);
+  }
   return m;
 };
 export const selectMods = (s: GameState): Modifiers => modsOf(s);
