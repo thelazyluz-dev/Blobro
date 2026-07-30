@@ -59,7 +59,9 @@ export function CollectionScreen() {
 
   const open = (id: CharId) => {
     setSelected(id);
-    playJingle(charactersById[id].sound, useGame.getState().muted);
+    const muted = useGame.getState().muted;
+    playJingle(charactersById[id].sound, muted);
+    speakName(charactersById[id].nameHe, muted); // say the creature's name on open
   };
 
   // Cheapest single level available across owned creatures — enables "upgrade all".

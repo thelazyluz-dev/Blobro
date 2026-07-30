@@ -10,6 +10,7 @@ import {
   bonusLifetimeMs,
   comboMilestones,
   comboRepeatEvery,
+  comboRewardMult,
   comboWindowMs,
   frenzyMultiplier,
   rainAllBonusMult,
@@ -288,7 +289,7 @@ export function ClickScreen() {
       (c.count >= comboRepeatEvery && c.count % comboRepeatEvery === 0);
     if (isMilestone) {
       const comboMult = activeAbility?.type === 'combo' ? 1 + activeAbility.value : 1;
-      const amount = c.count * clickRef.current * comboMult;
+      const amount = c.count * clickRef.current * comboRewardMult * comboMult;
       grantGoo(amount);
       const m = useGame.getState().muted;
       playBonus(m);

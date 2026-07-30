@@ -101,6 +101,7 @@ interface GameState {
   equippedAccessory: string;
   equippedSound: string;
   equippedMain: CharId | null; // creature shown on the main screen (null = classic blob)
+  milestonesShown: number[]; // goo thresholds already celebrated (each fact shows once)
   muted: boolean;
 
   // --- transient UI / session ---
@@ -177,6 +178,7 @@ interface GameState {
   grantUnlock: (id: CharId, reveal: boolean) => void;
   dismissUnlock: () => void;
   showMilestone: (m: Milestone) => void;
+  markMilestonesShown: (goos: number[]) => void;
   dismissMilestone: () => void;
   pulseMagnitude: (exp: number) => void;
 }
@@ -234,6 +236,7 @@ function snapshot(s: GameState, now: number): SaveState {
     equippedAccessory: s.equippedAccessory,
     equippedSound: s.equippedSound,
     equippedMain: s.equippedMain,
+    milestonesShown: s.milestonesShown,
     lastSeen: now,
     muted: s.muted,
   };
@@ -260,6 +263,7 @@ export const useGame = create<GameState>((set, get) => {
     equippedAccessory: DEFAULT_ACCESSORY,
     equippedSound: DEFAULT_SOUND,
     equippedMain: null,
+    milestonesShown: [],
     muted: false,
 
     loaded: false,
@@ -328,6 +332,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedAccessory: save.equippedAccessory,
         equippedSound: save.equippedSound,
         equippedMain: save.equippedMain,
+        milestonesShown: save.milestonesShown,
         muted: save.muted,
         loaded: true,
         offlineReport: report,
@@ -759,6 +764,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedAccessory: fresh.equippedAccessory,
         equippedSound: fresh.equippedSound,
         equippedMain: fresh.equippedMain,
+        milestonesShown: [],
         hatchResult: null,
         multiHatchResult: null,
         offlineReport: null,
@@ -796,6 +802,8 @@ export const useGame = create<GameState>((set, get) => {
       if (get().milestone) return;
       set({ milestone: m });
     },
+    markMilestonesShown: (goos) =>
+      set((s) => ({ milestonesShown: [...new Set([...s.milestonesShown, ...goos])] })),
     dismissMilestone: () => set({ milestone: null }),
     pulseMagnitude: (exp) => set((s) => ({ magnitudePulse: s.magnitudePulse + 1, magnitudeExp: exp })),
   };

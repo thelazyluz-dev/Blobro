@@ -61,13 +61,20 @@ export function useGameEngine(): boolean {
       const crossed = milestonesCrossed(before, next);
       const muted = useGame.getState().muted;
       if (crossed.length > 0) {
-        // Fire the biggest one crossed in this step.
-        const top = crossed[crossed.length - 1];
-        if (!useGame.getState().milestone) {
-          useGame.getState().showMilestone(top);
-          playMilestone(muted);
-          useGame.getState().triggerConfetti('rainbow');
-          speakCompliment(muted);
+        // Each fact is celebrated only ONCE, ever (persisted) — spending and
+        // re-earning across sessions never repeats a milestone.
+        const shown = new Set(useGame.getState().milestonesShown);
+        const fresh = crossed.filter((m) => !shown.has(m.goo));
+        if (fresh.length > 0) {
+          // Mark all newly-passed milestones so none re-fire, show the biggest.
+          useGame.getState().markMilestonesShown(fresh.map((m) => m.goo));
+          const top = fresh[fresh.length - 1];
+          if (!useGame.getState().milestone) {
+            useGame.getState().showMilestone(top);
+            playMilestone(muted);
+            useGame.getState().triggerConfetti('rainbow');
+            speakCompliment(muted);
+          }
         }
         return;
       }

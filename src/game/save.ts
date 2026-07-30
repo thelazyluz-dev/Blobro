@@ -34,7 +34,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 10 as const;
+export const CURRENT_VERSION = 11 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -68,6 +68,7 @@ export function defaultSaveState(now: number): SaveState {
     equippedAccessory: DEFAULT_ACCESSORY,
     equippedSound: DEFAULT_SOUND,
     equippedMain: null,
+    milestonesShown: [],
     lastSeen: now,
     muted: false,
   };
@@ -177,6 +178,10 @@ export function migrate(raw: unknown, now: number): SaveState {
   const mainPick = typeof data.equippedMain === 'string' ? (data.equippedMain as CharId) : null;
   const equippedMain = mainPick && collectionOrder.includes(mainPick) ? mainPick : null;
 
+  const milestonesShown = Array.isArray(data.milestonesShown)
+    ? data.milestonesShown.filter((n): n is number => typeof n === 'number' && Number.isFinite(n))
+    : [];
+
   return {
     version: CURRENT_VERSION,
     goo: Math.max(0, num(data.goo, 0)),
@@ -196,6 +201,7 @@ export function migrate(raw: unknown, now: number): SaveState {
     equippedAccessory,
     equippedSound,
     equippedMain,
+    milestonesShown,
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
   };

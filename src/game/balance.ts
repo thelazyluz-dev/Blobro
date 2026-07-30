@@ -112,6 +112,9 @@ export const critMultiplier = 8; // a crit tap is worth this many normal taps
 // (…500, 1000, 1500, 2000…) so it never stops rewarding.
 export const comboMilestones = [50, 100, 250];
 export const comboRepeatEvery = 500;
+// Combo payouts are multiplied by this — bumped to make active tapping (combos)
+// more rewarding relative to idle income.
+export const comboRewardMult = 2;
 // How long a tap keeps the combo alive. Forgiving enough that a brief pause or
 // a frame-hitch during a celebration doesn't drop a long streak.
 export const comboWindowMs = 1200;
@@ -184,8 +187,8 @@ export const frenzyDurationMs = 9000;
 // BOTH taps and passive income. This is the hook that later carries real
 // rewarded ads — the reward is generous on purpose so watching feels worth it.
 export const adRewardMult = 3; // ×income and ×taps while the boost is live
-export const adRewardDurationMs = 60000; // one full minute of triple everything
-export const adRewardCooldownMs = 180000; // button recharges 3 min after use
+export const adRewardDurationMs = 30000; // half a minute of triple everything
+export const adRewardCooldownMs = 600000; // button recharges 10 min after use
 export const adPlaceholderMs = 4000; // how long the dummy ad "plays"
 
 // --- Achievements ------------------------------------------------------------

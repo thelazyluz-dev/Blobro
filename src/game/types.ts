@@ -71,7 +71,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 10;
+  version: 11;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;
@@ -89,6 +89,7 @@ export interface SaveState {
   equippedAccessory: string; // currently-worn accessory id
   equippedSound: string; // currently-selected combo-melody sound pack id
   equippedMain: CharId | null; // creature shown on the main screen (null = classic green blob)
+  milestonesShown: number[]; // goo thresholds whose fact has already been celebrated (once each)
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
 }
