@@ -179,6 +179,15 @@ export const bonusMinGoo = 20; // floor so it always feels worth it
 export const frenzyMultiplier = 8; // tap power during a frenzy
 export const frenzyDurationMs = 9000;
 
+// --- Rewarded bonus (the "watch to boost" mechanic) --------------------------
+// A button that, after a short (placeholder) ad, grants a big timed boost to
+// BOTH taps and passive income. This is the hook that later carries real
+// rewarded ads — the reward is generous on purpose so watching feels worth it.
+export const adRewardMult = 3; // ×income and ×taps while the boost is live
+export const adRewardDurationMs = 60000; // one full minute of triple everything
+export const adRewardCooldownMs = 180000; // button recharges 3 min after use
+export const adPlaceholderMs = 4000; // how long the dummy ad "plays"
+
 // --- Achievements ------------------------------------------------------------
 // Many escalating tiers per category so there's always another goal. Rewards are
 // now SPLIT by category (see game/achievements.ts): the collection-mastery

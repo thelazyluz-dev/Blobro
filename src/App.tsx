@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { unlockAudio } from './audio/synth';
 import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
+import { AdOverlay, BonusButton } from './ui/AdBonus';
 import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
 import { EventBanner } from './ui/EventBanner';
@@ -66,6 +67,7 @@ export function App() {
         {activeTab === 'shop' && <ShopScreen />}
       </main>
 
+      <BonusButton />
       <EventBanner />
       <BottomNav />
 
@@ -79,6 +81,7 @@ export function App() {
       <UnlockReveal />
       <AchievementsOverlay />
       <LeaderboardOverlay />
+      <AdOverlay />
       <StatsOverlay />
       <NumberLegendOverlay />
       <InstallPrompt />

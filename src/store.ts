@@ -4,6 +4,9 @@
 
 import { create } from 'zustand';
 import {
+  adRewardCooldownMs,
+  adRewardDurationMs,
+  adRewardMult,
   bonusClickEquivalent,
   bonusIncomeSeconds,
   bonusMinGoo,
@@ -104,6 +107,10 @@ interface GameState {
   multiHatchResult: BatchResult | null;
   offlineReport: OfflineReport | null;
   frenzyUntil: number; // epoch ms; a click frenzy is active until then
+  // Rewarded "watch to boost" mechanic (session-only, never persisted).
+  adRewardUntil: number; // epoch ms; a ×N boost to taps AND income is live until then
+  adCooldownUntil: number; // epoch ms; the bonus button recharges after this
+  adOverlayOpen: boolean; // the placeholder ad is currently playing
   toasts: Toast[];
   achievementsOpen: boolean;
   statsOpen: boolean;
@@ -135,6 +142,9 @@ interface GameState {
   buyCosmetic: (id: string) => void;
   equipCosmetic: (id: string) => void;
   collectBonus: () => number;
+  startAdBonus: () => void;
+  finishAdBonus: () => void;
+  cancelAdBonus: () => void;
   applyAwayEarnings: (seconds: number) => OfflineReport | null;
   grantGoo: (amount: number) => void;
   dismissMultiHatch: () => void;
@@ -247,6 +257,9 @@ export const useGame = create<GameState>((set, get) => {
     multiHatchResult: null,
     offlineReport: null,
     frenzyUntil: 0,
+    adRewardUntil: 0,
+    adCooldownUntil: 0,
+    adOverlayOpen: false,
     toasts: [],
     achievementsOpen: false,
     statsOpen: false,
@@ -321,6 +334,7 @@ export const useGame = create<GameState>((set, get) => {
       if (crit) gain *= critMultiplier;
       if (frenzy) gain *= frenzyMultiplier;
       gain *= currentEvent(Date.now()).clickMult;
+      gain *= adMultOf(get(), Date.now());
       set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1 }));
       return { gain, frenzy, crit };
     },
@@ -562,6 +576,34 @@ export const useGame = create<GameState>((set, get) => {
       return reward;
     },
 
+    // --- Rewarded bonus ("watch to boost") ---------------------------------
+    // startAdBonus opens the placeholder ad (only when off cooldown). When the
+    // ad finishes, the UI calls finishAdBonus to grant the boost; cancelAdBonus
+    // bails with no reward and no cooldown. Swapping in a real rewarded-ad
+    // network later means only the AdOverlay component changes — this contract
+    // (open → finished/cancelled → reward) stays the same.
+    startAdBonus: () => {
+      const s = get();
+      if (s.adOverlayOpen) return;
+      if (Date.now() < s.adCooldownUntil) return;
+      set({ adOverlayOpen: true });
+    },
+    finishAdBonus: () => {
+      if (!get().adOverlayOpen) return;
+      const now = Date.now();
+      set({
+        adOverlayOpen: false,
+        adRewardUntil: now + adRewardDurationMs,
+        adCooldownUntil: now + adRewardCooldownMs,
+      });
+      get().pushToast({
+        text: `בּוֹנוּס פָּעִיל! ×${adRewardMult} לְדַּקָּה 🚀`,
+        icon: '🚀',
+        tone: 'pop',
+      });
+    },
+    cancelAdBonus: () => set({ adOverlayOpen: false }),
+
     dismissHatch: () => set({ hatchResult: null }),
     dismissOffline: () => set({ offlineReport: null }),
     toggleMute: () => set((s) => ({ muted: !s.muted })),
@@ -572,7 +614,7 @@ export const useGame = create<GameState>((set, get) => {
       // so the goo you actually earn matches the displayed goo/sec exactly.
       const rate = gooPerSec(s.characters, mods());
       if (rate <= 0) return;
-      const gain = rate * dtSeconds * currentEvent(Date.now()).incomeMult;
+      const gain = rate * dtSeconds * currentEvent(Date.now()).incomeMult * adMultOf(s, Date.now());
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
     },
 
@@ -719,16 +761,32 @@ const modsOf = (s: GameState): Modifiers => {
   return m;
 };
 export const selectMods = (s: GameState): Modifiers => modsOf(s);
+
+/** The rewarded-bonus multiplier active right now (adRewardMult while live, else 1). */
+const adMultOf = (s: GameState, now: number): number => (now < s.adRewardUntil ? adRewardMult : 1);
+
+/** UI state for the rewarded-bonus button: is a boost live, is the button ready. */
+export const selectAdBonus = (s: GameState) => {
+  const now = Date.now();
+  return {
+    active: now < s.adRewardUntil,
+    rewardUntil: s.adRewardUntil,
+    ready: now >= s.adCooldownUntil,
+    cooldownUntil: s.adCooldownUntil,
+    mult: adRewardMult,
+  };
+};
+
 // Display selectors fold in the active event's multipliers so the numbers the
 // player sees (rate, tap power, egg price) match what they actually get.
 export const selectGooPerSec = (s: GameState) =>
-  gooPerSec(s.characters, modsOf(s)) * currentEvent(Date.now()).incomeMult;
+  gooPerSec(s.characters, modsOf(s)) * currentEvent(Date.now()).incomeMult * adMultOf(s, Date.now());
 /** The active permanent income bonus (star) as a fraction, e.g. 0.2 = +20%. */
 export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
 export const selectEggCost = (s: GameState) =>
   Math.max(1, Math.round(eggCost(s.totalHatches + s.eggs) * currentEvent(Date.now()).eggCostMult));
 export const selectClickPower = (s: GameState) =>
-  clickPower(modsOf(s)) * currentEvent(Date.now()).clickMult;
+  clickPower(modsOf(s)) * currentEvent(Date.now()).clickMult * adMultOf(s, Date.now());
 /** The combo melody (note frequencies) of the equipped sound pack. */
 export const selectComboMelody = (s: GameState) => soundById(s.equippedSound).melody;
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);

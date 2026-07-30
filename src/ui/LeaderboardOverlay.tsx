@@ -1,10 +1,22 @@
-// Local, on-device click leaderboard (§ privacy: nothing here is ever uploaded —
-// names + scores live only in this device's IndexedDB). A live table sorted by
-// number of taps, with the current run shown live and a name-entry box.
+// Click leaderboard. When a backend is configured (src/config.ts →
+// LEADERBOARD_API) this shows the GLOBAL table everyone shares; otherwise it
+// falls back to an on-device list. Either way it's a live table sorted by taps,
+// with the current run shown live and a nickname box.
+//
+// Privacy: only a nickname + click count are ever sent. A random per-device
+// recovery code (localStorage) identifies the row on the server and is never
+// shown or returned. No email, no real name, no location — safe for kids.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { leaderboardNameMaxLen } from '../game/balance';
 import { formatExact } from '../game/format';
+import {
+  fetchTop,
+  hasGlobalLeaderboard,
+  playerName,
+  submitScore,
+  type GlobalEntry,
+} from '../net/leaderboard';
 import { useGame } from '../store';
 
 export function LeaderboardButton() {
@@ -28,21 +40,56 @@ export function LeaderboardOverlay() {
   const leaderboard = useGame((s) => s.leaderboard);
   const addToLeaderboard = useGame((s) => s.addToLeaderboard);
   const resetClicks = useGame((s) => s.resetClicks);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => playerName());
 
-  // Merge the live current run into the ranked list.
+  const global = hasGlobalLeaderboard();
+  // Global rows once fetched; null = not loaded / failed → use local list.
+  const [remote, setRemote] = useState<GlobalEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Fetch the global top each time the panel opens.
+  useEffect(() => {
+    if (!open || !global) return;
+    let alive = true;
+    setLoading(true);
+    fetchTop(50)
+      .then((rows) => {
+        if (alive) setRemote(rows);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, global]);
+
+  // Build the ranked list: global rows if we have them, else the local list.
+  // Always splice in a live "you (now)" row for the current run.
   const rows = useMemo(() => {
-    const list = leaderboard.map((e) => ({ ...e, you: false }));
-    list.push({ name: 'אַתָּה (עכשיו)', clicks, you: true });
-    return list.sort((a, b) => b.clicks - a.clicks);
-  }, [leaderboard, clicks]);
+    const base =
+      global && remote
+        ? remote.map((e) => ({ name: e.name, clicks: e.score, you: false }))
+        : leaderboard.map((e) => ({ name: e.name, clicks: e.clicks, you: false }));
+    base.push({ name: 'אַתָּה (עכשיו)', clicks, you: true });
+    return base.sort((a, b) => b.clicks - a.clicks);
+  }, [global, remote, leaderboard, clicks]);
 
   if (!open) return null;
 
-  const submit = () => {
-    if (!name.trim()) return;
-    addToLeaderboard(name);
-    setName('');
+  const submit = async () => {
+    const clean = name.trim();
+    if (!clean) return;
+    addToLeaderboard(clean); // always keep a local copy
+    setName(clean);
+    if (global) {
+      setSaving(true);
+      await submitScore(clean, clicks);
+      const fresh = await fetchTop(50);
+      setRemote(fresh);
+      setSaving(false);
+    }
   };
 
   return (
@@ -59,7 +106,9 @@ export function LeaderboardOverlay() {
         aria-modal="true"
       >
         <div className="text-center font-display text-3xl text-bone">🏅 טַבְלַת מוֹבִילִים</div>
-        <div className="mb-2 text-center text-xs text-bone/50">נשמר במכשיר בלבד</div>
+        <div className="mb-2 text-center text-xs text-bone/50">
+          {global ? '🌍 טַבְלָה עוֹלָמִית — כֻּלָּם רוֹאִים' : 'נשמר במכשיר בלבד'}
+        </div>
 
         <div className="mb-1 flex items-center gap-3 px-3 text-[11px] font-bold text-bone/55">
           <span className="w-7 shrink-0 text-center">#</span>
@@ -68,6 +117,9 @@ export function LeaderboardOverlay() {
         </div>
 
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pe-1">
+          {loading && !remote && (
+            <div className="py-6 text-center text-sm text-bone/50">טוֹעֵן…</div>
+          )}
           {rows.map((r, i) => (
             <div
               key={i}
@@ -90,7 +142,7 @@ export function LeaderboardOverlay() {
           ))}
         </div>
 
-        {/* name entry — local only */}
+        {/* nickname entry */}
         <div className="mt-3 flex gap-2">
           <input
             type="text"
@@ -101,8 +153,13 @@ export function LeaderboardOverlay() {
             placeholder="הכניסו כינוי…"
             className="min-w-0 flex-1 rounded-2xl bg-black/40 px-3 py-2 text-bone outline-none ring-1 ring-hairline placeholder:text-bone/40 focus:ring-2 focus:ring-cy"
           />
-          <button type="button" onClick={submit} className="btn shrink-0 bg-goo px-4 py-2 text-void">
-            שְׁמֹר
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving}
+            className="btn shrink-0 bg-goo px-4 py-2 text-void disabled:opacity-60"
+          >
+            {saving ? '…' : 'שְׁמֹר'}
           </button>
         </div>
 

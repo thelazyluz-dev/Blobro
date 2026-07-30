@@ -1,0 +1,13 @@
+# Cloudflare Worker config for the Blorbo global leaderboard.
+# Deploy steps are in README.md. Everything here fits the free tier.
+
+name = "blorbo-leaderboard"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# D1 database binding. After you run `wrangler d1 create blorbo-leaderboard`,
+# Cloudflare prints a database_id — paste it below (replace PASTE_DATABASE_ID_HERE).
+[[d1_databases]]
+binding = "DB"                       # available in code as env.DB
+database_name = "blorbo-leaderboard"
+database_id = "PASTE_DATABASE_ID_HERE"
