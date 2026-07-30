@@ -1,10 +1,13 @@
 // Personal stats dashboard (§ user request). A button in the top corner opens a
 // panel summarising the player's whole game: economy, activity, and collection.
 
+import { useState } from 'react';
+import { playPurchase } from '../audio/sfx';
 import { achievements } from '../game/achievements';
 import { collectionOrder } from '../game/characters';
 import { formatExact, formatGoo } from '../game/format';
 import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../store';
+import { haptic } from './haptics';
 
 export function StatsButton() {
   const setOpen = useGame((s) => s.setStatsOpen);
@@ -17,6 +20,50 @@ export function StatsButton() {
     >
       📊
     </button>
+  );
+}
+
+function ResetSection() {
+  const resetGame = useGame((s) => s.resetGame);
+  const [confirming, setConfirming] = useState(false);
+
+  const onReset = () => {
+    resetGame();
+    setConfirming(false);
+    playPurchase(useGame.getState().muted);
+    haptic([0, 40, 30, 60]);
+  };
+
+  return (
+    <section className="mt-1 border-t border-hairline pt-4 text-center">
+      <h3 className="mb-1 font-display text-sm text-bone/60">הַתְחָלָה מֵחָדָשׁ</h3>
+      <p className="mb-2 text-[11px] text-bone/45">מוֹחֵק אֶת כָּל הַהִתְקַדְּמוּת וּמַתְחִיל מֵאֶפֶס</p>
+      {!confirming ? (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="btn w-full bg-black/30 py-2.5 text-sm text-hot ring-1 ring-hot/40"
+        >
+          🔄 הַתְחֵל מֵחָדָשׁ
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="text-sm text-hot">בָּטוּחַ? כָּל הַהִתְקַדְּמוּת תִּמָּחֵק לָנֶצַח!</div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onReset} className="btn flex-1 bg-hot py-2.5 text-sm text-bone">
+              כֵּן, לְאַפֵּס
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="btn flex-1 bg-cy py-2.5 text-sm text-void"
+            >
+              בִּיטּוּל
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -103,6 +150,8 @@ export function StatsOverlay() {
               <Tile icon="⭐" label="בּוֹנוּס הֶשֵּׂגִים קָבוּעַ" value={`+${Math.round(starBonus * 100)}%`} color="text-goo" />
             </div>
           </section>
+
+          <ResetSection />
         </div>
 
         <button type="button" onClick={() => setOpen(false)} className="btn mt-4 w-full bg-cy py-3 text-lg text-void">

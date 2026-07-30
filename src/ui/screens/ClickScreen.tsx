@@ -23,7 +23,7 @@ import {
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { accessoryById, blobById } from '../../game/cosmetics';
-import { selectClickPower, selectComboMelody, selectGooPerSec, selectStarBonus, useGame } from '../../store';
+import { selectClickPower, selectComboMelody, selectGooPerSec, selectMods, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
 import { useReducedMotion } from '../useReducedMotion';
@@ -73,6 +73,7 @@ export function ClickScreen() {
   const reduced = useReducedMotion();
 
   const [floaters, setFloaters] = useState<Floater[]>([]);
+  const [autoFloaters, setAutoFloaters] = useState<{ id: number; amount: number }[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [squash, setSquash] = useState(false);
   const [pop, setPop] = useState(false);
@@ -134,6 +135,25 @@ export function ClickScreen() {
     return () => window.clearTimeout(tf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magnitudePulse]);
+
+  // Visible robotic hand: while the robot-hand upgrade is owned, it periodically
+  // "harvests" — a 🤖 +N floats up from the blob so you can SEE it contributing
+  // (purely visual; the goo itself already accrues via the passive tick).
+  useEffect(() => {
+    if (reduced) return;
+    const iv = window.setInterval(() => {
+      const s = useGame.getState();
+      const f = selectMods(s).autoTapFraction;
+      if (f <= 0) return;
+      const contribution = (selectGooPerSec(s) * f) / (1 + f); // goo/sec the hand adds
+      const amount = contribution * 3; // shown per ~3s harvest
+      if (amount <= 0) return;
+      const id = ++uid;
+      setAutoFloaters((prev) => [...prev, { id, amount }]);
+      window.setTimeout(() => setAutoFloaters((prev) => prev.filter((x) => x.id !== id)), 1100);
+    }, 3000);
+    return () => window.clearInterval(iv);
+  }, [reduced]);
 
   // Counter pop on change.
   useEffect(() => {
@@ -406,18 +426,15 @@ export function ClickScreen() {
             {formatExact(goo)}
           </div>
         )}
-        <div className="mt-3 flex items-center justify-center gap-2">
-          <div className="inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
-            {formatGoo(rate)} גּוּ/שנייה
+        <div className="mt-3 flex items-center justify-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-black/25 px-4 py-1 text-base tabular ring-hairline">
+            <span className="text-goo">{formatGoo(rate)} גּוּ/שנייה</span>
+            {starBonus > 0 && (
+              <span className="font-bold text-goo/90" title="בונוס הכנסה קבוע מהישגים">
+                ⭐+{Math.round(starBonus * 100)}%
+              </span>
+            )}
           </div>
-          {starBonus > 0 && (
-            <div
-              className="inline-block rounded-full bg-goo/15 px-3 py-1 text-base font-bold text-goo tabular ring-1 ring-goo/40"
-              title="בונוס הכנסה קבוע מהישגים — חל על לחיצות והכנסה פאסיבית"
-            >
-              ⭐ +{Math.round(starBonus * 100)}%
-            </div>
-          )}
         </div>
       </header>
 
@@ -504,6 +521,17 @@ export function ClickScreen() {
               style={{ left: f.x, top: f.y }}
             >
               {f.crit ? 'קְרִיטִי! ' : ''}+{formatGoo(f.amount)}
+            </span>
+          ))}
+
+          {/* Robotic-hand harvest — floats up from the top of the blob. */}
+          {autoFloaters.map((f) => (
+            <span
+              key={f.id}
+              className="anim-float-up pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap font-display text-xl text-cy"
+              style={{ textShadow: '0 2px 8px #000' }}
+            >
+              🤖 +{formatGoo(f.amount)}
             </span>
           ))}
         </button>

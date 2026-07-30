@@ -3,7 +3,6 @@
 // accessories worn on the blob (a small tap bonus). In-game goo only — no real
 // money, ever. Prices climb into the trillions so there's always a goal.
 
-import { useState } from 'react';
 import { playError, playMelodyPreview, playPurchase } from '../../audio/sfx';
 import {
   DEFAULT_BLOB,
@@ -71,54 +70,7 @@ export function ShopScreen() {
           ))}
         </div>
       </section>
-
-      <ResetSection />
     </div>
-  );
-}
-
-function ResetSection() {
-  const resetGame = useGame((s) => s.resetGame);
-  const [confirming, setConfirming] = useState(false);
-
-  const onReset = () => {
-    resetGame();
-    setConfirming(false);
-    const muted = useGame.getState().muted;
-    playPurchase(muted);
-    haptic([0, 40, 30, 60]);
-  };
-
-  return (
-    <section className="mb-2 border-t border-hairline pt-5 text-center">
-      <h2 className="mb-1 font-display text-lg text-bone/70">הַתְחָלָה מֵחָדָשׁ</h2>
-      <p className="mb-3 text-xs text-bone/45">מוֹחֵק אֶת כָּל הַהִתְקַדְּמוּת וּמַתְחִיל מֵאֶפֶס</p>
-      {!confirming ? (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          className="btn w-full bg-black/30 py-2.5 text-sm text-hot ring-1 ring-hot/40"
-        >
-          🔄 הַתְחֵל מֵחָדָשׁ
-        </button>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <div className="text-sm text-hot">בָּטוּחַ? כָּל הַהִתְקַדְּמוּת תִּמָּחֵק לָנֶצַח!</div>
-          <div className="flex gap-2">
-            <button type="button" onClick={onReset} className="btn flex-1 bg-hot py-2.5 text-sm text-bone">
-              כֵּן, לְאַפֵּס
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              className="btn flex-1 bg-cy py-2.5 text-sm text-void"
-            >
-              בִּיטּוּל
-            </button>
-          </div>
-        </div>
-      )}
-    </section>
   );
 }
 
