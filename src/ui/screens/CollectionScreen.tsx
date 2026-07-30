@@ -4,6 +4,7 @@
 // where it can be levelled straight up with goo (and evolved from level 10).
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
@@ -297,7 +298,10 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
     }
   };
 
-  return (
+  // Portal to <body> so the modal escapes the collection screen's stacking
+  // context and truly covers the app's top-corner buttons (otherwise the close
+  // ✕ gets painted behind the achievements/mute buttons).
+  return createPortal(
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-6"
       onClick={onClose}
@@ -410,7 +414,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           סְגוֹר
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
