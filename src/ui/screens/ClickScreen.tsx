@@ -413,14 +413,24 @@ export function ClickScreen() {
       )}
 
       <header className="mt-2 text-center">
-        <div
-          className={`font-display text-7xl leading-none tabular text-glow-pop ${
-            frenzyActive ? 'text-hot' : 'text-pop'
-          } ${pop ? 'anim-count-pop' : ''}`}
+        {/* Tapping the counter opens the number legend (what K/M/B/T… mean). */}
+        <button
+          type="button"
+          onClick={() => useGame.getState().setNumberLegendOpen(true)}
+          aria-label="מקרא מספרים"
+          className="mx-auto block outline-none"
         >
-          {formatGooHero(goo)}
-        </div>
-        <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
+          <div
+            className={`font-display text-7xl leading-none tabular text-glow-pop ${
+              frenzyActive ? 'text-hot' : 'text-pop'
+            } ${pop ? 'anim-count-pop' : ''}`}
+          >
+            {formatGooHero(goo)}
+          </div>
+          <div className="mt-1 text-sm tracking-wide text-bone/60">
+            גּוּ <span className="text-bone/35">🔢</span>
+          </div>
+        </button>
         {goo >= 1000 && (
           <div className="mt-0.5 text-sm text-bone/60 tabular" dir="ltr">
             {formatExact(goo)}

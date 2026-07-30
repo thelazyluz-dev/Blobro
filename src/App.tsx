@@ -10,6 +10,7 @@ import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
 import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
+import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { OfflineModal } from './ui/OfflineModal';
 import { StatsButton, StatsOverlay } from './ui/StatsOverlay';
 import { Toaster } from './ui/Toaster';
@@ -76,6 +77,7 @@ export function App() {
       <AchievementsOverlay />
       <LeaderboardOverlay />
       <StatsOverlay />
+      <NumberLegendOverlay />
     </div>
   );
 }

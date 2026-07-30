@@ -107,6 +107,7 @@ interface GameState {
   toasts: Toast[];
   achievementsOpen: boolean;
   statsOpen: boolean;
+  numberLegendOpen: boolean;
   confettiBursts: number; // increments to trigger a celebration
   confettiKind: ConfettiKind;
   milestone: Milestone | null; // a big number milestone currently being celebrated
@@ -142,6 +143,7 @@ interface GameState {
   tick: (dtSeconds: number) => void;
   setAchievementsOpen: (open: boolean) => void;
   setStatsOpen: (open: boolean) => void;
+  setNumberLegendOpen: (open: boolean) => void;
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
   setLeaderboardOpen: (open: boolean) => void;
@@ -245,6 +247,7 @@ export const useGame = create<GameState>((set, get) => {
     toasts: [],
     achievementsOpen: false,
     statsOpen: false,
+    numberLegendOpen: false,
     confettiBursts: 0,
     confettiKind: 'confetti',
     milestone: null,
@@ -555,6 +558,8 @@ export const useGame = create<GameState>((set, get) => {
     setAchievementsOpen: (open) => set({ achievementsOpen: open }),
 
     setStatsOpen: (open) => set({ statsOpen: open }),
+
+    setNumberLegendOpen: (open) => set({ numberLegendOpen: open }),
 
     // Achievements are collected by hand: the player opens the trophy panel and
     // taps each finished badge to claim its permanent income star + goo grant.

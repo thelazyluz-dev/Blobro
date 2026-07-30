@@ -112,11 +112,6 @@ export function CollectionScreen() {
             )}
           </button>
         )}
-        {ownedCount > 0 && (
-          <p className="mt-1.5 text-[11px] leading-snug text-bone/45">
-            קוֹנֶה בְּבַת אַחַת אֶת הָרָמוֹת הַזּוֹלוֹת בְּיוֹתֵר לְכָל הַיְצוּרִים בַּגּוּ שֶׁלְּךָ. בְּלִי עֲמֵלָה — רַק הַמְתָּנָה קְצָרָה בֵּין לְחִיצוֹת.
-          </p>
-        )}
       </header>
 
       <div className="flex flex-col gap-5 pb-4">
