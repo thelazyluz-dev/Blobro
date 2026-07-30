@@ -1,21 +1,21 @@
 /**
  * Blorbo global leaderboard — a Cloudflare Worker backed by D1 (SQLite).
  *
- * Cost: designed to stay inside Cloudflare's FREE tier forever at family scale.
- * Workers free = 100,000 requests/day; D1 free = 5 GB storage + 5M reads/day.
- * A handful of kids tapping a phone will never come close, so this is ₪0/month.
+ * Free tier forever at family scale (Workers 100k req/day, D1 5 GB) → ₪0/month.
  *
- * Privacy (this is a kids' app): we store ONLY a made-up nickname, a click
- * count, and a random per-device recovery code. No email, no real name, no IP,
- * no location. The recovery code is a write-only secret — it identifies a device
- * so re-submitting updates the same row, and it is NEVER returned to anyone.
+ * Privacy (kids' app): we store ONLY a nickname, two scores, and a random
+ * per-device recovery code. No email, no real name, no IP, no location. The
+ * code is a write-only secret — it identifies a device so re-submitting updates
+ * the same row, and it is NEVER returned.
+ *
+ * Two ranked metrics: `clicks` (physical taps) and `goo` (total goo earned).
  *
  * Endpoints
- *   GET  /top?limit=N   → { entries: [{ name, score }, ...] }  (codes stripped)
- *   GET  /rank?code=C   → { rank, score, name, total } | { rank: null }
- *   POST /submit        → { ok: true, best, rank, total } | 4xx on bad input
- *        body: { code, name, score }   (keeps the HIGHER of old/new score)
- *   GET  /health        → { ok: true }
+ *   GET  /top?by=clicks|goo&limit=N → { by, entries: [{ name, score }, ...] }
+ *   GET  /rank?code=C&by=clicks|goo → { by, rank, score, name, total } | { rank: null }
+ *   POST /submit                    → { ok, total, clicks:{best,rank}, goo:{best,rank} }
+ *        body: { code, name, clicks, goo }   (keeps the HIGHER of old/new each)
+ *   GET  /health                    → { ok: true }
  */
 
 export interface Env {
@@ -23,25 +23,28 @@ export interface Env {
 }
 
 const CORS: Record<string, string> = {
-  // The PWA is served from GitHub Pages (a different origin), so the browser
-  // needs permissive CORS to call this Worker. There is nothing secret to
-  // protect here — reads are public and writes carry their own secret code.
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
 };
 
-const MAX_NAME_LEN = 12; // must match leaderboardNameMaxLen on the client
+const MAX_NAME_LEN = 12;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
-const MAX_SCORE = 1e15; // sanity ceiling — no legit run reaches this
+const MAX_CLICKS = 1e12; // no physical tapper reaches a trillion taps
+const MAX_GOO = 1e30; // generous ceiling for total goo
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json', ...CORS },
   });
+}
+
+// Whitelist the metric → column name (prevents any SQL injection via `by`).
+function metricCol(by: string | null): 'clicks' | 'goo' {
+  return by === 'goo' ? 'goo' : 'clicks';
 }
 
 export default {
@@ -56,45 +59,46 @@ export default {
       return json({ ok: true });
     }
 
-    // ── Public leaderboard ────────────────────────────────────────────────
+    // ── Public leaderboard (by metric) ────────────────────────────────────
     if (url.pathname === '/top' && request.method === 'GET') {
+      const col = metricCol(url.searchParams.get('by'));
       const raw = Number(url.searchParams.get('limit'));
       const limit = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_LIMIT));
       try {
-        // Select ONLY name + score. The recovery code never leaves the DB.
         const { results } = await env.DB.prepare(
-          'SELECT name, score FROM scores ORDER BY score DESC, updated ASC LIMIT ?1',
+          `SELECT name, ${col} AS score FROM scores ORDER BY ${col} DESC, updated ASC LIMIT ?1`,
         )
           .bind(limit)
           .all<{ name: string; score: number }>();
-        return json({ entries: results ?? [] });
+        return json({ by: col, entries: results ?? [] });
       } catch {
         return json({ error: 'db' }, 500);
       }
     }
 
-    // ── A player's own rank (even if far down the list) ───────────────────
+    // ── A player's own rank in a metric (even if far down the list) ────────
     if (url.pathname === '/rank' && request.method === 'GET') {
+      const col = metricCol(url.searchParams.get('by'));
       const code = (url.searchParams.get('code') ?? '').trim();
       if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
       try {
-        const me = await env.DB.prepare('SELECT name, score FROM scores WHERE code = ?1')
+        const me = await env.DB.prepare(`SELECT name, ${col} AS v FROM scores WHERE code = ?1`)
           .bind(code)
-          .first<{ name: string; score: number }>();
+          .first<{ name: string; v: number }>();
         if (!me) return json({ rank: null });
-        const above = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE score > ?1')
-          .bind(me.score)
+        const above = await env.DB.prepare(`SELECT COUNT(*) AS c FROM scores WHERE ${col} > ?1`)
+          .bind(me.v)
           .first<{ c: number }>();
         const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
-        return json({ rank: (above?.c ?? 0) + 1, score: me.score, name: me.name, total: total?.c ?? 1 });
+        return json({ by: col, rank: (above?.c ?? 0) + 1, score: me.v, name: me.name, total: total?.c ?? 1 });
       } catch {
         return json({ error: 'db' }, 500);
       }
     }
 
-    // ── Submit a score ────────────────────────────────────────────────────
+    // ── Submit both scores ────────────────────────────────────────────────
     if (url.pathname === '/submit' && request.method === 'POST') {
-      let body: { code?: unknown; name?: unknown; score?: unknown };
+      let body: { code?: unknown; name?: unknown; clicks?: unknown; goo?: unknown };
       try {
         body = await request.json();
       } catch {
@@ -103,37 +107,47 @@ export default {
 
       const code = typeof body.code === 'string' ? body.code.trim() : '';
       const name = typeof body.name === 'string' ? body.name.trim().slice(0, MAX_NAME_LEN) : '';
-      const score = typeof body.score === 'number' && Number.isFinite(body.score) ? Math.floor(body.score) : NaN;
+      const clicks = typeof body.clicks === 'number' && Number.isFinite(body.clicks) ? Math.floor(body.clicks) : NaN;
+      const goo = typeof body.goo === 'number' && Number.isFinite(body.goo) ? body.goo : NaN;
 
-      // Validate. The code must look like our generated codes (alnum, bounded).
       if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
       if (!name) return json({ error: 'bad-name' }, 400);
-      if (!Number.isFinite(score) || score < 0 || score > MAX_SCORE) return json({ error: 'bad-score' }, 400);
+      if (!Number.isFinite(clicks) || clicks < 0 || clicks > MAX_CLICKS) return json({ error: 'bad-clicks' }, 400);
+      if (!Number.isFinite(goo) || goo < 0 || goo > MAX_GOO) return json({ error: 'bad-goo' }, 400);
 
       try {
-        // Upsert: create the row, or update it only when the new score is higher
-        // (or the name changed). Keeps a single row per device and never lowers
-        // a best score. `excluded` is the row we tried to insert.
+        // Upsert: create the row, or raise each metric to its new max (both are
+        // monotonic — taps and total goo only ever grow). One row per device.
         await env.DB.prepare(
-          `INSERT INTO scores (code, name, score, updated)
-           VALUES (?1, ?2, ?3, ?4)
+          `INSERT INTO scores (code, name, clicks, goo, updated)
+           VALUES (?1, ?2, ?3, ?4, ?5)
            ON CONFLICT(code) DO UPDATE SET
              name    = excluded.name,
-             score   = MAX(scores.score, excluded.score),
+             clicks  = MAX(scores.clicks, excluded.clicks),
+             goo     = MAX(scores.goo, excluded.goo),
              updated = excluded.updated`,
         )
-          .bind(code, name, score, Date.now())
+          .bind(code, name, clicks, goo, Date.now())
           .run();
 
-        const row = await env.DB.prepare('SELECT score FROM scores WHERE code = ?1')
+        const row = await env.DB.prepare('SELECT clicks, goo FROM scores WHERE code = ?1')
           .bind(code)
-          .first<{ score: number }>();
-        const best = row?.score ?? score;
-        const above = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE score > ?1')
-          .bind(best)
+          .first<{ clicks: number; goo: number }>();
+        const bestClicks = row?.clicks ?? clicks;
+        const bestGoo = row?.goo ?? goo;
+        const cAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE clicks > ?1')
+          .bind(bestClicks)
+          .first<{ c: number }>();
+        const gAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE goo > ?1')
+          .bind(bestGoo)
           .first<{ c: number }>();
         const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
-        return json({ ok: true, best, rank: (above?.c ?? 0) + 1, total: total?.c ?? 1 });
+        return json({
+          ok: true,
+          total: total?.c ?? 1,
+          clicks: { best: bestClicks, rank: (cAbove?.c ?? 0) + 1 },
+          goo: { best: bestGoo, rank: (gAbove?.c ?? 0) + 1 },
+        });
       } catch {
         return json({ error: 'db' }, 500);
       }

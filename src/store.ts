@@ -57,6 +57,7 @@ import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
+import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { loadRaw, persist } from './persistence';
 import type {
   CharId,
@@ -102,6 +103,7 @@ interface GameState {
   // --- transient UI / session ---
   loaded: boolean;
   activeTab: Tab;
+  nicknameOpen: boolean; // the first-launch / new-game "pick a nickname" prompt
   leaderboardOpen: boolean;
   hatchResult: HatchOutcome | null;
   multiHatchResult: BatchResult | null;
@@ -161,6 +163,7 @@ interface GameState {
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
   setLeaderboardOpen: (open: boolean) => void;
+  setNicknameOpen: (open: boolean) => void;
   addToLeaderboard: (name: string) => void;
   resetClicks: () => void;
   resetGame: () => void;
@@ -255,6 +258,7 @@ export const useGame = create<GameState>((set, get) => {
 
     loaded: false,
     activeTab: 'click',
+    nicknameOpen: false,
     leaderboardOpen: false,
     hatchResult: null,
     multiHatchResult: null,
@@ -320,6 +324,9 @@ export const useGame = create<GameState>((set, get) => {
         muted: save.muted,
         loaded: true,
         offlineReport: report,
+        // First-launch (global leaderboard on, no nickname yet) → invite them
+        // to pick a nickname so they land on the table right away.
+        nicknameOpen: shouldPromptNickname(),
       });
     },
 
@@ -687,6 +694,8 @@ export const useGame = create<GameState>((set, get) => {
 
     setLeaderboardOpen: (open) => set({ leaderboardOpen: open }),
 
+    setNicknameOpen: (open) => set({ nicknameOpen: open }),
+
     // Save the current player's click count under a nickname. Local only — this
     // list lives in IndexedDB and is never uploaded anywhere.
     addToLeaderboard: (name) => {
@@ -709,6 +718,9 @@ export const useGame = create<GameState>((set, get) => {
     resetGame: () => {
       const now = Date.now();
       const fresh = defaultSaveState(now);
+      // "New game" also means a new player: drop the saved nickname + recovery
+      // code so the welcome prompt reappears and a fresh name/entry is created.
+      resetPlayerIdentity();
       set({
         goo: fresh.goo,
         lifetimeGoo: fresh.lifetimeGoo,
@@ -736,6 +748,7 @@ export const useGame = create<GameState>((set, get) => {
         statsOpen: false,
         leaderboardOpen: false,
         activeTab: 'click',
+        nicknameOpen: shouldPromptNickname(),
       });
       void persist(snapshot(get(), now));
     },

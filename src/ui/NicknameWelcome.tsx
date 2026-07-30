@@ -1,45 +1,34 @@
-// First-launch welcome: when a global leaderboard is configured and the player
-// hasn't picked a nickname yet, invite them to choose one so they appear on the
-// table right away. Shown once (skippable) — never nags a returning player.
+// First-launch / new-game welcome: pick a nickname so you appear on the global
+// table right away. Driven by the store's `nicknameOpen` flag (set on first
+// launch and after a "new game" reset). The name chosen here is THE name — it's
+// not edited elsewhere; starting over means another new-game reset.
 
 import { useState } from 'react';
 import { leaderboardNameMaxLen } from '../game/balance';
-import { hasGlobalLeaderboard, playerName, submitScore } from '../net/leaderboard';
+import { markNicknameAsked, submitScore } from '../net/leaderboard';
 import { useGame } from '../store';
 
-const ASKED_KEY = 'blorbo.nicknameAsked';
-
 export function NicknameWelcome() {
-  const [show, setShow] = useState(() => {
-    if (!hasGlobalLeaderboard() || playerName()) return false;
-    try {
-      return !localStorage.getItem(ASKED_KEY);
-    } catch {
-      return true;
-    }
-  });
+  const open = useGame((s) => s.nicknameOpen);
+  const setOpen = useGame((s) => s.setNicknameOpen);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (!show) return null;
+  if (!open) return null;
 
-  const dismiss = () => {
-    try {
-      localStorage.setItem(ASKED_KEY, '1');
-    } catch {
-      /* ignore */
-    }
-    setShow(false);
+  const close = () => {
+    markNicknameAsked();
+    setOpen(false);
   };
 
   const join = async () => {
     const clean = name.trim();
     if (!clean) return;
     setSaving(true);
-    await submitScore(clean, useGame.getState().clicks); // saves the nickname + joins the table
-    useGame.getState().addToLeaderboard(clean); // local copy too
+    const s = useGame.getState();
+    await submitScore(clean, s.clicks, s.lifetimeGoo); // saves nickname + joins both boards
     setSaving(false);
-    dismiss();
+    close();
     useGame.getState().pushToast({ text: `${clean} נִכְנַס לַטַּבְלָה! 🏅`, icon: '🏅', tone: 'star' });
   };
 
@@ -70,7 +59,7 @@ export function NicknameWelcome() {
         >
           {saving ? '…' : 'הִצְטָרֵף לַטַּבְלָה! 🚀'}
         </button>
-        <button type="button" onClick={dismiss} className="mt-2 w-full py-2 text-sm text-bone/50">
+        <button type="button" onClick={close} className="mt-2 w-full py-2 text-sm text-bone/50">
           אַחַר כָּךְ
         </button>
       </div>
