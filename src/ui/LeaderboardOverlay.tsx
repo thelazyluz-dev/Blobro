@@ -24,7 +24,7 @@ import { useGame } from '../store';
 
 const TOP_N = 10;
 
-const METRIC_LABEL: Record<Metric, string> = { clicks: 'לְחִיצוֹת 👆', goo: 'גּוּ 💧' };
+const METRIC_LABEL: Record<Metric, string> = { clicks: 'לְחִיצוֹת 👆', goo: 'גּוּ 🟢' };
 const fmt = (m: Metric, v: number) => (m === 'goo' ? formatGoo(v) : formatExact(v));
 
 export function LeaderboardButton() {
@@ -88,6 +88,7 @@ export function LeaderboardOverlay() {
     if (!open || !global) return;
     let alive = true;
     setLoading(true);
+    setRemote(null); // drop stale rows so we never format one metric's values as the other's
     fetchTop(metric, TOP_N)
       .then((rows) => {
         if (alive) setRemote(rows);
@@ -156,7 +157,7 @@ export function LeaderboardOverlay() {
                   metric === m ? 'bg-cy text-void' : 'text-bone/60'
                 }`}
               >
-                {m === 'clicks' ? '👆 לְחִיצוֹת' : '💧 גּוּ'}
+                {m === 'clicks' ? '👆 לְחִיצוֹת' : '🟢 גּוּ'}
               </button>
             ))}
           </div>

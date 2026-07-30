@@ -8,11 +8,22 @@ import { leaderboardNameMaxLen } from '../game/balance';
 import { markNicknameAsked, submitScore } from '../net/leaderboard';
 import { useGame } from '../store';
 
+// A short, kid-friendly motivational line under the welcome — one at random.
+const QUOTES = [
+  'כָּל אַלּוּף הִתְחִיל כְּמַתְחִיל 💪',
+  'חֲלוֹמוֹת גְּדוֹלִים מַתְחִילִים בְּצַעַד קָטָן 🌟',
+  'כָּל לְחִיצָה מְקָרֶבֶת אוֹתְךָ לַפִּסְגָּה 🚀',
+  'מִי שֶׁמַּמְשִׁיךְ — מְנַצֵּחַ 🏆',
+  'הַיּוֹם הוּא יוֹם מְצֻיָּן לְהַתְחִיל ✨',
+  'אֵין גָּבוֹהַּ מִדַּי בִּשְׁבִיל מִי שֶׁמַּאֲמִין 🌈',
+];
+
 export function NicknameWelcome() {
   const open = useGame((s) => s.nicknameOpen);
   const setOpen = useGame((s) => s.setNicknameOpen);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
 
   if (!open) return null;
 
@@ -40,7 +51,7 @@ export function NicknameWelcome() {
       >
         <div className="text-5xl">🏅</div>
         <h2 className="mt-2 font-display text-2xl text-bone">בְּרוּכִים הַבָּאִים!</h2>
-        <p className="mt-2 text-sm text-bone/60">בַּחֲרוּ כִּנּוּי כְּדֵי לְהוֹפִיעַ בְּטַבְלַת הַמּוֹבִילִים הָעוֹלָמִית 🌍</p>
+        <p className="mt-2 px-2 font-display text-base text-goo">״{quote}״</p>
         <input
           type="text"
           value={name}
