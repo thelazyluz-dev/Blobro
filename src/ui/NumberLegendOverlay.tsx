@@ -2,6 +2,7 @@
 // suffixes on the goo counter mean, and just how big each one is. Opened by
 // tapping the big goo counter on the main screen.
 
+import { useEffect, useRef } from 'react';
 import { useGame } from '../store';
 
 interface Row {
@@ -29,6 +30,15 @@ export function NumberLegendOverlay() {
   const open = useGame((s) => s.numberLegendOpen);
   const setOpen = useGame((s) => s.setNumberLegendOpen);
   const goo = useGame((s) => s.goo);
+
+  // Scroll the current tier into view ONCE when the panel opens — doing it on
+  // every render (as an inline ref callback did) re-snaps the scroll and traps
+  // the user on the highlighted row, so they can't scroll past it.
+  const hereRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open) hereRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [open]);
+
   if (!open) return null;
 
   // Which tier the player is standing in right now: the biggest row whose value
@@ -58,7 +68,7 @@ export function NumberLegendOverlay() {
             return (
               <div
                 key={r.suffix}
-                ref={here ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+                ref={here ? hereRef : undefined}
                 className={`flex items-center gap-3 rounded-2xl px-3 py-2 ${
                   here ? 'bg-goo/20 ring-2 ring-goo' : 'bg-black/25 ring-hairline'
                 }`}

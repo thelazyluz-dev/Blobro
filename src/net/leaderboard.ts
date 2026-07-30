@@ -13,6 +13,13 @@ export interface GlobalEntry {
   score: number;
 }
 
+export interface RankInfo {
+  rank: number; // 1-based position in the global table
+  score: number; // the player's best submitted score
+  total: number; // how many players are on the table
+  name?: string; // the stored nickname (only from /rank)
+}
+
 /** True when a backend URL is configured — i.e. the leaderboard is global. */
 export function hasGlobalLeaderboard(): boolean {
   return LEADERBOARD_API.trim().length > 0;
@@ -67,11 +74,11 @@ export function savePlayerName(name: string): void {
 }
 
 /**
- * Submit the player's best score under a nickname. Returns the server's kept
- * best on success, or null when there's no backend or the request failed
- * (the caller then just relies on the local list — nothing breaks).
+ * Submit the player's best score under a nickname. Returns their rank info on
+ * success, or null when there's no backend or the request failed (the caller
+ * then just relies on the local list — nothing breaks).
  */
-export async function submitScore(name: string, score: number): Promise<number | null> {
+export async function submitScore(name: string, score: number): Promise<RankInfo | null> {
   if (!hasGlobalLeaderboard()) return null;
   const clean = name.trim();
   if (!clean) return null;
@@ -83,8 +90,27 @@ export async function submitScore(name: string, score: number): Promise<number |
       body: JSON.stringify({ code: playerCode(), name: clean, score: Math.floor(score) }),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { ok?: boolean; best?: number };
-    return typeof data.best === 'number' ? data.best : null;
+    const data = (await res.json()) as { ok?: boolean; best?: number; rank?: number; total?: number };
+    if (typeof data.best !== 'number' || typeof data.rank !== 'number') return null;
+    return { rank: data.rank, score: data.best, total: data.total ?? 0, name: clean };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The player's own global rank (works even when they're far below the top N).
+ * Returns null when there's no backend, the request failed, or the player has
+ * never submitted a score yet.
+ */
+export async function fetchRank(): Promise<RankInfo | null> {
+  if (!hasGlobalLeaderboard()) return null;
+  try {
+    const res = await fetch(`${LEADERBOARD_API.replace(/\/$/, '')}/rank?code=${encodeURIComponent(playerCode())}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { rank?: number | null; score?: number; total?: number; name?: string };
+    if (typeof data.rank !== 'number') return null; // not on the table yet
+    return { rank: data.rank, score: data.score ?? 0, total: data.total ?? 0, name: data.name };
   } catch {
     return null;
   }

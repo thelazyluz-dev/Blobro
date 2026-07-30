@@ -12,6 +12,7 @@ import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
 import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { MuteButton } from './ui/MuteButton';
+import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { OfflineModal } from './ui/OfflineModal';
 import { StatsButton, StatsOverlay } from './ui/StatsOverlay';
@@ -85,6 +86,7 @@ export function App() {
       <StatsOverlay />
       <NumberLegendOverlay />
       <InstallPrompt />
+      <NicknameWelcome />
     </div>
   );
 }

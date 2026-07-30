@@ -12,7 +12,8 @@
  *
  * Endpoints
  *   GET  /top?limit=N   → { entries: [{ name, score }, ...] }  (codes stripped)
- *   POST /submit        → { ok: true, best } | 4xx on bad input
+ *   GET  /rank?code=C   → { rank, score, name, total } | { rank: null }
+ *   POST /submit        → { ok: true, best, rank, total } | 4xx on bad input
  *        body: { code, name, score }   (keeps the HIGHER of old/new score)
  *   GET  /health        → { ok: true }
  */
@@ -72,6 +73,25 @@ export default {
       }
     }
 
+    // ── A player's own rank (even if far down the list) ───────────────────
+    if (url.pathname === '/rank' && request.method === 'GET') {
+      const code = (url.searchParams.get('code') ?? '').trim();
+      if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
+      try {
+        const me = await env.DB.prepare('SELECT name, score FROM scores WHERE code = ?1')
+          .bind(code)
+          .first<{ name: string; score: number }>();
+        if (!me) return json({ rank: null });
+        const above = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE score > ?1')
+          .bind(me.score)
+          .first<{ c: number }>();
+        const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
+        return json({ rank: (above?.c ?? 0) + 1, score: me.score, name: me.name, total: total?.c ?? 1 });
+      } catch {
+        return json({ error: 'db' }, 500);
+      }
+    }
+
     // ── Submit a score ────────────────────────────────────────────────────
     if (url.pathname === '/submit' && request.method === 'POST') {
       let body: { code?: unknown; name?: unknown; score?: unknown };
@@ -108,7 +128,12 @@ export default {
         const row = await env.DB.prepare('SELECT score FROM scores WHERE code = ?1')
           .bind(code)
           .first<{ score: number }>();
-        return json({ ok: true, best: row?.score ?? score });
+        const best = row?.score ?? score;
+        const above = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE score > ?1')
+          .bind(best)
+          .first<{ c: number }>();
+        const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
+        return json({ ok: true, best, rank: (above?.c ?? 0) + 1, total: total?.c ?? 1 });
       } catch {
         return json({ error: 'db' }, 500);
       }
