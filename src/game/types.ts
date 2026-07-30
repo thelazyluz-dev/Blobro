@@ -16,7 +16,16 @@ export type CharId =
   | 'kristalo'
   | 'gigablorf'
   | 'dragapuf'
-  | 'galaxo';
+  | 'galaxo'
+  // Click-unlock creatures (earned by total taps, not eggs):
+  | 'dondonu'
+  | 'romrom'
+  | 'gongoni'
+  | 'mataru'
+  | 'gefenaou'
+  | 'oziouh'
+  | 'baraku'
+  | 'idanosau';
 
 /** Runtime-synthesis parameters for a character's jingle. */
 export interface SoundParams {
@@ -34,6 +43,9 @@ export interface CharacterDef {
   descHe: string; // short personality / "species" blurb for the collection
   rarity: Rarity;
   sound: SoundParams;
+  /** If set, this creature is NOT in the egg pool — it unlocks once the player's
+   * lifetime click count reaches this many taps (rarer = more). */
+  unlockClicks?: number;
 }
 
 /** Only owned characters appear here. `evolution` = number of evolution stages

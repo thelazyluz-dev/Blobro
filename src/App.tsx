@@ -15,6 +15,7 @@ import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { OfflineModal } from './ui/OfflineModal';
 import { StatsButton, StatsOverlay } from './ui/StatsOverlay';
 import { Toaster } from './ui/Toaster';
+import { UnlockReveal } from './ui/UnlockReveal';
 import { useEventMusic } from './ui/useEventMusic';
 import { useFrenzyAudio } from './ui/useFrenzyAudio';
 import { ClickScreen } from './ui/screens/ClickScreen';
@@ -75,6 +76,7 @@ export function App() {
       <HatchReveal />
       <MultiHatchResult />
       <MilestoneReveal />
+      <UnlockReveal />
       <AchievementsOverlay />
       <LeaderboardOverlay />
       <StatsOverlay />

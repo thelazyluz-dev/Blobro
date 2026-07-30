@@ -3,8 +3,9 @@
 
 import { useEffect } from 'react';
 import { playMagnitude, playMilestone } from '../audio/sfx';
-import { speakCompliment } from '../audio/speech';
+import { speakCompliment, speakName } from '../audio/speech';
 import { saveIntervalMs } from '../game/balance';
+import { unlockCreatures } from '../game/characters';
 import { milestonesCrossed } from '../game/milestones';
 import { useGame } from '../store';
 
@@ -76,6 +77,25 @@ export function useGameEngine(): boolean {
       if (nextMag > beforeMag && nextMag >= 2) {
         playMagnitude(muted, nextMag);
         useGame.getState().pulseMagnitude(nextMag);
+      }
+    });
+    return unsub;
+  }, [loaded]);
+
+  // Click-unlock creatures: when total taps reach a creature's threshold, unlock
+  // it with a full celebration (rarer creatures need many more taps).
+  useEffect(() => {
+    if (!loaded) return;
+    const unsub = useGame.subscribe((s, prev) => {
+      if (s.clicks === prev.clicks) return;
+      for (const c of unlockCreatures) {
+        if (c.unlockClicks != null && s.clicks >= c.unlockClicks && !s.characters[c.id]) {
+          useGame.getState().grantUnlock(c.id, true);
+          const muted = useGame.getState().muted;
+          playMilestone(muted);
+          speakName(c.nameHe, muted);
+          break; // one at a time (taps increment by one)
+        }
       }
     });
     return unsub;

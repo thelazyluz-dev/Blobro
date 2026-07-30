@@ -35,6 +35,7 @@ const idsByRarity: Record<Rarity, CharId[]> = RARITY_ORDER.reduce(
 export function CollectionScreen() {
   const owned = useGame((s) => s.characters);
   const goo = useGame((s) => s.goo);
+  const clicks = useGame((s) => s.clicks);
   const m = useGame(selectMods);
   const [selected, setSelected] = useState<CharId | null>(null);
 
@@ -142,6 +143,28 @@ export function CollectionScreen() {
                   const def = charactersById[id];
                   const held = owned[id];
                   if (!held) {
+                    // Click-unlock creatures show a silhouette + tap-progress so
+                    // the player knows how to earn them; egg creatures stay a "?".
+                    if (def.unlockClicks != null) {
+                      const pct = Math.min(100, (clicks / def.unlockClicks) * 100);
+                      return (
+                        <div
+                          key={id}
+                          className="relative flex aspect-square flex-col items-center justify-center rounded-2xl bg-black/40 p-1 ring-1 ring-bone/10"
+                          title={`נפתח ב-${def.unlockClicks.toLocaleString('en-US')} לחיצות`}
+                        >
+                          <CharacterBody id={id} className="h-11 w-11 opacity-25 grayscale" />
+                          <span className="absolute end-1 top-1 text-xs">🔒</span>
+                          <span className="mt-1 text-[9px] text-bone/60 tabular" dir="ltr">
+                            {clicks.toLocaleString('en-US')}/{def.unlockClicks.toLocaleString('en-US')}
+                          </span>
+                          <div className="mt-1 h-1 w-11 overflow-hidden rounded-full bg-black/50">
+                            <div className="h-full rounded-full bg-cy" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="mt-0.5 text-[8px] text-bone/40">👆 לחיצות</span>
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={id}

@@ -8,7 +8,7 @@ import {
   pityRareThreshold,
   rarityChances,
 } from './balance';
-import { charactersByRarity } from './characters';
+import { hatchableByRarity } from './characters';
 import type { CharId, OwnedCharacters, Rarity } from './types';
 
 const rarityOrder: Rarity[] = ['common', 'uncommon', 'rare', 'legendary'];
@@ -33,7 +33,7 @@ function luckyChances(luck: number): Record<Rarity, number> {
 }
 
 export function isLegendaryOwned(owned: OwnedCharacters): boolean {
-  return charactersByRarity.legendary.some((def) => Boolean(owned[def.id]));
+  return hatchableByRarity.legendary.some((def) => Boolean(owned[def.id]));
 }
 
 /** Choose a rarity, applying both pity rules (§7.2). */
@@ -64,7 +64,7 @@ export function rollRarity(
 
 /** Uniform pick among the characters of a rarity (§7.1). */
 export function pickChar(rng: () => number, rarity: Rarity): CharId {
-  const pool = charactersByRarity[rarity];
+  const pool = hatchableByRarity[rarity];
   const idx = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
   return pool[idx].id;
 }

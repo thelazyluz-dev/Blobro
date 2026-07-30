@@ -26,7 +26,7 @@ import {
   starBonusFor,
   type AchievementContext,
 } from './game/achievements';
-import { charactersById } from './game/characters';
+import { charactersById, unlockCreatures } from './game/characters';
 import {
   DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
@@ -110,6 +110,7 @@ interface GameState {
   numberLegendOpen: boolean;
   confettiBursts: number; // increments to trigger a celebration
   confettiKind: ConfettiKind;
+  unlockReveal: CharId | null; // a click-unlocked creature currently being celebrated
   milestone: Milestone | null; // a big number milestone currently being celebrated
   magnitudePulse: number; // increments each time goo crosses an order of magnitude
   magnitudeExp: number; // the exponent (10^exp) of the latest order-of-magnitude crossing
@@ -153,6 +154,8 @@ interface GameState {
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
   triggerConfetti: (kind: ConfettiKind) => void;
+  grantUnlock: (id: CharId, reveal: boolean) => void;
+  dismissUnlock: () => void;
   showMilestone: (m: Milestone) => void;
   dismissMilestone: () => void;
   pulseMagnitude: (exp: number) => void;
@@ -250,6 +253,7 @@ export const useGame = create<GameState>((set, get) => {
     numberLegendOpen: false,
     confettiBursts: 0,
     confettiKind: 'confetti',
+    unlockReveal: null,
     milestone: null,
     magnitudePulse: 0,
     magnitudeExp: 0,
@@ -269,11 +273,20 @@ export const useGame = create<GameState>((set, get) => {
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
       const report = computeOffline(gooPerSec(save.characters, m), secondsAway);
 
+      // Retroactively grant any click-unlock creatures already earned (silently,
+      // so a returning player who's past the thresholds just has them).
+      const characters: OwnedCharacters = { ...save.characters };
+      for (const c of unlockCreatures) {
+        if (c.unlockClicks != null && save.clicks >= c.unlockClicks && !characters[c.id]) {
+          characters[c.id] = { level: 1 };
+        }
+      }
+
       set({
         goo: save.goo + (report?.goo ?? 0),
         lifetimeGoo: save.lifetimeGoo + (report?.goo ?? 0),
         upgrades: save.upgrades,
-        characters: save.characters,
+        characters,
         eggs: save.eggs,
         totalHatches: save.totalHatches,
         sinceRare: save.sinceRare,
@@ -638,6 +651,7 @@ export const useGame = create<GameState>((set, get) => {
         leaderboard: [],
         achievements: [],
         milestone: null,
+        unlockReveal: null,
         ownedCosmetics: [...fresh.ownedCosmetics],
         equippedBlob: fresh.equippedBlob,
         equippedBackground: fresh.equippedBackground,
@@ -660,6 +674,19 @@ export const useGame = create<GameState>((set, get) => {
     dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     triggerConfetti: (kind) =>
       set((s) => ({ confettiBursts: s.confettiBursts + 1, confettiKind: kind })),
+
+    // Grant a click-unlock creature (at level 1) if not already owned. `reveal`
+    // shows the celebration; on load we grant retroactively earned ones silently.
+    grantUnlock: (id, reveal) => {
+      const s = get();
+      if (s.characters[id]) return;
+      set({
+        characters: { ...s.characters, [id]: { level: 1 } },
+        ...(reveal ? { unlockReveal: id } : {}),
+      });
+      if (reveal) get().triggerConfetti('rainbow');
+    },
+    dismissUnlock: () => set({ unlockReveal: null }),
 
     // Only surface a milestone if one isn't already on screen (avoid stacking).
     showMilestone: (m) => {

@@ -158,6 +158,96 @@ export const characters: CharacterDef[] = [
       decay: 0.45,
     },
   },
+
+  // === Click-unlock creatures (earned by total taps, never from eggs) ===
+  // Common:
+  {
+    id: 'dondonu',
+    nameHe: 'דּוֹנְדּוֹנוּ',
+    nameLatin: 'Dondonu',
+    descHe: 'כַּדּוּר בָּצֵק מִתְגַּלְגֵּל שֶׁמַּצְחִיק אֶת כֻּלָּם',
+    rarity: 'common',
+    unlockClicks: 250,
+    sound: { waveform: 'triangle', notes: [262, 330, 392], durations: [0.1, 0.1, 0.14], filter: 1400, decay: 0.2 },
+  },
+  {
+    id: 'romrom',
+    nameHe: 'רוֹמְרוֹם',
+    nameLatin: 'Romrom',
+    descHe: 'יְצוּר עָגֹל וָרֹד שֶׁאוֹהֵב לְהִתְגַּלְגֵּל',
+    rarity: 'common',
+    unlockClicks: 1_000,
+    sound: { waveform: 'sine', notes: [349, 440, 523], durations: [0.1, 0.1, 0.14], filter: 1800, decay: 0.22 },
+  },
+  // Uncommon:
+  {
+    id: 'gongoni',
+    nameHe: 'גּוֹנְגּוֹנִי',
+    nameLatin: 'Gongoni',
+    descHe: 'פַּעֲמוֹן קָסוּם שֶׁמְּצַלְצֵל לְמַזָּל',
+    rarity: 'uncommon',
+    unlockClicks: 4_000,
+    sound: { waveform: 'triangle', notes: [523, 392, 784], durations: [0.14, 0.12, 0.2], filter: 3000, decay: 0.3 },
+  },
+  {
+    id: 'mataru',
+    nameHe: 'מָטָארוּ',
+    nameLatin: 'Mataru',
+    descHe: 'עֲנַן גֶּשֶׁם קָטָן שֶׁתָּמִיד שָׂמֵחַ',
+    rarity: 'uncommon',
+    unlockClicks: 10_000,
+    sound: { waveform: 'sine', notes: [660, 550, 440, 330], durations: [0.08, 0.08, 0.08, 0.12], filter: 2200, decay: 0.24 },
+  },
+  // Rare:
+  {
+    id: 'gefenaou',
+    nameHe: 'גֶּפֶנָאוּ',
+    nameLatin: 'Gefenaou',
+    descHe: 'אֶשְׁכּוֹל עֲנָבִים עָסִיסִי וְשׁוֹבָב',
+    rarity: 'rare',
+    unlockClicks: 30_000,
+    sound: { waveform: 'sine', notes: [440, 554, 659, 880], durations: [0.09, 0.09, 0.1, 0.16], filter: 2600, decay: 0.28 },
+  },
+  {
+    id: 'oziouh',
+    nameHe: 'אוֹזִיוּ',
+    nameLatin: 'Oziouh',
+    descHe: 'כּוֹכָב שְׁרִירִי מָלֵא כּוֹחַ וְעוֹז',
+    rarity: 'rare',
+    unlockClicks: 75_000,
+    sound: { waveform: 'sawtooth', notes: [330, 494, 660], durations: [0.1, 0.1, 0.18], filter: 3000, decay: 0.3 },
+  },
+  // Legendary:
+  {
+    id: 'baraku',
+    nameHe: 'בָּרָקוּ',
+    nameLatin: 'Baraku',
+    descHe: 'בָּרָק חַי שֶׁרָץ בִּמְהִירוּת הָאוֹר',
+    rarity: 'legendary',
+    unlockClicks: 200_000,
+    sound: {
+      waveform: 'sawtooth',
+      notes: [1200, 400, 1600, 800, 2000],
+      durations: [0.06, 0.08, 0.06, 0.08, 0.2],
+      filter: 5000,
+      decay: 0.4,
+    },
+  },
+  {
+    id: 'idanosau',
+    nameHe: 'אִידָנוֹסָאוּ',
+    nameLatin: 'Idanosau',
+    descHe: 'הַדִּינוֹזָאוּר הֲכִי מַגְנִיב בַּיְּקוּם',
+    rarity: 'legendary',
+    unlockClicks: 500_000,
+    sound: {
+      waveform: 'square',
+      notes: [196, 262, 330, 392, 523, 659],
+      durations: [0.1, 0.1, 0.1, 0.1, 0.12, 0.24],
+      filter: 3200,
+      decay: 0.45,
+    },
+  },
 ];
 
 export const charactersById: Record<CharId, CharacterDef> = characters.reduce(
@@ -175,6 +265,21 @@ export const charactersByRarity: Record<Rarity, CharacterDef[]> = characters.red
   },
   {} as Record<Rarity, CharacterDef[]>,
 );
+
+/** Egg pool by rarity — EXCLUDES click-unlock creatures, so eggs can only ever
+ * roll the standard roster. */
+export const hatchableByRarity: Record<Rarity, CharacterDef[]> = characters.reduce(
+  (acc, def) => {
+    if (def.unlockClicks == null) (acc[def.rarity] ??= []).push(def);
+    return acc;
+  },
+  { common: [], uncommon: [], rare: [], legendary: [] } as Record<Rarity, CharacterDef[]>,
+);
+
+/** Click-unlock creatures, ascending by the taps needed to earn them. */
+export const unlockCreatures: CharacterDef[] = characters
+  .filter((c) => c.unlockClicks != null)
+  .sort((a, b) => (a.unlockClicks ?? 0) - (b.unlockClicks ?? 0));
 
 /** Stable display order for the collection grid. */
 export const collectionOrder: CharId[] = characters.map((c) => c.id);

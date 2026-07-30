@@ -281,6 +281,149 @@ const Galaxo: FC<BodyProps> = ({ className }) => (
   </svg>
 );
 
+// ===== Click-unlock creatures =====
+
+// Dondonu — a rolling dough ball.
+const Dondonu: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <circle cx="50" cy="54" r="34" fill="#EFD6A0" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M22 58 Q50 72 78 58 Q50 68 22 62 Z" fill="#D9BE85" />
+    <ellipse cx="37" cy="38" rx="11" ry="6" fill="#FBEFCF" />
+    <circle cx="41" cy="50" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
+    <circle cx="60" cy="50" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
+    <circle cx="42" cy="51" r="2.6" fill="#150A22" />
+    <circle cx="61" cy="51" r="2.6" fill="#150A22" />
+    <path d="M42 63 q8 7 17 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
+    <ellipse cx="30" cy="59" rx="5" ry="3.2" fill="#FF7AB0" opacity="0.5" />
+    <ellipse cx="70" cy="59" rx="5" ry="3.2" fill="#FF7AB0" opacity="0.5" />
+  </svg>
+);
+
+// Romrom — a round rosy roller with a little curl.
+const Romrom: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M50 20 q10 -8 16 0" fill="none" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="50" cy="54" r="33" fill="#FF8FB8" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="37" cy="38" rx="11" ry="6" fill="#FFC2D8" />
+    <path d="M24 58 Q50 70 76 58 Q50 66 24 62 Z" fill="#E86A99" />
+    <circle cx="41" cy="50" r="6.5" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
+    <circle cx="60" cy="50" r="6.5" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
+    <circle cx="42" cy="51" r="3" fill="#150A22" />
+    <circle cx="61" cy="51" r="3" fill="#150A22" />
+    <path d="M41 62 q10 9 19 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
+    <ellipse cx="28" cy="58" rx="5" ry="3" fill="#C0396B" opacity="0.4" />
+    <ellipse cx="72" cy="58" rx="5" ry="3" fill="#C0396B" opacity="0.4" />
+  </svg>
+);
+
+// Gongoni — a lucky magic bell.
+const Gongoni: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <circle cx="50" cy="22" r="4" fill="#FFD84D" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M28 62 Q28 28 50 28 Q72 28 72 62 Z" fill="#FFD84D" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M34 40 Q34 34 42 33" fill="none" stroke="#FFEDA0" strokeWidth="3" {...S} />
+    <rect x="24" y="61" width="52" height="9" rx="4.5" fill="#E0B62A" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="50" cy="76" r="5" fill="#E0B62A" stroke={OUT} strokeWidth="3" {...S} />
+    <ellipse cx="42" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <ellipse cx="58" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="42" cy="47" r="2.2" fill="#150A22" />
+    <circle cx="58" cy="47" r="2.2" fill="#150A22" />
+    <path d="M44 55 q6 5 12 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M80 30 l1.6 4 l4 1.6 l-4 1.6 l-1.6 4 l-1.6 -4 l-4 -1.6 l4 -1.6 Z" fill="#00E5FF" />
+  </svg>
+);
+
+// Mataru — a happy little rain cloud.
+const Mataru: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M40 68 q-4 6 0 9 a4 4 0 0 0 8 0 q4 -3 0 -9 Z" fill="#4FC8E6" stroke={OUT} strokeWidth="2.5" {...S} />
+    <circle cx="60" cy="72" r="3.4" fill="#4FC8E6" />
+    <circle cx="50" cy="80" r="2.6" fill="#4FC8E6" />
+    <path d="M26 56 Q19 40 35 38 Q39 26 54 30 Q70 26 72 41 Q84 44 77 56 Z" fill="#CBE8FF" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="41" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <ellipse cx="59" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="41" cy="47" r="2.2" fill="#150A22" />
+    <circle cx="59" cy="47" r="2.2" fill="#150A22" />
+    <path d="M44 54 q6 5 12 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <ellipse cx="33" cy="52" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.45" />
+    <ellipse cx="67" cy="52" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.45" />
+  </svg>
+);
+
+// Gefenaou — a juicy bunch of grapes.
+const Gefenaou: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M52 22 Q62 12 72 18 Q66 28 54 27 Z" fill="#A3FF12" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M50 26 L52 33" stroke={OUT} strokeWidth="3" {...S} />
+    <circle cx="38" cy="44" r="9" fill="#9B5DE5" stroke={OUT} strokeWidth="3" />
+    <circle cx="62" cy="44" r="9" fill="#9B5DE5" stroke={OUT} strokeWidth="3" />
+    <circle cx="30" cy="60" r="9" fill="#8A4BD0" stroke={OUT} strokeWidth="3" />
+    <circle cx="70" cy="60" r="9" fill="#8A4BD0" stroke={OUT} strokeWidth="3" />
+    <circle cx="46" cy="72" r="9" fill="#8A4BD0" stroke={OUT} strokeWidth="3" />
+    <circle cx="63" cy="73" r="8" fill="#7A3FB0" stroke={OUT} strokeWidth="3" />
+    <circle cx="50" cy="52" r="12" fill="#9B5DE5" stroke={OUT} strokeWidth="3" />
+    <circle cx="46" cy="49" r="3.4" fill="#FFF4E0" />
+    <circle cx="56" cy="49" r="3.4" fill="#FFF4E0" />
+    <circle cx="46" cy="50" r="1.6" fill="#150A22" />
+    <circle cx="56" cy="50" r="1.6" fill="#150A22" />
+    <path d="M46 56 q4 4 8 0" fill="none" stroke={OUT} strokeWidth="2.6" {...S} />
+    <circle cx="34" cy="40" r="2" fill="#C9A6F0" />
+    <circle cx="58" cy="40" r="2" fill="#C9A6F0" />
+  </svg>
+);
+
+// Oziouh — a muscly power star.
+const Oziouh: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M18 44 q-6 -10 4 -12 q8 -1 10 8" fill="#FF9A3A" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M82 44 q6 -10 -4 -12 q-8 -1 -10 8" fill="#FF9A3A" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M50 14 L60 40 L88 42 L65 58 L73 86 L50 70 L27 86 L35 58 L12 42 L40 40 Z" fill="#FF7A1A" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M34 40 Q42 36 46 42" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M66 40 Q58 36 54 42" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <circle cx="42" cy="50" r="4.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="58" cy="50" r="4.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="43" cy="51" r="2.2" fill="#150A22" />
+    <circle cx="57" cy="51" r="2.2" fill="#150A22" />
+    <path d="M43 60 q7 5 14 0" fill="none" stroke={OUT} strokeWidth="3.2" {...S} />
+    <ellipse cx="48" cy="30" rx="8" ry="4" fill="#FFC27A" />
+  </svg>
+);
+
+// Baraku — living lightning.
+const Baraku: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <circle cx="24" cy="24" r="2.2" fill="#FFF4E0" />
+    <circle cx="78" cy="30" r="2.6" fill="#00E5FF" />
+    <circle cx="72" cy="74" r="2.2" fill="#FFF4E0" />
+    <path d="M58 10 L28 50 L46 50 L38 90 L74 42 L54 42 Z" fill="#FFD84D" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M52 18 L40 34" stroke="#FFEDA0" strokeWidth="3" strokeLinecap="round" />
+    <circle cx="46" cy="42" r="4.4" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="57" cy="40" r="4.4" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="47" cy="43" r="2.1" fill="#150A22" />
+    <circle cx="58" cy="41" r="2.1" fill="#150A22" />
+    <path d="M46 50 q7 4 12 -2" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+  </svg>
+);
+
+// Idanosau — the coolest dino (with shades).
+const Idanosau: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <path d="M64 46 l8 -8 l3 10 l9 -5 l0 11 Z" fill="#7FCC0E" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M74 78 q18 2 20 -12 q-10 4 -14 -2" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M20 78 Q16 46 44 42 Q76 38 78 64 Q80 84 52 86 Q28 88 20 78 Z" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M40 60 L34 54 L44 56 L40 48 L50 54 L48 46 L58 54" fill="none" stroke="#7FCC0E" strokeWidth="4" {...S} />
+    <ellipse cx="34" cy="80" rx="6" ry="5" fill="#7FCC0E" stroke={OUT} strokeWidth="3" />
+    <ellipse cx="58" cy="82" rx="6" ry="5" fill="#7FCC0E" stroke={OUT} strokeWidth="3" />
+    <rect x="30" y="56" width="18" height="10" rx="4" fill="#150A22" stroke={OUT} strokeWidth="3" {...S} />
+    <rect x="50" y="56" width="16" height="10" rx="4" fill="#150A22" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M48 61 h2" stroke={OUT} strokeWidth="3" />
+    <rect x="33" y="58" width="6" height="3" rx="1.5" fill="#00E5FF" />
+    <rect x="53" y="58" width="6" height="3" rx="1.5" fill="#00E5FF" />
+    <path d="M40 74 q10 6 20 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
+    <rect x="47" y="74" width="5" height="4" rx="1" fill="#FFF4E0" />
+  </svg>
+);
+
 export const CHARACTER_BODIES: Record<CharId, FC<BodyProps>> = {
   blombo: Blombo,
   fizzik: Fizzik,
@@ -298,4 +441,12 @@ export const CHARACTER_BODIES: Record<CharId, FC<BodyProps>> = {
   gigablorf: Gigablorf,
   dragapuf: Dragapuf,
   galaxo: Galaxo,
+  dondonu: Dondonu,
+  romrom: Romrom,
+  gongoni: Gongoni,
+  mataru: Mataru,
+  gefenaou: Gefenaou,
+  oziouh: Oziouh,
+  baraku: Baraku,
+  idanosau: Idanosau,
 };
