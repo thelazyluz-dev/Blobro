@@ -1,20 +1,28 @@
 /**
  * Blorbo global leaderboard — a Cloudflare Worker backed by D1 (SQLite).
  *
- * Free tier forever at family scale (Workers 100k req/day, D1 5 GB) → ₪0/month.
+ * Free tier forever at family scale → ₪0/month.
  *
- * Privacy (kids' app): we store ONLY a nickname, two scores, and a random
+ * Privacy (kids' app): stores only a nickname, two scores, and a random
  * per-device recovery code. No email, no real name, no IP, no location. The
- * code is a write-only secret — it identifies a device so re-submitting updates
- * the same row, and it is NEVER returned.
+ * code is a write-only secret — never returned.
  *
- * Two ranked metrics: `clicks` (physical taps) and `goo` (total goo earned).
+ * Anti-cheat (pragmatic — you can't fully secure a client-side game, the goal
+ * is "annoying enough nobody bothers"):
+ *   • Sane ceilings on both metrics (the old 1e30 goo ceiling let junk in).
+ *   • CLICKS are capped to a humanly-plausible rate since the code's first-seen
+ *     time (server-stamped), so a drive-by can't post a top tap score. This is
+ *     the "fair" board and it's now well protected.
+ *   • GOO grows exponentially (idle income), so a time-rate cap would reject
+ *     legit deep play — it relies on the flat ceiling. Softer by nature; honest
+ *     about that.
+ * Values are CLAMPED (not rejected) so a legit near-boundary score still saves.
  *
  * Endpoints
  *   GET  /top?by=clicks|goo&limit=N → { by, entries: [{ name, score }, ...] }
  *   GET  /rank?code=C&by=clicks|goo → { by, rank, score, name, total } | { rank: null }
  *   POST /submit                    → { ok, total, clicks:{best,rank}, goo:{best,rank} }
- *        body: { code, name, clicks, goo }   (keeps the HIGHER of old/new each)
+ *        body: { code, name, clicks, goo }
  *   GET  /health                    → { ok: true }
  */
 
@@ -32,8 +40,15 @@ const CORS: Record<string, string> = {
 const MAX_NAME_LEN = 12;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
-const MAX_CLICKS = 1e12; // no physical tapper reaches a trillion taps
-const MAX_GOO = 1e30; // generous ceiling for total goo
+
+// Sane ceilings. Clicks are physical taps; goo is total earned.
+const MAX_CLICKS = 5_000_000; // ~weeks of nonstop tapping — no human exceeds this
+const MAX_GOO = 1e18; // a quintillion: generous for deep play, blocks absurd junk
+
+// Clicks plausibility: at most this many taps per second since first-seen, plus
+// a grace baseline for taps made before joining the board.
+const CLICK_RATE_PER_SEC = 25; // well above a human's ~10/s
+const CLICK_BASELINE = 100_000;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -42,10 +57,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// Whitelist the metric → column name (prevents any SQL injection via `by`).
 function metricCol(by: string | null): 'clicks' | 'goo' {
   return by === 'goo' ? 'goo' : 'clicks';
 }
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -76,7 +92,7 @@ export default {
       }
     }
 
-    // ── A player's own rank in a metric (even if far down the list) ────────
+    // ── A player's own rank in a metric ───────────────────────────────────
     if (url.pathname === '/rank' && request.method === 'GET') {
       const col = metricCol(url.searchParams.get('by'));
       const code = (url.searchParams.get('code') ?? '').trim();
@@ -96,7 +112,7 @@ export default {
       }
     }
 
-    // ── Submit both scores ────────────────────────────────────────────────
+    // ── Submit both scores (validated + clamped) ──────────────────────────
     if (url.pathname === '/submit' && request.method === 'POST') {
       let body: { code?: unknown; name?: unknown; clicks?: unknown; goo?: unknown };
       try {
@@ -107,27 +123,43 @@ export default {
 
       const code = typeof body.code === 'string' ? body.code.trim() : '';
       const name = typeof body.name === 'string' ? body.name.trim().slice(0, MAX_NAME_LEN) : '';
-      const clicks = typeof body.clicks === 'number' && Number.isFinite(body.clicks) ? Math.floor(body.clicks) : NaN;
-      const goo = typeof body.goo === 'number' && Number.isFinite(body.goo) ? body.goo : NaN;
+      const rawClicks = typeof body.clicks === 'number' && Number.isFinite(body.clicks) ? Math.floor(body.clicks) : NaN;
+      const rawGoo = typeof body.goo === 'number' && Number.isFinite(body.goo) ? body.goo : NaN;
 
       if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
       if (!name) return json({ error: 'bad-name' }, 400);
-      if (!Number.isFinite(clicks) || clicks < 0 || clicks > MAX_CLICKS) return json({ error: 'bad-clicks' }, 400);
-      if (!Number.isFinite(goo) || goo < 0 || goo > MAX_GOO) return json({ error: 'bad-goo' }, 400);
+      if (!Number.isFinite(rawClicks) || !Number.isFinite(rawGoo)) return json({ error: 'bad-score' }, 400);
 
       try {
-        // Upsert: create the row, or raise each metric to its new max (both are
-        // monotonic — taps and total goo only ever grow). One row per device.
+        const now = Date.now();
+        const existing = await env.DB.prepare('SELECT clicks, goo, created FROM scores WHERE code = ?1')
+          .bind(code)
+          .first<{ clicks: number; goo: number; created: number }>();
+
+        // First-seen: keep the original if we have it, else now. Grandfathered
+        // rows (pre-anti-cheat, created = 0) skip the time cap so their existing
+        // legit score isn't clamped; from now on they're tracked.
+        const grandfathered = !!existing && !(existing.created > 0);
+        const created = existing && existing.created > 0 ? existing.created : now;
+        const elapsedSec = Math.max(0, (now - created) / 1000);
+        const clickCap = grandfathered
+          ? MAX_CLICKS
+          : Math.min(MAX_CLICKS, Math.floor(CLICK_RATE_PER_SEC * elapsedSec + CLICK_BASELINE));
+
+        const clicks = clamp(rawClicks, 0, clickCap);
+        const goo = clamp(rawGoo, 0, MAX_GOO);
+
         await env.DB.prepare(
-          `INSERT INTO scores (code, name, clicks, goo, updated)
-           VALUES (?1, ?2, ?3, ?4, ?5)
+          `INSERT INTO scores (code, name, clicks, goo, created, updated)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?5)
            ON CONFLICT(code) DO UPDATE SET
              name    = excluded.name,
              clicks  = MAX(scores.clicks, excluded.clicks),
              goo     = MAX(scores.goo, excluded.goo),
+             created = CASE WHEN scores.created > 0 THEN scores.created ELSE excluded.created END,
              updated = excluded.updated`,
         )
-          .bind(code, name, clicks, goo, Date.now())
+          .bind(code, name, clicks, goo, now)
           .run();
 
         const row = await env.DB.prepare('SELECT clicks, goo FROM scores WHERE code = ?1')
