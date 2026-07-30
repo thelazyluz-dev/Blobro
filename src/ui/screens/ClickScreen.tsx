@@ -26,6 +26,7 @@ import { autoTapFraction } from '../../game/economy';
 import { accessoryById, blobById } from '../../game/cosmetics';
 import { selectClickPower, selectComboMelody, selectGooPerSec, selectMods, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
+import { CharacterBody } from '../characters';
 import { MainBlob } from '../MainBlob';
 import { useReducedMotion } from '../useReducedMotion';
 
@@ -72,6 +73,9 @@ export function ClickScreen() {
   const blobColors = useGame((s) => blobById(s.equippedBlob).colors);
   const blobShape = useGame((s) => blobById(s.equippedBlob).shape);
   const accessoryArt = useGame((s) => accessoryById(s.equippedAccessory).art);
+  // The chosen main creature — shown only if the player actually owns it,
+  // otherwise we fall back to the classic green blob.
+  const mainCreature = useGame((s) => (s.equippedMain && s.characters[s.equippedMain] ? s.equippedMain : null));
   const reduced = useReducedMotion();
 
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -513,7 +517,11 @@ export function ClickScreen() {
             }`}
             style={{ willChange: 'transform' }}
           >
-            <MainBlob colors={blobColors} shape={blobShape} accessory={accessoryArt} className="h-[252px] w-[252px]" />
+            {mainCreature ? (
+              <CharacterBody id={mainCreature} className="h-[252px] w-[252px]" />
+            ) : (
+              <MainBlob colors={blobColors} shape={blobShape} accessory={accessoryArt} className="h-[252px] w-[252px]" />
+            )}
           </span>
 
           {particles.map((p) => (

@@ -55,7 +55,7 @@ import { currentEvent } from './game/events';
 import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
-import { defaultSaveState, migrate } from './game/save';
+import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { loadRaw, persist } from './persistence';
@@ -98,6 +98,7 @@ interface GameState {
   equippedBackground: string;
   equippedAccessory: string;
   equippedSound: string;
+  equippedMain: CharId | null; // creature shown on the main screen (null = classic blob)
   muted: boolean;
 
   // --- transient UI / session ---
@@ -145,6 +146,7 @@ interface GameState {
   upgradeAllCreatures: () => void;
   buyCosmetic: (id: string) => void;
   equipCosmetic: (id: string) => void;
+  setEquippedMain: (id: CharId | null) => void;
   collectBonus: () => number;
   startAdBonus: () => void;
   watchAdForOffline: () => void;
@@ -212,7 +214,7 @@ function achContextOf(s: {
 
 function snapshot(s: GameState, now: number): SaveState {
   return {
-    version: 9,
+    version: CURRENT_VERSION,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
     upgrades: s.upgrades,
@@ -229,6 +231,7 @@ function snapshot(s: GameState, now: number): SaveState {
     equippedBackground: s.equippedBackground,
     equippedAccessory: s.equippedAccessory,
     equippedSound: s.equippedSound,
+    equippedMain: s.equippedMain,
     lastSeen: now,
     muted: s.muted,
   };
@@ -254,6 +257,7 @@ export const useGame = create<GameState>((set, get) => {
     equippedBackground: DEFAULT_BACKGROUND,
     equippedAccessory: DEFAULT_ACCESSORY,
     equippedSound: DEFAULT_SOUND,
+    equippedMain: null,
     muted: false,
 
     loaded: false,
@@ -321,6 +325,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedBackground: save.equippedBackground,
         equippedAccessory: save.equippedAccessory,
         equippedSound: save.equippedSound,
+        equippedMain: save.equippedMain,
         muted: save.muted,
         loaded: true,
         offlineReport: report,
@@ -549,6 +554,13 @@ export const useGame = create<GameState>((set, get) => {
       set(equipPatch(c.kind, id));
     },
 
+    // Choose which owned creature stars on the main screen (null = classic blob).
+    // Only an owned creature can be equipped; the render also guards ownership.
+    setEquippedMain: (id) => {
+      if (id !== null && !get().characters[id]) return;
+      set({ equippedMain: id });
+    },
+
     // Credit earnings for time the app was alive but backgrounded (phone locked,
     // switched to another app). requestAnimationFrame is paused while hidden, so
     // the tick never runs — without this, background time would earn nothing. Uses
@@ -740,6 +752,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedBackground: fresh.equippedBackground,
         equippedAccessory: fresh.equippedAccessory,
         equippedSound: fresh.equippedSound,
+        equippedMain: fresh.equippedMain,
         hatchResult: null,
         multiHatchResult: null,
         offlineReport: null,

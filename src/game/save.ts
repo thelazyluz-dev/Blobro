@@ -34,7 +34,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 9 as const;
+export const CURRENT_VERSION = 10 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -67,6 +67,7 @@ export function defaultSaveState(now: number): SaveState {
     equippedBackground: DEFAULT_BACKGROUND,
     equippedAccessory: DEFAULT_ACCESSORY,
     equippedSound: DEFAULT_SOUND,
+    equippedMain: null,
     lastSeen: now,
     muted: false,
   };
@@ -171,6 +172,11 @@ export function migrate(raw: unknown, now: number): SaveState {
   const soundPick = typeof data.equippedSound === 'string' ? data.equippedSound : '';
   const equippedSound = ownedCosmetics.includes(soundPick) ? soundById(soundPick).id : DEFAULT_SOUND;
 
+  // Main-screen creature: keep only a real creature id (ownership is checked at
+  // render time, so a not-yet-owned pick simply falls back to the classic blob).
+  const mainPick = typeof data.equippedMain === 'string' ? (data.equippedMain as CharId) : null;
+  const equippedMain = mainPick && collectionOrder.includes(mainPick) ? mainPick : null;
+
   return {
     version: CURRENT_VERSION,
     goo: Math.max(0, num(data.goo, 0)),
@@ -189,6 +195,7 @@ export function migrate(raw: unknown, now: number): SaveState {
     equippedBackground,
     equippedAccessory,
     equippedSound,
+    equippedMain,
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
   };

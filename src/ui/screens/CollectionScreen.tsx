@@ -241,6 +241,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const evolveCreature = useGame((s) => s.evolveCreature);
   const levelUp = useGame((s) => s.levelUpCreature);
   const levelUpMax = useGame((s) => s.levelUpCreatureMax);
+  const isMain = useGame((s) => s.equippedMain === id);
+  const setEquippedMain = useGame((s) => s.setEquippedMain);
   if (!held) return null;
 
   // The creature's TRUE goo/sec contribution (all automation multipliers folded
@@ -406,10 +408,26 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         )}
         {maxedEvolution && <div className="mt-3 text-sm text-pop">✨ אֶבּוֹלוּצְיָה מְלֵאָה! ✨</div>}
 
+        {/* Choose this creature as the star of the main screen. */}
+        <button
+          type="button"
+          onClick={() => {
+            setEquippedMain(isMain ? null : id);
+            if (!isMain) {
+              useGame.getState().pushToast({ text: `${def.nameHe} מוּצָג בַּמָּסָךְ! 🎯`, icon: '🎯', tone: 'pop' });
+            }
+          }}
+          className={`btn mt-3 w-full py-2.5 text-base ${
+            isMain ? 'bg-pop text-void' : 'bg-black/30 text-bone ring-1 ring-hairline'
+          }`}
+        >
+          {isMain ? '✓ מוּצָג בַּמָּסָךְ הָרָאשִׁי' : '🎯 הַצֵּג בַּמָּסָךְ הָרָאשִׁי'}
+        </button>
+
         <button
           type="button"
           onClick={onClose}
-          className="btn mt-3 w-full bg-cy py-3 text-lg text-void"
+          className="btn mt-2 w-full bg-cy py-3 text-lg text-void"
         >
           סְגוֹר
         </button>

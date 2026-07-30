@@ -51,7 +51,7 @@ const ShopIcon: FC<{ active: boolean }> = ({ active }) => (
 const ITEMS: NavItem[] = [
   { tab: 'click', label: 'לְחִיצָה', Icon: ClickIcon },
   { tab: 'hatch', label: 'בְּקִיעָה', Icon: HatchIcon },
-  { tab: 'collection', label: 'אוֹסֶף', Icon: CollectionIcon },
+  { tab: 'collection', label: 'בְּלוֹבִּים', Icon: CollectionIcon },
   { tab: 'upgrades', label: 'שְׁדְרוּג', Icon: UpgradeIcon },
   { tab: 'shop', label: 'חֲנוּת', Icon: ShopIcon },
 ];
