@@ -3,8 +3,9 @@
 // giant, abstract number suddenly *means* something ("that's the distance to
 // the Moon in metres!"). Data only, pure. Sorted ascending by `goo`.
 //
-// Facts are kept mostly accurate and are deliberately vivid; wealth comparisons
-// use generic categories rather than naming real people (accuracy + fairness).
+// Facts are kept accurate and deliberately vivid. Wealth / market-cap figures do
+// name real people and companies, but those numbers are approximate and swing
+// constantly — they were last verified July 2026, so revisit them occasionally.
 
 export interface Milestone {
   goo: number;
@@ -77,13 +78,13 @@ export const milestones: Milestone[] = [
   {
     goo: 240_000_000_000,
     titleHe: 'עָשִׁיר כְּמוֹ בֶּזוֹס!',
-    factHe: 'צברת גּוּ בערך כמו ההון של ג׳ף בזוס, מייסד אֲמָזוֹן (כ־240 מיליארד)!',
+    factHe: 'צברת גּוּ בערך כמו ההון של ג׳ף בזוס, מייסד אֲמָזוֹן (כ־250 מיליארד דולר)!',
     emoji: '📦',
   },
   {
     goo: 500_000_000_000,
-    titleHe: 'הֶעָשִׁיר בָּעוֹלָם!',
-    factHe: 'צברת גּוּ כמו ההון של אילון מאסק — האדם הכי עשיר בעולם, הראשון שחצה חצי טריליון!',
+    titleHe: 'חֲצִי טְרִילְיוֹן!',
+    factHe: 'ואילון מאסק, האדם הכי עשיר בעולם, שווה כבר קרוב לטריליון דולר — כמעט פי שניים מזה!',
     emoji: '🚀',
   },
   {
@@ -93,9 +94,9 @@ export const milestones: Milestone[] = [
     emoji: '🏆',
   },
   {
-    goo: 4_000_000_000_000,
+    goo: 5_000_000_000_000,
     titleHe: 'שְׁוֵה כְּמוֹ אֵפֶּל!',
-    factHe: 'הגעת לשווי של אֵפֶּל, החברה היקרה בעולם — בערך 4 טריליון דולר!',
+    factHe: 'הגעת לשווי של אֵפֶּל — כמעט 5 טריליון דולר, מהחברות היקרות בעולם!',
     emoji: '🍎',
   },
   {
