@@ -23,9 +23,9 @@ import {
   rainIntervalMinMs,
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
-import { autoTapFraction } from '../../game/economy';
+import { autoClicksPerSec } from '../../game/economy';
 import { accessoryById, blobById } from '../../game/cosmetics';
-import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, selectMods, selectStarBonus, useGame } from '../../store';
+import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, selectStarBonus, useGame } from '../../store';
 import { ABILITY_META, abilityPct } from '../../game/abilities';
 import { haptic } from '../haptics';
 import { CharacterBody } from '../characters';
@@ -120,10 +120,9 @@ export function ClickScreen() {
 
   const frenzyActive = frenzyUntil > nowTs;
 
-  // The robot hand's live contribution, shown as a persistent badge so it's
-  // obvious it's actually working (rate already folds it in; back it out here).
-  const autoFrac = autoTapFraction(autoTapLevel);
-  const robotPerSec = autoFrac > 0 ? (rate * autoFrac) / (1 + autoFrac) : 0;
+  // The robot hand auto-clicks: goo/sec = tap value × auto-taps/sec. Shown as a
+  // persistent badge so it's obvious it's working.
+  const robotPerSec = perClick * autoClicksPerSec(autoTapLevel);
 
   // Keep frenzy state fresh so the visuals turn off exactly when it ends.
   useEffect(() => {
@@ -150,17 +149,15 @@ export function ClickScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magnitudePulse]);
 
-  // Visible robotic hand: while the robot-hand upgrade is owned, it periodically
-  // "harvests" — a 🤖 +N floats up from the blob so you can SEE it contributing
-  // (purely visual; the goo itself already accrues via the passive tick).
+  // Visible robotic hand: while the auto-clicker is owned, a 🤖 +N floats up from
+  // the blob every few seconds so you can SEE it tapping for you (purely visual;
+  // the goo itself accrues via the tick).
   useEffect(() => {
     if (reduced) return;
     const iv = window.setInterval(() => {
       const s = useGame.getState();
-      const f = selectMods(s).autoTapFraction;
-      if (f <= 0) return;
-      const contribution = (selectGooPerSec(s) * f) / (1 + f); // goo/sec the hand adds
-      const amount = contribution * 3; // shown per ~3s harvest
+      const rate = selectClickPower(s) * autoClicksPerSec(s.upgrades.autoTap); // goo/sec the hand taps
+      const amount = rate * 3; // shown per ~3s
       if (amount <= 0) return;
       const id = ++uid;
       setAutoFloaters((prev) => [...prev, { id, amount }]);

@@ -38,12 +38,12 @@ export const baseByRarity: Record<Rarity, number> = {
 // the equivalent compounding level so income is preserved — see save.ts.)
 export const charIncomeGrowth = 1.05;
 export const charIncomeGrowthLegacyAdditive = 0.7; // the pre-v6 additive rate, for migration only
-// The robot hand works alongside the creatures (automation, not taps): each
-// level makes it harvest a bit more of their income, so it scales WITH the
-// creatures and stays a meaningful contributor however strong they get —
-// instead of falling behind as a flat trickle. Capped so creatures stay king.
-export const autoTapFractionPerLevel = 0.035; // +3.5% of creature income per level
-export const autoTapFractionCap = 0.6; // up to +60% of creature income
+// The robot hand is an AUTO-CLICKER: it taps for you at this rate, each auto-tap
+// earning a normal tap's worth of goo (it does NOT count toward the physical
+// taps leaderboard). Passive income (goo/sec) comes purely from the creatures;
+// the robot lives on the active/tap side.
+export const autoTapRatePerLevel = 0.25; // +0.25 auto-taps/sec per level
+export const autoTapRateCap = 10; // up to 10 auto-taps/sec
 export const minCharLevel = 1;
 // No maximum — creatures level up forever, giving more each level (§ user request).
 

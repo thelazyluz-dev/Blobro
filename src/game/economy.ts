@@ -2,8 +2,8 @@
 // the prestige hook — and through the achievement "star" where relevant.
 
 import {
-  autoTapFractionCap,
-  autoTapFractionPerLevel,
+  autoTapRateCap,
+  autoTapRatePerLevel,
   baseByRarity,
   charIncomeGrowth,
   clickBase,
@@ -43,7 +43,6 @@ export function modifiersFrom(
     fingerLevel: upgrades.finger,
     clickMultiplier: (1 + upgradeConfig.power.effectPerLevel * upgrades.power) * (1 + clickCosmeticBonus),
     incomeMultiplier: (1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture) * (1 + incomeCosmeticBonus),
-    autoTapFraction: Math.min(autoTapFractionCap, autoTapFractionPerLevel * upgrades.autoTap),
     starMultiplier: 1 + achievementStarBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
@@ -69,9 +68,9 @@ export function clickPower(m: Modifiers): number {
   );
 }
 
-/** The robot hand's harvest fraction at a given upgrade level (capped). */
-export function autoTapFraction(level: number): number {
-  return Math.min(autoTapFractionCap, autoTapFractionPerLevel * level);
+/** The robot hand's auto-tap rate (taps/second) at a given upgrade level (capped). */
+export function autoClicksPerSec(level: number): number {
+  return Math.min(autoTapRateCap, autoTapRatePerLevel * level);
 }
 
 /** charIncome = baseByRarity × charIncomeGrowth^(level − 1) — compounding per
@@ -111,8 +110,7 @@ export function creatureContribution(
     ownedCreatureIncome(rarity, held, incomeMult) *
     m.incomeMultiplier *
     m.starMultiplier *
-    globalMultiplier *
-    (1 + m.autoTapFraction)
+    globalMultiplier
   );
 }
 
@@ -128,13 +126,12 @@ export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
 }
 
 /**
- * Total goo per second: creature income, amplified by the robot hand which
- * harvests an extra fraction of it. Both are automation — independent of the
- * click upgrades (finger/power/crit), which only affect manual taps. The star
- * and prestige are already folded into creatureIncome.
+ * Passive goo per second — creature income ONLY (star + prestige already folded
+ * in). The robot hand is no longer here: it's an auto-clicker on the tap side,
+ * accounted for separately (see autoClicksPerSec + the game tick).
  */
 export function gooPerSec(owned: OwnedCharacters, m: Modifiers): number {
-  return creatureIncome(owned, m) * (1 + m.autoTapFraction);
+  return creatureIncome(owned, m);
 }
 
 /** eggCost(n) = round(45 × 1.11 ^ n), n = eggs already hatched */

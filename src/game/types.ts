@@ -99,7 +99,6 @@ export interface Modifiers {
   fingerLevel: number;
   clickMultiplier: number; // from the "power" upgrade
   incomeMultiplier: number; // from the "nurture" upgrade (creatures only)
-  autoTapFraction: number; // robot hand — adds this fraction of creature income (automation, independent of taps)
   starMultiplier: number; // from achievements — applies to everything
   critChance: number; // 0..1, chance a tap crits
   luck: number; // 0..luckCap, hatch-odds shift toward rare/legendary

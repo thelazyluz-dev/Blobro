@@ -45,6 +45,7 @@ import {
 } from './game/cosmetics';
 import {
   affordableCreatureLevels,
+  autoClicksPerSec,
   clickPower,
   creatureLevelCost,
   eggCost,
@@ -303,7 +304,9 @@ export const useGame = create<GameState>((set, get) => {
         backgroundIncomeBonus(save.equippedBackground),
       );
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
-      const report = computeOffline(gooPerSec(save.characters, m), secondsAway);
+      // Offline earns creature income PLUS the robot hand's auto-clicks.
+      const offlineRate = gooPerSec(save.characters, m) + clickPower(m) * autoClicksPerSec(save.upgrades.autoTap);
+      const report = computeOffline(offlineRate, secondsAway);
 
       // Retroactively grant any click-unlock creatures already earned (silently,
       // so a returning player who's past the thresholds just has them).
@@ -576,7 +579,9 @@ export const useGame = create<GameState>((set, get) => {
     // quick tab-switches unobtrusive.
     applyAwayEarnings: (seconds) => {
       const s = get();
-      const report = computeOffline(gooPerSec(s.characters, mods()), seconds);
+      const m = mods();
+      const rate = gooPerSec(s.characters, m) + clickPower(m) * autoClicksPerSec(s.upgrades.autoTap);
+      const report = computeOffline(rate, seconds);
       if (!report) return null;
       set({ goo: s.goo + report.goo, lifetimeGoo: s.lifetimeGoo + report.goo });
       get().pushToast({ text: `בֵּינְתַיִם צָבַרְתָּ +${formatGoo(report.goo)} גּוּ 💤`, icon: '💤', tone: 'goo' });
@@ -668,11 +673,16 @@ export const useGame = create<GameState>((set, get) => {
 
     tick: (dtSeconds) => {
       const s = get();
-      // Use the SAME full modifiers the UI shows (star + cosmetic income bonus),
-      // so the goo you actually earn matches the displayed goo/sec exactly.
-      const rate = gooPerSec(s.characters, mods());
-      if (rate <= 0) return;
-      const gain = rate * dtSeconds * currentEvent(Date.now()).incomeMult * adMultOf(s, Date.now());
+      const m = mods();
+      const now = Date.now();
+      const ev = currentEvent(now);
+      const ad = adMultOf(s, now);
+      // Passive = creatures only. The robot hand auto-clicks on the side, each
+      // auto-tap worth a manual tap's goo (event/ad multipliers apply like taps).
+      const passive = gooPerSec(s.characters, m) * ev.incomeMult;
+      const robot = clickPower(m) * autoClicksPerSec(s.upgrades.autoTap) * ev.clickMult;
+      const gain = (passive + robot) * ad * dtSeconds;
+      if (gain <= 0) return;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
     },
 

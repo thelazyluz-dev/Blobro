@@ -1,7 +1,7 @@
 // Upgrade definitions and pure cost/effect math. Numbers come from balance.ts.
 
 import { critBaseChance, critChanceCap, luckCap, upgradeConfig } from './balance';
-import { autoTapFraction, fingerBonus } from './economy';
+import { autoClicksPerSec, fingerBonus } from './economy';
 import { formatGoo } from './format';
 import type { UpgradeId, Upgrades } from './types';
 
@@ -16,7 +16,7 @@ export interface UpgradeDef {
 export const upgradeDefs: UpgradeDef[] = [
   { id: 'finger', nameHe: 'אֶצְבַּע חֲזָקָה', icon: '👆', effectHe: 'עוֹצְמַת נְגִיעָה — כָּל רָמָה מוֹסִיפָה יוֹתֵר!' },
   { id: 'power', nameHe: 'כּוֹחַ עַל', icon: '💥', effectHe: '+25% לעוצמת הנגיעה' },
-  { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'אוֹסֶפֶת עוֹד מֵהַכְנָסַת הַיְצוּרִים!' },
+  { id: 'autoTap', nameHe: 'יָד רוֹבּוֹטִית', icon: '🤖', effectHe: 'לוֹחֶצֶת אוֹטוֹמָטִית בִּשְׁבִילְךָ!' },
   { id: 'nurture', nameHe: 'טִיפּוּחַ', icon: '💚', effectHe: '+12% לכל היצורים' },
   { id: 'crit', nameHe: 'מַכָּה קְרִיטִית', icon: '⚡', effectHe: '+3% סיכוי למכה ענקית' },
   { id: 'luck', nameHe: 'מַזָּל', icon: '🍀', effectHe: 'סיכוי גבוה יותר ליצורים נדירים' },
@@ -53,7 +53,7 @@ export function upgradeTotalHe(id: UpgradeId, level: number, tapMult = 1): strin
     case 'power':
       return `סה״כ +${Math.round(level * per * 100)}% לעוצמת הנגיעה`;
     case 'autoTap':
-      return `סה״כ +${Math.round(autoTapFraction(level) * 100)}% מהכנסת היצורים`;
+      return `סה״כ ${autoClicksPerSec(level).toFixed(1)} לחיצות/שנייה אוטומטיות`;
     case 'nurture':
       return `סה״כ +${Math.round(level * per * 100)}% לכל היצורים`;
     case 'crit': {
@@ -79,8 +79,8 @@ export function upgradeGainHe(id: UpgradeId, level: number, tapMult = 1): string
     case 'power':
       return `+${Math.round(per * 100)}% נגיעה`;
     case 'autoTap': {
-      const d = Math.round((autoTapFraction(level) - autoTapFraction(level - 1)) * 100);
-      return d > 0 ? `+${d}% מהיצורים` : 'יד רובוטית בשיא!';
+      const d = autoClicksPerSec(level) - autoClicksPerSec(level - 1);
+      return d > 0 ? `+${d.toFixed(2)} לחיצות/שנייה` : 'יד רובוטית בשיא!';
     }
     case 'nurture':
       return `+${Math.round(per * 100)}% ליצורים`;
