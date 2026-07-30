@@ -17,6 +17,7 @@ function formatAway(seconds: number): string {
 export function OfflineModal() {
   const report = useGame((s) => s.offlineReport);
   const dismiss = useGame((s) => s.dismissOffline);
+  const watchAd = useGame((s) => s.watchAdForOffline);
 
   if (!report) return null;
 
@@ -32,12 +33,21 @@ export function OfflineModal() {
         <div className="mt-4 font-display text-5xl text-pop">
           +<CountUp target={report.goo} /> <span className="text-2xl">גּוּ</span>
         </div>
+
+        {/* Rewarded double: watch a (placeholder) ad to double the away earnings. */}
+        <button
+          type="button"
+          onClick={watchAd}
+          className="btn anim-bonus-pulse mt-5 w-full bg-pop py-4 text-lg text-void"
+        >
+          🎬 צְפֵה בְּפִרְסוֹמֶת וְהַכְפֵּל!
+        </button>
         <button
           type="button"
           onClick={dismiss}
-          className="btn mt-6 w-full bg-goo py-4 text-xl text-void glow-goo"
+          className="btn mt-2 w-full bg-black/30 py-3 text-base text-bone ring-1 ring-hairline"
         >
-          מְעוּלֶה!
+          לֹא תּוֹדָה, מְעוּלֶה!
         </button>
       </div>
     </div>

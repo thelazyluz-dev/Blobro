@@ -50,8 +50,8 @@ export const characters: CharacterDef[] = [
   // --- Uncommon (28%) — 8 goo/sec ---
   {
     id: 'skwibbly',
-    nameHe: 'סְקְוִיבְּלִי דוֹפּ',
-    nameLatin: 'Skwibbly Dop',
+    nameHe: 'גַּרְגּוֹלִית',
+    nameLatin: 'Gargolit',
     descHe: 'קְפִיץ עִם מַקּוֹר שֶׁקּוֹפֵץ בְּלִי הַפְסָקָה',
     rarity: 'uncommon',
     sound: { waveform: 'sine', notes: [300, 900, 500], durations: [0.16, 0.1, 0.1], filter: 2500, decay: 0.24 },

@@ -73,8 +73,9 @@ export function BonusButton() {
 
 export function AdOverlay() {
   const open = useGame((s) => s.adOverlayOpen);
-  const finish = useGame((s) => s.finishAdBonus);
-  const cancel = useGame((s) => s.cancelAdBonus);
+  const purpose = useGame((s) => s.adPurpose);
+  const finish = useGame((s) => s.finishAd);
+  const cancel = useGame((s) => s.cancelAd);
   const reduced = useReducedMotion();
 
   const [remaining, setRemaining] = useState(Math.ceil(adPlaceholderMs / 1000));
@@ -133,7 +134,7 @@ export function AdOverlay() {
             onClick={finish}
             className="btn anim-bonus-pulse mt-5 w-full bg-pop py-3 font-display text-lg text-void"
           >
-            🎁 קַבֵּל בּוֹנוּס ×{adRewardMult}!
+            {purpose === 'offline' ? '🎬 קַבֵּל פִּי 2!' : `🎁 קַבֵּל בּוֹנוּס ×${adRewardMult}!`}
           </button>
         ) : (
           <div className="mt-5 w-full text-center">

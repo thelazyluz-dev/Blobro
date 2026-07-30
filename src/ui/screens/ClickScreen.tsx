@@ -22,6 +22,7 @@ import {
   rainIntervalMinMs,
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
+import { autoTapFraction } from '../../game/economy';
 import { accessoryById, blobById } from '../../game/cosmetics';
 import { selectClickPower, selectComboMelody, selectGooPerSec, selectMods, selectStarBonus, useGame } from '../../store';
 import { haptic } from '../haptics';
@@ -66,6 +67,7 @@ export function ClickScreen() {
   const click = useGame((s) => s.click);
   const collectBonus = useGame((s) => s.collectBonus);
   const grantGoo = useGame((s) => s.grantGoo);
+  const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   const blobColors = useGame((s) => blobById(s.equippedBlob).colors);
   const blobShape = useGame((s) => blobById(s.equippedBlob).shape);
@@ -110,6 +112,11 @@ export function ClickScreen() {
   clickRef.current = perClick;
 
   const frenzyActive = frenzyUntil > nowTs;
+
+  // The robot hand's live contribution, shown as a persistent badge so it's
+  // obvious it's actually working (rate already folds it in; back it out here).
+  const autoFrac = autoTapFraction(autoTapLevel);
+  const robotPerSec = autoFrac > 0 ? (rate * autoFrac) / (1 + autoFrac) : 0;
 
   // Keep frenzy state fresh so the visuals turn off exactly when it ends.
   useEffect(() => {
@@ -446,6 +453,13 @@ export function ClickScreen() {
             )}
           </div>
         </div>
+        {robotPerSec > 0 && (
+          <div className="mt-1.5 flex items-center justify-center">
+            <span className="inline-flex items-center gap-1 rounded-full bg-cy/15 px-3 py-0.5 text-sm text-cy ring-1 ring-cy/30">
+              🤖 +{formatGoo(robotPerSec)} גּוּ/שנייה
+            </span>
+          </div>
+        )}
       </header>
 
       {frenzyActive && (

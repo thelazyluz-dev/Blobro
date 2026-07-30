@@ -135,9 +135,10 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 0,
     incomeBonus: 0,
     gradient:
-      'radial-gradient(60% 50% at 85% 12%, rgba(255,46,136,0.22), transparent 60%),' +
-      'radial-gradient(55% 45% at 12% 88%, rgba(0,229,255,0.2), transparent 60%),' +
-      'radial-gradient(50% 40% at 50% 40%, rgba(163,255,18,0.1), transparent 65%)',
+      'radial-gradient(70% 55% at 82% 8%, rgba(255,46,136,0.30), transparent 60%),' +
+      'radial-gradient(65% 55% at 12% 92%, rgba(0,229,255,0.28), transparent 60%),' +
+      'radial-gradient(95% 65% at 50% 50%, rgba(155,93,229,0.18), transparent 72%),' +
+      'linear-gradient(155deg, rgba(163,255,18,0.07), transparent 42%)',
   },
   {
     id: 'bg-ocean',
@@ -146,9 +147,10 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 30_000,
     incomeBonus: 0.08,
     gradient:
-      'radial-gradient(70% 60% at 50% 0%, rgba(0,229,255,0.3), transparent 60%),' +
-      'radial-gradient(80% 60% at 50% 100%, rgba(20,60,180,0.4), transparent 65%),' +
-      'radial-gradient(40% 30% at 50% 55%, rgba(0,255,200,0.12), transparent 65%)',
+      'linear-gradient(180deg, rgba(0,190,225,0.30) 0%, rgba(10,55,150,0.50) 68%, rgba(3,12,55,0.62) 100%),' +
+      'radial-gradient(65% 32% at 50% 0%, rgba(130,245,255,0.40), transparent 62%),' +
+      'radial-gradient(28% 45% at 28% 55%, rgba(0,255,210,0.16), transparent 62%),' +
+      'repeating-linear-gradient(102deg, rgba(190,250,255,0.05) 0 5px, transparent 5px 42px)',
   },
   {
     id: 'bg-sunset',
@@ -157,8 +159,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 750_000,
     incomeBonus: 0.14,
     gradient:
-      'linear-gradient(180deg, rgba(120,40,140,0.35) 0%, rgba(255,120,60,0.35) 55%, rgba(255,200,80,0.4) 100%),' +
-      'radial-gradient(35% 25% at 50% 78%, rgba(255,240,150,0.5), transparent 60%)',
+      'linear-gradient(180deg, rgba(55,18,95,0.55) 0%, rgba(190,55,120,0.42) 42%, rgba(255,135,60,0.46) 74%, rgba(255,205,110,0.52) 100%),' +
+      'radial-gradient(32% 22% at 50% 84%, rgba(255,246,185,0.75), transparent 60%)',
   },
   {
     id: 'bg-forest',
@@ -167,9 +169,10 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 22_000_000,
     incomeBonus: 0.2,
     gradient:
-      'radial-gradient(60% 50% at 82% 14%, rgba(163,255,18,0.26), transparent 60%),' +
-      'radial-gradient(60% 50% at 14% 86%, rgba(0,200,120,0.3), transparent 60%),' +
-      'radial-gradient(45% 35% at 50% 50%, rgba(255,216,77,0.1), transparent 65%)',
+      'radial-gradient(65% 55% at 80% 12%, rgba(163,255,18,0.32), transparent 60%),' +
+      'radial-gradient(65% 55% at 12% 88%, rgba(0,195,115,0.36), transparent 60%),' +
+      'radial-gradient(42% 32% at 46% 46%, rgba(255,232,120,0.16), transparent 64%),' +
+      'repeating-linear-gradient(118deg, rgba(220,255,180,0.05) 0 4px, transparent 4px 48px)',
   },
   {
     id: 'bg-galaxy',
@@ -180,11 +183,15 @@ export const backgroundSkins: BackgroundSkin[] = [
     gradient:
       'radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),' +
       'radial-gradient(1.5px 1.5px at 70% 20%, #fff, transparent),' +
-      'radial-gradient(1.5px 1.5px at 40% 70%, #cbe, transparent),' +
+      'radial-gradient(1px 1px at 40% 70%, #cbe, transparent),' +
       'radial-gradient(2px 2px at 85% 65%, #fff, transparent),' +
       'radial-gradient(1.5px 1.5px at 55% 45%, #fff, transparent),' +
-      'radial-gradient(70% 55% at 75% 20%, rgba(155,93,229,0.35), transparent 60%),' +
-      'radial-gradient(70% 55% at 20% 85%, rgba(0,120,255,0.3), transparent 60%)',
+      'radial-gradient(1px 1px at 32% 86%, #fff, transparent),' +
+      'radial-gradient(1.5px 1.5px at 90% 38%, #e6ccff, transparent),' +
+      'radial-gradient(1px 1px at 12% 55%, #fff, transparent),' +
+      'radial-gradient(78% 60% at 74% 20%, rgba(180,80,230,0.42), transparent 60%),' +
+      'radial-gradient(78% 60% at 22% 84%, rgba(0,110,255,0.36), transparent 60%),' +
+      'radial-gradient(45% 42% at 50% 50%, rgba(255,80,180,0.16), transparent 66%)',
   },
   {
     id: 'bg-neon',
@@ -193,9 +200,10 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 30_000_000_000,
     incomeBonus: 0.32,
     gradient:
-      'repeating-linear-gradient(0deg, rgba(0,229,255,0.10) 0 1px, transparent 1px 44px),' +
-      'repeating-linear-gradient(90deg, rgba(255,46,136,0.10) 0 1px, transparent 1px 44px),' +
-      'radial-gradient(60% 50% at 50% 30%, rgba(163,255,18,0.14), transparent 65%)',
+      'repeating-linear-gradient(0deg, rgba(0,229,255,0.13) 0 1px, transparent 1px 38px),' +
+      'repeating-linear-gradient(90deg, rgba(255,46,136,0.13) 0 1px, transparent 1px 38px),' +
+      'radial-gradient(72% 55% at 50% 22%, rgba(163,255,18,0.16), transparent 66%),' +
+      'radial-gradient(65% 55% at 50% 102%, rgba(255,46,136,0.22), transparent 60%)',
   },
   {
     id: 'bg-candy',
@@ -204,7 +212,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 1_500_000_000_000,
     incomeBonus: 0.4,
     gradient:
-      'conic-gradient(from 0deg at 50% 42%, rgba(255,46,136,0.28), rgba(0,229,255,0.28), rgba(255,216,77,0.28), rgba(163,255,18,0.28), rgba(255,46,136,0.28))',
+      'conic-gradient(from 20deg at 50% 40%, rgba(255,46,136,0.34), rgba(0,229,255,0.34), rgba(255,216,77,0.34), rgba(163,255,18,0.34), rgba(155,93,229,0.34), rgba(255,46,136,0.34)),' +
+      'radial-gradient(52% 42% at 50% 42%, rgba(255,255,255,0.14), transparent 62%)',
   },
   {
     id: 'bg-lava',
@@ -213,10 +222,11 @@ export const backgroundSkins: BackgroundSkin[] = [
     cost: 100_000_000_000_000,
     incomeBonus: 0.5,
     gradient:
-      'radial-gradient(90% 60% at 50% 100%, rgba(255,90,0,0.5), transparent 60%),' +
-      'radial-gradient(50% 40% at 30% 80%, rgba(255,40,20,0.45), transparent 60%),' +
-      'radial-gradient(50% 40% at 70% 85%, rgba(255,160,0,0.4), transparent 60%),' +
-      'linear-gradient(180deg, rgba(40,0,10,0.5), transparent 45%)',
+      'radial-gradient(98% 55% at 50% 106%, rgba(255,110,0,0.58), transparent 60%),' +
+      'radial-gradient(45% 35% at 24% 82%, rgba(255,45,12,0.52), transparent 60%),' +
+      'radial-gradient(45% 35% at 76% 88%, rgba(255,170,0,0.46), transparent 60%),' +
+      'radial-gradient(30% 20% at 50% 96%, rgba(255,242,185,0.55), transparent 55%),' +
+      'linear-gradient(180deg, rgba(28,0,6,0.62), transparent 42%)',
   },
 ];
 

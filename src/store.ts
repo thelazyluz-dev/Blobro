@@ -111,6 +111,8 @@ interface GameState {
   adRewardUntil: number; // epoch ms; a ×N boost to taps AND income is live until then
   adCooldownUntil: number; // epoch ms; the bonus button recharges after this
   adOverlayOpen: boolean; // the placeholder ad is currently playing
+  adPurpose: 'boost' | 'offline' | null; // what the current ad rewards on finish
+  offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
   toasts: Toast[];
   achievementsOpen: boolean;
   statsOpen: boolean;
@@ -143,8 +145,9 @@ interface GameState {
   equipCosmetic: (id: string) => void;
   collectBonus: () => number;
   startAdBonus: () => void;
-  finishAdBonus: () => void;
-  cancelAdBonus: () => void;
+  watchAdForOffline: () => void;
+  finishAd: () => void;
+  cancelAd: () => void;
   applyAwayEarnings: (seconds: number) => OfflineReport | null;
   grantGoo: (amount: number) => void;
   dismissMultiHatch: () => void;
@@ -260,6 +263,8 @@ export const useGame = create<GameState>((set, get) => {
     adRewardUntil: 0,
     adCooldownUntil: 0,
     adOverlayOpen: false,
+    adPurpose: null,
+    offlineDoubled: false,
     toasts: [],
     achievementsOpen: false,
     statsOpen: false,
@@ -576,23 +581,46 @@ export const useGame = create<GameState>((set, get) => {
       return reward;
     },
 
-    // --- Rewarded bonus ("watch to boost") ---------------------------------
-    // startAdBonus opens the placeholder ad (only when off cooldown). When the
-    // ad finishes, the UI calls finishAdBonus to grant the boost; cancelAdBonus
-    // bails with no reward and no cooldown. Swapping in a real rewarded-ad
-    // network later means only the AdOverlay component changes — this contract
-    // (open → finished/cancelled → reward) stays the same.
+    // --- Rewarded ads (one placeholder ad, two reward types) ---------------
+    // A single ad flow (open → finishAd/cancelAd) serves two rewards, chosen by
+    // adPurpose: 'boost' (the floating bonus button → ×N to taps+income) and
+    // 'offline' (double the returning "while you were away" earnings). Swapping
+    // in a real rewarded-ad network later means only the AdOverlay component
+    // changes — this contract stays identical.
     startAdBonus: () => {
       const s = get();
       if (s.adOverlayOpen) return;
       if (Date.now() < s.adCooldownUntil) return;
-      set({ adOverlayOpen: true });
+      set({ adOverlayOpen: true, adPurpose: 'boost' });
     },
-    finishAdBonus: () => {
-      if (!get().adOverlayOpen) return;
+    watchAdForOffline: () => {
+      const s = get();
+      if (s.adOverlayOpen || !s.offlineReport || s.offlineDoubled) return;
+      set({ adOverlayOpen: true, adPurpose: 'offline' });
+    },
+    finishAd: () => {
+      const s = get();
+      if (!s.adOverlayOpen) return;
       const now = Date.now();
+      if (s.adPurpose === 'offline') {
+        const extra = s.offlineReport?.goo ?? 0; // grant the same amount again = ×2
+        set({
+          adOverlayOpen: false,
+          adPurpose: null,
+          offlineDoubled: true,
+          goo: s.goo + extra,
+          lifetimeGoo: s.lifetimeGoo + extra,
+          offlineReport: null,
+        });
+        if (extra > 0) {
+          get().pushToast({ text: `הַכְנָסָה כְּפוּלָה! +${formatGoo(extra)} גּוּ 🎬`, icon: '🎬', tone: 'pop' });
+        }
+        return;
+      }
+      // default: the boost button
       set({
         adOverlayOpen: false,
+        adPurpose: null,
         adRewardUntil: now + adRewardDurationMs,
         adCooldownUntil: now + adRewardCooldownMs,
       });
@@ -602,7 +630,7 @@ export const useGame = create<GameState>((set, get) => {
         tone: 'pop',
       });
     },
-    cancelAdBonus: () => set({ adOverlayOpen: false }),
+    cancelAd: () => set({ adOverlayOpen: false, adPurpose: null }),
 
     dismissHatch: () => set({ hatchResult: null }),
     dismissOffline: () => set({ offlineReport: null }),

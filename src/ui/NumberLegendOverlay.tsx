@@ -28,7 +28,13 @@ const ROWS: Row[] = [
 export function NumberLegendOverlay() {
   const open = useGame((s) => s.numberLegendOpen);
   const setOpen = useGame((s) => s.setNumberLegendOpen);
+  const goo = useGame((s) => s.goo);
   if (!open) return null;
+
+  // Which tier the player is standing in right now: the biggest row whose value
+  // the current goo has reached. -1 = still below the first suffix (under 1,000).
+  let currentZeros = -1;
+  for (const r of ROWS) if (goo >= Math.pow(10, r.zeros)) currentZeros = r.zeros;
 
   return (
     <div
@@ -47,22 +53,37 @@ export function NumberLegendOverlay() {
         <p className="mb-3 text-center text-xs text-bone/55">כָּל אוֹת לְיַד הַמִּסְפָּר אוֹמֶרֶת כַּמָּה הוּא גָּדוֹל!</p>
 
         <div className="flex flex-col gap-1.5 overflow-y-auto pe-1">
-          {ROWS.map((r) => (
-            <div key={r.suffix} className="flex items-center gap-3 rounded-2xl bg-black/25 px-3 py-2 ring-hairline">
-              <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-goo/15 px-2 font-display text-lg text-goo ring-1 ring-goo/40">
-                {r.suffix}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-display text-base text-bone">{r.nameHe}</div>
-                <div className="text-[11px] text-bone/50" dir="ltr">
-                  1 ואחריו {r.zeros} אפסים
+          {ROWS.map((r) => {
+            const here = r.zeros === currentZeros;
+            return (
+              <div
+                key={r.suffix}
+                ref={here ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+                className={`flex items-center gap-3 rounded-2xl px-3 py-2 ${
+                  here ? 'bg-goo/20 ring-2 ring-goo' : 'bg-black/25 ring-hairline'
+                }`}
+              >
+                <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-goo/15 px-2 font-display text-lg text-goo ring-1 ring-goo/40">
+                  {r.suffix}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-base text-bone">{r.nameHe}</div>
+                  <div className="text-[11px] text-bone/50" dir="ltr">
+                    1 ואחריו {r.zeros} אפסים
+                  </div>
                 </div>
+                {here ? (
+                  <span className="shrink-0 rounded-full bg-goo px-2 py-1 font-display text-xs text-void">
+                    📍 אַתָּה כָּאן
+                  </span>
+                ) : (
+                  <div className="shrink-0 font-display text-sm text-cy tabular" dir="ltr">
+                    10<sup>{r.zeros}</sup>
+                  </div>
+                )}
               </div>
-              <div className="shrink-0 font-display text-sm text-cy tabular" dir="ltr">
-                10<sup>{r.zeros}</sup>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <p className="mt-1 px-1 text-center text-[11px] text-bone/45">ומעבר לזה? המספרים ממשיכים לגדול לנצח! ♾️</p>
         </div>
 
