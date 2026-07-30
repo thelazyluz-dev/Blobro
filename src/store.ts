@@ -46,7 +46,6 @@ import {
   evolveCost,
   gooPerSec,
   modifiersFrom,
-  upgradeAllFee,
 } from './game/economy';
 import { formatGoo } from './game/format';
 import { currentEvent } from './game/events';
@@ -116,7 +115,6 @@ interface GameState {
   // "Upgrade all" pacing (session-only, never persisted): the button is locked
   // until this epoch-ms, and its service fee doubles with each use this session.
   upgradeAllReadyAt: number;
-  upgradeAllFeeTier: number;
 
   // --- actions ---
   loadGame: () => Promise<void>;
@@ -253,7 +251,6 @@ export const useGame = create<GameState>((set, get) => {
     magnitudePulse: 0,
     magnitudeExp: 0,
     upgradeAllReadyAt: 0,
-    upgradeAllFeeTier: 0,
 
     loadGame: async () => {
       const now = Date.now();
@@ -447,22 +444,16 @@ export const useGame = create<GameState>((set, get) => {
     },
 
     // One press: spend goo across ALL creatures, always buying the cheapest
-    // available level (best value), so your whole roster climbs together. It is
-    // NOT a free fast-forward: it charges an escalating service fee (seconds of
-    // your current income, doubling per use this session) AND locks the button
-    // for a cooldown afterwards. Bounded per press; the cost rises as levels do.
+    // available level (best value), so your whole roster climbs together. No
+    // fee — just a short cooldown afterwards so it isn't spam-tapped. Bounded
+    // per press; costs are already wealth-scaled by the economy.
     upgradeAllCreatures: () => {
       const s = get();
       const now = Date.now();
       if (now < s.upgradeAllReadyAt) return; // still cooling down
       const m = mods();
       const rate = gooPerSec(s.characters, m);
-      const fee = upgradeAllFee(s.upgradeAllFeeTier, rate);
-      if (s.goo <= fee) {
-        get().pushToast({ text: `צָרִיךְ יוֹתֵר גּוּ לַעֲמֵלָה (${Math.round(fee)})`, icon: '🚫', tone: 'pop' });
-        return;
-      }
-      let goo = s.goo - fee;
+      let goo = s.goo;
       const chars: OwnedCharacters = { ...s.characters };
       let bought = 0;
       const CAP = 300;
@@ -482,14 +473,9 @@ export const useGame = create<GameState>((set, get) => {
         chars[bestId] = { ...h, level: h.level + 1 };
         bought += 1;
       }
-      if (bought === 0) return; // afford the fee but no level — don't charge or lock
-      set({
-        goo,
-        characters: chars,
-        upgradeAllReadyAt: now + upgradeAllCooldownMs,
-        upgradeAllFeeTier: s.upgradeAllFeeTier + 1,
-      });
-      get().pushToast({ text: `שִׁדְרַגְתָּ ${bought} רָמוֹת! (עֲמֵלָה ${Math.round(fee)})`, icon: '⬆️', tone: 'goo' });
+      if (bought === 0) return; // nothing affordable — don't lock
+      set({ goo, characters: chars, upgradeAllReadyAt: now + upgradeAllCooldownMs });
+      get().pushToast({ text: `שִׁדְרַגְתָּ ${bought} רָמוֹת! ⬆️`, icon: '⬆️', tone: 'goo' });
     },
 
     // Shop: buy a cosmetic with goo (auto-equips it), or equip one already owned.

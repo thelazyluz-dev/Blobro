@@ -15,7 +15,6 @@ import {
   creatureLevelCost,
   evolveCost,
   ownedCreatureIncome,
-  upgradeAllFee,
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
@@ -45,7 +44,6 @@ export function CollectionScreen() {
 
   const upgradeAll = useGame((s) => s.upgradeAllCreatures);
   const gooPerSecNow = useGame(selectGooPerSec);
-  const feeTier = useGame((s) => s.upgradeAllFeeTier);
   const readyAt = useGame((s) => s.upgradeAllReadyAt);
 
   // A ticking "now" so the cooldown countdown updates once a second while locked.
@@ -67,9 +65,8 @@ export function CollectionScreen() {
     const h = owned[id];
     return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m, gooPerSecNow)) : min;
   }, Infinity);
-  // The escalating service fee for THIS press, plus a level actually being buyable.
-  const fee = upgradeAllFee(feeTier, gooPerSecNow);
-  const canUpgradeAny = !locked && goo > fee && goo - fee >= cheapest;
+  // Enabled when not cooling down and at least one level is affordable.
+  const canUpgradeAny = !locked && goo >= cheapest;
   const cooldownLeft = Math.max(0, Math.ceil((readyAt - now) / 1000));
 
   const onUpgradeAll = () => {
@@ -111,16 +108,13 @@ export function CollectionScreen() {
                 <span className="text-xs tabular">מוּכָן בְּעוֹד {cooldownLeft}ש׳</span>
               </>
             ) : (
-              <>
-                <span>⬆️ שַׁדְרֵג אֶת כֻּלָּם</span>
-                <span className="text-xs tabular">עֲמֵלָה {formatGoo(fee)} גּוּ</span>
-              </>
+              <span>⬆️ שַׁדְרֵג אֶת כֻּלָּם</span>
             )}
           </button>
         )}
         {ownedCount > 0 && (
           <p className="mt-1.5 text-[11px] leading-snug text-bone/45">
-            קוֹנֶה בְּבַת אַחַת אֶת הָרָמוֹת הַזּוֹלוֹת בְּיוֹתֵר לְכָל הַיְצוּרִים. הָעֲמֵלָה הִיא תַּשְׁלוּם חַד־פַּעֲמִי שֶׁגָּדֵל בְּכָל שִׁמּוּשׁ, וְאַחֲרֵי כָּל לְחִיצָה יֵשׁ הַמְתָּנָה קְצָרָה.
+            קוֹנֶה בְּבַת אַחַת אֶת הָרָמוֹת הַזּוֹלוֹת בְּיוֹתֵר לְכָל הַיְצוּרִים בַּגּוּ שֶׁלְּךָ. בְּלִי עֲמֵלָה — רַק הַמְתָּנָה קְצָרָה בֵּין לְחִיצוֹת.
           </p>
         )}
       </header>
