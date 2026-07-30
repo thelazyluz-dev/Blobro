@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { leaderboardNameMaxLen } from '../game/balance';
+import { isCleanNickname } from '../game/profanity';
 import { markNicknameAsked, submitScore } from '../net/leaderboard';
 import { useGame } from '../store';
 
@@ -23,6 +24,7 @@ export function NicknameWelcome() {
   const setOpen = useGame((s) => s.setNicknameOpen);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
 
   if (!open) return null;
@@ -35,6 +37,10 @@ export function NicknameWelcome() {
   const join = async () => {
     const clean = name.trim();
     if (!clean) return;
+    if (!isCleanNickname(clean)) {
+      setError('הַכִּנּוּי לֹא מַתְאִים — נַסּוּ אַחֵר 🙂');
+      return;
+    }
     setSaving(true);
     const s = useGame.getState();
     await submitScore(clean, s.clicks, s.lifetimeGoo); // saves nickname + joins both boards
@@ -55,13 +61,17 @@ export function NicknameWelcome() {
         <input
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (error) setError('');
+          }}
           onKeyDown={(e) => e.key === 'Enter' && join()}
           maxLength={leaderboardNameMaxLen}
           placeholder="הכניסו כינוי…"
           autoFocus
           className="mt-4 w-full rounded-2xl bg-black/40 px-3 py-2 text-center text-bone outline-none ring-1 ring-hairline placeholder:text-bone/40 focus:ring-2 focus:ring-cy"
         />
+        {error && <p className="mt-2 text-sm text-hot">{error}</p>}
         <button
           type="button"
           onClick={join}

@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { leaderboardNameMaxLen } from '../game/balance';
 import { formatExact, formatGoo } from '../game/format';
+import { isCleanNickname } from '../game/profanity';
 import {
   fetchTop,
   hasGlobalLeaderboard,
@@ -65,6 +66,7 @@ export function LeaderboardOverlay() {
   const [loading, setLoading] = useState(false);
   const [joinName, setJoinName] = useState('');
   const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   const savedName = global ? playerName() : '';
   const joined = !!savedName;
@@ -117,6 +119,10 @@ export function LeaderboardOverlay() {
   const join = async () => {
     const clean = joinName.trim();
     if (!clean) return;
+    if (!isCleanNickname(clean)) {
+      setJoinError('הַכִּנּוּי לֹא מַתְאִים — נַסּוּ אַחֵר 🙂');
+      return;
+    }
     setJoining(true);
     const s = useGame.getState();
     const res = await submitScore(clean, s.clicks, s.lifetimeGoo);
@@ -244,7 +250,10 @@ export function LeaderboardOverlay() {
               <input
                 type="text"
                 value={joinName}
-                onChange={(e) => setJoinName(e.target.value)}
+                onChange={(e) => {
+                  setJoinName(e.target.value);
+                  if (joinError) setJoinError('');
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && join()}
                 maxLength={leaderboardNameMaxLen}
                 placeholder="הכניסו כינוי…"
@@ -259,6 +268,7 @@ export function LeaderboardOverlay() {
                 {joining ? '…' : 'הִצְטָרֵף!'}
               </button>
             </div>
+            {joinError && <p className="mt-1 text-center text-sm text-hot">{joinError}</p>}
           </>
         )}
 
