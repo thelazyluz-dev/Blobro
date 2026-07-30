@@ -25,7 +25,7 @@ import {
   paybackSlopePerDecade,
   upgradeConfig,
 } from './balance';
-import { characters } from './characters';
+import { characters, incomeMultOf } from './characters';
 import type { Modifiers, OwnedCharacters, Rarity, Upgrades } from './types';
 
 /**
@@ -85,9 +85,14 @@ export function evolveIncomeMult(evolution = 0): number {
   return evolveMultiplierByStage[Math.min(Math.max(0, evolution), maxEvolution)] ?? 1;
 }
 
-/** A single owned creature's income, including its evolution (shiny) bonus. */
-export function ownedCreatureIncome(rarity: Rarity, held: { level: number; evolution?: number }): number {
-  return charIncome(rarity, held.level) * evolveIncomeMult(held.evolution);
+/** A single owned creature's income, including its evolution (shiny) bonus and
+ * its per-creature income multiplier (1 for egg creatures, higher for unlocks). */
+export function ownedCreatureIncome(
+  rarity: Rarity,
+  held: { level: number; evolution?: number },
+  incomeMult = 1,
+): number {
+  return charIncome(rarity, held.level) * evolveIncomeMult(held.evolution) * incomeMult;
 }
 
 /**
@@ -100,9 +105,10 @@ export function creatureContribution(
   rarity: Rarity,
   held: { level: number; evolution?: number },
   m: Modifiers,
+  incomeMult = 1,
 ): number {
   return (
-    ownedCreatureIncome(rarity, held) *
+    ownedCreatureIncome(rarity, held, incomeMult) *
     m.incomeMultiplier *
     m.starMultiplier *
     globalMultiplier *
@@ -110,12 +116,13 @@ export function creatureContribution(
   );
 }
 
-/** Passive income from creatures alone (nurture + star + global applied). */
+/** Passive income from creatures alone (nurture + star + global applied). Each
+ * creature's own income multiplier is folded in (unlocks earn more). */
 export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
   let sum = 0;
   for (const def of characters) {
     const held = owned[def.id];
-    if (held) sum += ownedCreatureIncome(def.rarity, held);
+    if (held) sum += ownedCreatureIncome(def.rarity, held, incomeMultOf(def));
   }
   return sum * m.incomeMultiplier * m.starMultiplier * globalMultiplier;
 }
@@ -157,10 +164,11 @@ export function creatureLevelCost(
   held: { level: number; evolution?: number },
   m: Modifiers,
   gooPerSecValue: number,
+  incomeMult = 1,
 ): number {
   const gain =
-    creatureContribution(rarity, { level: held.level + 1, evolution: held.evolution }, m) -
-    creatureContribution(rarity, held, m);
+    creatureContribution(rarity, { level: held.level + 1, evolution: held.evolution }, m, incomeMult) -
+    creatureContribution(rarity, held, m, incomeMult);
   return Math.max(1, Math.round(gain * creatureLevelPaybackSeconds * wealthPaybackMult(gooPerSecValue)));
 }
 
@@ -170,11 +178,12 @@ export function evolveCost(
   held: { level: number; evolution?: number },
   m: Modifiers,
   gooPerSecValue: number,
+  incomeMult = 1,
 ): number {
   const stage = held.evolution ?? 0;
   const gain =
-    creatureContribution(rarity, { level: held.level, evolution: stage + 1 }, m) -
-    creatureContribution(rarity, held, m);
+    creatureContribution(rarity, { level: held.level, evolution: stage + 1 }, m, incomeMult) -
+    creatureContribution(rarity, held, m, incomeMult);
   return Math.max(1, Math.round(gain * evolvePaybackSeconds * wealthPaybackMult(gooPerSecValue)));
 }
 
@@ -189,11 +198,12 @@ export function affordableCreatureLevels(
   m: Modifiers,
   goo: number,
   gooPerSecValue: number,
+  incomeMult = 1,
 ): number {
   let count = 0;
   let spent = 0;
   while (count < 999) {
-    const cost = creatureLevelCost(rarity, { level: held.level + count, evolution: held.evolution }, m, gooPerSecValue);
+    const cost = creatureLevelCost(rarity, { level: held.level + count, evolution: held.evolution }, m, gooPerSecValue, incomeMult);
     if (spent + cost > goo) break;
     spent += cost;
     count += 1;

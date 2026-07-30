@@ -46,6 +46,9 @@ export interface CharacterDef {
   /** If set, this creature is NOT in the egg pool — it unlocks once the player's
    * lifetime click count reaches this many taps (rarer = more). */
   unlockClicks?: number;
+  /** Per-creature passive-income multiplier (default 1). Click-unlock creatures
+   * earn more than egg creatures of the same rarity. */
+  incomeMult?: number;
 }
 
 /** Only owned characters appear here. `evolution` = number of evolution stages

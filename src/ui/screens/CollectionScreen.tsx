@@ -8,7 +8,7 @@ import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
 import { evolveLevels, evolveMultiplierByStage, maxEvolution } from '../../game/balance';
-import { charactersById, collectionOrder } from '../../game/characters';
+import { charactersById, collectionOrder, incomeMultOf } from '../../game/characters';
 import {
   affordableCreatureLevels,
   creatureContribution,
@@ -63,7 +63,7 @@ export function CollectionScreen() {
   // Cheapest single level available across owned creatures — enables "upgrade all".
   const cheapest = collectionOrder.reduce((min, id) => {
     const h = owned[id];
-    return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m, gooPerSecNow)) : min;
+    return h ? Math.min(min, creatureLevelCost(charactersById[id].rarity, h, m, gooPerSecNow, incomeMultOf(charactersById[id]))) : min;
   }, Infinity);
   // Enabled when not cooling down and at least one level is affordable.
   const canUpgradeAny = !locked && goo >= cheapest;
@@ -177,14 +177,14 @@ export function CollectionScreen() {
                   const stage = held.evolution ?? 0;
                   const evolved = stage > 0;
                   const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
-                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow);
+                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow, incomeMultOf(def));
                   // Ready to evolve = reached the next stage's level threshold AND
                   // you can afford it right now. Shown only as a pulsing gold frame
                   // (like the evolve button), so it means "you can evolve this now".
                   const evolveReady =
                     stage < maxEvolution &&
                     held.level >= evolveLevels[stage] &&
-                    goo >= evolveCost(def.rarity, held, m, gooPerSecNow);
+                    goo >= evolveCost(def.rarity, held, m, gooPerSecNow, incomeMultOf(def));
                   return (
                     <button
                       key={id}
@@ -244,7 +244,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
 
   // The creature's TRUE goo/sec contribution (all automation multipliers folded
   // in), so the numbers here match what the level actually adds to your rate.
-  const income = creatureContribution(def.rarity, held, m);
+  const im = incomeMultOf(def);
+  const income = creatureContribution(def.rarity, held, m, im);
   const stage = held.evolution ?? 0;
   const evolved = stage > 0;
   const ringColor = evolved ? '#FFD84D' : rarityColor[def.rarity];
@@ -252,15 +253,15 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const maxedEvolution = stage >= maxEvolution;
   const nextEvolveLevel = maxedEvolution ? Infinity : evolveLevels[stage];
   const canEvolve = !maxedEvolution && held.level >= nextEvolveLevel;
-  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m, rate);
+  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m, rate, im);
   const affordEvolve = goo >= evolveCostGoo;
   const evolveMultNext = maxedEvolution ? 1 : evolveMultiplierByStage[stage + 1] / evolveMultiplierByStage[stage];
 
   // Direct goo leveling.
-  const levelCost = creatureLevelCost(def.rarity, held, m, rate);
+  const levelCost = creatureLevelCost(def.rarity, held, m, rate, im);
   const affordLevel = goo >= levelCost;
-  const affordN = affordableCreatureLevels(def.rarity, held, m, goo, rate);
-  const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, evolution: held.evolution }, m);
+  const affordN = affordableCreatureLevels(def.rarity, held, m, goo, rate, im);
+  const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, evolution: held.evolution }, m, im);
   const levelGain = nextIncome - income;
 
   const onLevel = () => {

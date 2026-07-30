@@ -283,36 +283,43 @@ const Galaxo: FC<BodyProps> = ({ className }) => (
 
 // ===== Click-unlock creatures =====
 
-// Dondonu — a rolling dough ball.
+// Dondonu — a dango: three balls on a skewer (pink / cream face / green).
 const Dondonu: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <circle cx="50" cy="54" r="34" fill="#EFD6A0" stroke={OUT} strokeWidth="4" {...S} />
-    <path d="M22 58 Q50 72 78 58 Q50 68 22 62 Z" fill="#D9BE85" />
-    <ellipse cx="37" cy="38" rx="11" ry="6" fill="#FBEFCF" />
-    <circle cx="41" cy="50" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
-    <circle cx="60" cy="50" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
-    <circle cx="42" cy="51" r="2.6" fill="#150A22" />
-    <circle cx="61" cy="51" r="2.6" fill="#150A22" />
-    <path d="M42 63 q8 7 17 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
-    <ellipse cx="30" cy="59" rx="5" ry="3.2" fill="#FF7AB0" opacity="0.5" />
-    <ellipse cx="70" cy="59" rx="5" ry="3.2" fill="#FF7AB0" opacity="0.5" />
+    <rect x="47" y="8" width="6" height="84" rx="3" fill="#C99A5B" stroke={OUT} strokeWidth="3" {...S} />
+    <circle cx="50" cy="26" r="15" fill="#FF9FC4" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="45" cy="21" rx="5" ry="3" fill="#FFC8DE" />
+    <circle cx="50" cy="78" r="15" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="45" cy="73" rx="5" ry="3" fill="#C6FF6E" />
+    <circle cx="50" cy="52" r="17" fill="#FBEFCF" stroke={OUT} strokeWidth="4" {...S} />
+    <ellipse cx="44" cy="45" rx="6" ry="3.5" fill="#FFF8E6" />
+    <circle cx="44" cy="51" r="3" fill="#150A22" />
+    <circle cx="56" cy="51" r="3" fill="#150A22" />
+    <path d="M45 57 q5 5 10 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <ellipse cx="38" cy="55" rx="3.6" ry="2.4" fill="#FF7AB0" opacity="0.5" />
+    <ellipse cx="62" cy="55" rx="3.6" ry="2.4" fill="#FF7AB0" opacity="0.5" />
   </svg>
 );
 
-// Romrom — a round rosy roller with a little curl.
+// Romrom — a fuzzy koosh pom-pom (teal) with big eyes.
 const Romrom: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
-    <path d="M50 20 q10 -8 16 0" fill="none" stroke={OUT} strokeWidth="4" {...S} />
-    <circle cx="50" cy="54" r="33" fill="#FF8FB8" stroke={OUT} strokeWidth="4" {...S} />
-    <ellipse cx="37" cy="38" rx="11" ry="6" fill="#FFC2D8" />
-    <path d="M24 58 Q50 70 76 58 Q50 66 24 62 Z" fill="#E86A99" />
-    <circle cx="41" cy="50" r="6.5" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
-    <circle cx="60" cy="50" r="6.5" fill="#FFF4E0" stroke={OUT} strokeWidth="3" />
-    <circle cx="42" cy="51" r="3" fill="#150A22" />
-    <circle cx="61" cy="51" r="3" fill="#150A22" />
-    <path d="M41 62 q10 9 19 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
-    <ellipse cx="28" cy="58" rx="5" ry="3" fill="#C0396B" opacity="0.4" />
-    <ellipse cx="72" cy="58" rx="5" ry="3" fill="#C0396B" opacity="0.4" />
+    <path
+      d="M50 16 L58.3 24.3 L70 22.5 L71.8 34.1 L82.3 39.5 L77 50 L82.3 60.5 L71.8 65.9 L70 77.5 L58.3 75.7 L50 84 L41.7 75.7 L30 77.5 L28.2 65.9 L17.7 60.5 L23 50 L17.7 39.5 L28.2 34.1 L30 22.5 L41.7 24.3 Z"
+      fill="#4FD6C0"
+      stroke={OUT}
+      strokeWidth="4"
+      {...S}
+    />
+    <circle cx="50" cy="50" r="20" fill="#7FEAD8" />
+    <ellipse cx="43" cy="44" rx="7" ry="4" fill="#B6F5EA" />
+    <circle cx="43" cy="50" r="4.8" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="57" cy="50" r="4.8" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="44" cy="51" r="2.4" fill="#150A22" />
+    <circle cx="56" cy="51" r="2.4" fill="#150A22" />
+    <path d="M44 59 q6 5 12 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <ellipse cx="33" cy="56" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.4" />
+    <ellipse cx="67" cy="56" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.4" />
   </svg>
 );
 

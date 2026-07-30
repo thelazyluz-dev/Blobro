@@ -281,5 +281,15 @@ export const unlockCreatures: CharacterDef[] = characters
   .filter((c) => c.unlockClicks != null)
   .sort((a, b) => (a.unlockClicks ?? 0) - (b.unlockClicks ?? 0));
 
+/** Per-creature passive-income multiplier. Click-unlock creatures earn double
+ * an egg creature of the same rarity — a reward for the tapping grind. */
+export const UNLOCK_INCOME_MULT = 2;
+export function incomeMultOf(def: CharacterDef): number {
+  return def.incomeMult ?? (def.unlockClicks != null ? UNLOCK_INCOME_MULT : 1);
+}
+export function incomeMultById(id: CharId): number {
+  return incomeMultOf(charactersById[id]);
+}
+
 /** Stable display order for the collection grid. */
 export const collectionOrder: CharId[] = characters.map((c) => c.id);

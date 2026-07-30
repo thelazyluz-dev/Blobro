@@ -26,7 +26,7 @@ import {
   starBonusFor,
   type AchievementContext,
 } from './game/achievements';
-import { charactersById, unlockCreatures } from './game/characters';
+import { charactersById, incomeMultById, unlockCreatures } from './game/characters';
 import {
   DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
@@ -417,7 +417,7 @@ export const useGame = create<GameState>((set, get) => {
       if (stage >= maxEvolution || held.level < evolveLevels[stage]) return; // not eligible yet
       const def = charactersById[id];
       const m = mods();
-      const cost = evolveCost(def.rarity, held, m, gooPerSec(s.characters, m));
+      const cost = evolveCost(def.rarity, held, m, gooPerSec(s.characters, m), incomeMultById(id));
       if (s.goo < cost) return;
       set({
         goo: s.goo - cost,
@@ -433,7 +433,7 @@ export const useGame = create<GameState>((set, get) => {
       const held = s.characters[id];
       if (!held) return;
       const m = mods();
-      const cost = creatureLevelCost(charactersById[id].rarity, held, m, gooPerSec(s.characters, m));
+      const cost = creatureLevelCost(charactersById[id].rarity, held, m, gooPerSec(s.characters, m), incomeMultById(id));
       if (s.goo < cost) return;
       set({
         goo: s.goo - cost,
@@ -449,10 +449,11 @@ export const useGame = create<GameState>((set, get) => {
       const rarity = charactersById[id].rarity;
       const m = mods();
       const rate = gooPerSec(s.characters, m);
-      const n = affordableCreatureLevels(rarity, held, m, s.goo, rate);
+      const im = incomeMultById(id);
+      const n = affordableCreatureLevels(rarity, held, m, s.goo, rate, im);
       if (n <= 0) return;
       let spent = 0;
-      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, evolution: held.evolution }, m, rate);
+      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, evolution: held.evolution }, m, rate, im);
       set({
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },
@@ -478,7 +479,7 @@ export const useGame = create<GameState>((set, get) => {
         let bestId: CharId | null = null;
         let bestCost = Infinity;
         for (const id of Object.keys(chars) as CharId[]) {
-          const cost = creatureLevelCost(charactersById[id].rarity, chars[id]!, m, rate);
+          const cost = creatureLevelCost(charactersById[id].rarity, chars[id]!, m, rate, incomeMultById(id));
           if (cost <= goo && cost < bestCost) {
             bestCost = cost;
             bestId = id;
