@@ -21,8 +21,7 @@ import type { CharId, Rarity } from '../../game/types';
 import { selectGooPerSec, selectMods, useGame } from '../../store';
 import { CharacterBody } from '../characters';
 import { haptic } from '../haptics';
-import { isShareworthy, rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
-import { shareCreature } from '../shareCard';
+import { rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
 
 const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'legendary'];
 const idsByRarity: Record<Rarity, CharId[]> = RARITY_ORDER.reduce(
@@ -297,13 +296,24 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         role="dialog"
         aria-modal="true"
       >
-        <div
-          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl ${evolved ? 'anim-hue-spin' : ''}`}
+        {/* Tap the creature to hear its name (replaces the old "sing" button). */}
+        <button
+          type="button"
+          onClick={() => {
+            const m = useGame.getState().muted;
+            playJingle(def.sound, m);
+            speakName(def.nameHe, m);
+          }}
+          aria-label={`השמע את השם ${def.nameHe}`}
+          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl outline-none transition active:scale-95 ${evolved ? 'anim-hue-spin' : ''}`}
           style={{ background: rarityBackground(def.rarity), boxShadow: `0 0 40px -8px ${ringColor}` }}
         >
           {evolved && <span className="absolute -end-1 -top-1 text-2xl">✨</span>}
           <CharacterBody id={id} className="h-24 w-24" />
-        </div>
+          <span className="absolute -bottom-1 -start-1 flex h-7 w-7 items-center justify-center rounded-full bg-void/80 text-sm ring-1 ring-bone/25">
+            🔊
+          </span>
+        </button>
         <div className="font-display text-3xl text-bone">
           {evolved ? '✨ ' : ''}
           {def.nameHe}
@@ -344,23 +354,6 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            const m = useGame.getState().muted;
-            playJingle(def.sound, m);
-            speakName(def.nameHe, m);
-          }}
-          className="btn mt-3 flex w-full items-center justify-center gap-2 bg-hot py-3 text-lg text-bone"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#FFF4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M4 9v6h4l5 4V5L8 9H4z" fill="#FFF4E0" />
-            <path d="M16.5 8.5a5 5 0 0 1 0 7" />
-            <path d="M19 6a8 8 0 0 1 0 12" />
-          </svg>
-          שִׁיר!
-        </button>
-
         {canEvolve && (
           <button
             type="button"
@@ -385,8 +378,6 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         )}
         {maxedEvolution && <div className="mt-3 text-sm text-pop">✨ אֶבּוֹלוּצְיָה מְלֵאָה! ✨</div>}
 
-        {isShareworthy(def.rarity) && <ModalShareButton id={id} />}
-
         <button
           type="button"
           onClick={onClose}
@@ -399,36 +390,3 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   );
 }
 
-function ModalShareButton({ id }: { id: CharId }) {
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-
-  const onShare = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await shareCreature(id);
-      setDone(true);
-      window.setTimeout(() => setDone(false), 2500);
-    } catch {
-      /* ignore */
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onShare}
-      disabled={busy}
-      className="btn mt-3 flex w-full items-center justify-center gap-2 bg-pop py-3 text-lg text-void"
-    >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1A0B2E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="9" width="18" height="12" rx="2" />
-        <path d="M12 15V3M12 3l-4 4M12 3l4 4" />
-      </svg>
-      {done ? 'נשמר!' : busy ? 'רגע…' : 'שמור תמונה'}
-    </button>
-  );
-}

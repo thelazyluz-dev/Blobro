@@ -6,6 +6,7 @@ import { Confetti } from './ui/Confetti';
 import { EventBanner } from './ui/EventBanner';
 import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
+import { InstallPrompt } from './ui/InstallPrompt';
 import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
 import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
@@ -78,6 +79,7 @@ export function App() {
       <LeaderboardOverlay />
       <StatsOverlay />
       <NumberLegendOverlay />
+      <InstallPrompt />
     </div>
   );
 }
