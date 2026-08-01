@@ -3,7 +3,7 @@
 // shape + colours; accessories overlay on top. All one SVG (viewBox 0 0 200 200)
 // so body + accessory scale together.
 
-import type { FC } from 'react';
+import type { CSSProperties, FC } from 'react';
 import type { AccessoryArt, BlobShape } from '../game/cosmetics';
 
 interface Colors {
@@ -229,10 +229,14 @@ export const MainBlob: FC<Props> = ({ colors, shape = 'goo', accessory = 'none',
  * (which draws in its own viewBox). Same 200×200 coordinate space as MainBlob,
  * so it lands in the same spot when overlaid on an equally-sized box.
  */
-export const AccessoryOverlay: FC<{ art: AccessoryArt; className?: string }> = ({ art, className }) => {
+export const AccessoryOverlay: FC<{ art: AccessoryArt; className?: string; style?: CSSProperties }> = ({
+  art,
+  className,
+  style,
+}) => {
   if (art === 'none') return null;
   return (
-    <svg viewBox="0 0 200 200" className={className} aria-hidden>
+    <svg viewBox="0 0 200 200" className={className} style={style} aria-hidden>
       <AccessoryArtEl art={art} />
     </svg>
   );

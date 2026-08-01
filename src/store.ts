@@ -123,6 +123,7 @@ interface GameState {
   toasts: Toast[];
   achievementsOpen: boolean;
   statsOpen: boolean;
+  infoOpen: boolean; // the "what am I earning, and what does each icon mean" panel
   numberLegendOpen: boolean;
   confettiBursts: number; // increments to trigger a celebration
   confettiKind: ConfettiKind;
@@ -165,6 +166,7 @@ interface GameState {
   tick: (dtSeconds: number) => void;
   setAchievementsOpen: (open: boolean) => void;
   setStatsOpen: (open: boolean) => void;
+  setInfoOpen: (open: boolean) => void;
   setNumberLegendOpen: (open: boolean) => void;
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
@@ -283,6 +285,7 @@ export const useGame = create<GameState>((set, get) => {
     toasts: [],
     achievementsOpen: false,
     statsOpen: false,
+    infoOpen: false,
     numberLegendOpen: false,
     confettiBursts: 0,
     confettiKind: 'confetti',
@@ -689,6 +692,8 @@ export const useGame = create<GameState>((set, get) => {
     setAchievementsOpen: (open) => set({ achievementsOpen: open }),
 
     setStatsOpen: (open) => set({ statsOpen: open }),
+
+    setInfoOpen: (open) => set({ infoOpen: open }),
 
     setNumberLegendOpen: (open) => set({ numberLegendOpen: open }),
 

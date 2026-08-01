@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 import { initAds } from './net/ads';
 import { unlockAudio } from './audio/synth';
 import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
-import { AdOverlay, BonusButton } from './ui/AdBonus';
+import { AdOverlay } from './ui/AdBonus';
 import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
 import { EventBanner } from './ui/EventBanner';
 import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
+import { InfoOverlay } from './ui/InfoOverlay';
 import { InstallPrompt } from './ui/InstallPrompt';
 import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
 import { MilestoneReveal } from './ui/MilestoneReveal';
@@ -79,7 +80,6 @@ export function App() {
         {activeTab === 'shop' && <ShopScreen />}
       </main>
 
-      <BonusButton />
       <EventBanner />
       <BottomNav />
 
@@ -95,6 +95,7 @@ export function App() {
       <LeaderboardOverlay />
       <AdOverlay />
       <StatsOverlay />
+      <InfoOverlay />
       <NumberLegendOverlay />
       <InstallPrompt />
       <NicknameWelcome />

@@ -25,9 +25,9 @@ import {
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { autoClicksPerSec } from '../../game/economy';
 import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
-import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, selectStarBonus, useGame } from '../../store';
-import { ABILITY_META, abilityPct } from '../../game/abilities';
+import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
+import { BonusButton } from '../AdBonus';
 import { CharacterBody } from '../characters';
 import { AccessoryOverlay, MainBlob } from '../MainBlob';
 import { useReducedMotion } from '../useReducedMotion';
@@ -66,7 +66,6 @@ export function ClickScreen() {
   const rate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
   const comboMelody = useGame(selectComboMelody);
-  const starBonus = useGame(selectStarBonus);
   const click = useGame((s) => s.click);
   const collectBonus = useGame((s) => s.collectBonus);
   const grantGoo = useGame((s) => s.grantGoo);
@@ -506,7 +505,14 @@ export function ClickScreen() {
               // Creature on the main screen — the worn accessory layers on top.
               <span className="relative block h-[252px] w-[252px]">
                 <CharacterBody id={mainCreature} className="h-full w-full" />
-                <AccessoryOverlay art={accessoryArt} className="pointer-events-none absolute inset-0 h-full w-full" />
+                {/* Creatures sit lower in their box than the classic blob does,
+                    so the accessory is nudged down and in a touch — otherwise a
+                    tall hat pokes out above the creature and hits the counter. */}
+                <AccessoryOverlay
+                  art={accessoryArt}
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  style={{ transform: 'translateY(7%) scale(0.88)' }}
+                />
               </span>
             ) : (
               <MainBlob colors={blobColors} shape={blobShape} accessory={accessoryArt} className="h-[252px] w-[252px]" />
@@ -564,41 +570,26 @@ export function ClickScreen() {
           overlaps it: what you earn per second (creatures + robot, with the
           active bonuses as small badges) and what a tap is worth. Tapping the
           rate opens the stats panel for the full breakdown. */}
-      <div className="mb-2 flex w-full flex-col items-center gap-1.5">
+      <div className="mb-3 flex w-full flex-col items-center gap-1.5">
         {clicks < 100 && (
           <p className="text-center text-sm text-bone/55">לוחצים על הבלוב — צוברים גּוּ!</p>
         )}
-        <div className="flex items-center justify-center gap-2">
+        {/* One flow row: the bonus button and a compact info button holding the
+            two numbers that matter. Tapping the info button opens the full
+            breakdown plus a legend explaining every icon. Nothing floats, so
+            nothing can overlap the creature on any screen size. */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <BonusButton />
           <button
             type="button"
-            onClick={() => useGame.getState().setStatsOpen(true)}
-            aria-label="פירוט הכנסות"
-            className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1 text-sm tabular ring-hairline active:scale-95"
+            onClick={() => useGame.getState().setInfoOpen(true)}
+            aria-label="מידע על ההכנסות"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-black/30 px-3.5 py-1.5 text-sm tabular ring-1 ring-hairline active:scale-95"
           >
-            <span className="text-goo">{formatGoo(rate + robotPerSec)}/שנייה</span>
-            {starBonus > 0 && (
-              <span className="text-xs font-bold text-goo/90" title="בונוס הישגים">
-                ⭐{Math.round(starBonus * 100)}%
-              </span>
-            )}
-            {robotPerSec > 0 && (
-              <span className="text-xs text-cy" title="כולל את היד הרובוטית">
-                🤖
-              </span>
-            )}
-            {activeAbility && (
-              <span
-                className="text-xs text-pop"
-                title={ABILITY_META[activeAbility.type].descHe(abilityPct(activeAbility))}
-              >
-                {ABILITY_META[activeAbility.type].icon}
-                {abilityPct(activeAbility)}%
-              </span>
-            )}
+            <span className="text-goo">{formatGoo(rate + robotPerSec)}/ש׳</span>
+            <span className="text-pop">👆 {formatGoo(perClick)}</span>
+            <span className="text-cy">ℹ️</span>
           </button>
-          <span className="inline-flex items-center gap-1 rounded-full bg-black/25 px-3 py-1 text-sm tabular text-pop ring-hairline">
-            👆 {formatGoo(perClick)}
-          </span>
         </div>
       </div>
     </div>
