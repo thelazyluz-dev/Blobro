@@ -12,7 +12,7 @@ export function MuteButton() {
       onClick={toggleMute}
       aria-pressed={muted}
       aria-label={muted ? 'הפעלת צליל' : 'השתקה'}
-      className="absolute top-3 start-3 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 ring-1 ring-bone/15 active:scale-90"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/40 ring-1 ring-bone/15 active:scale-90"
     >
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#FFF4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M4 9v6h4l5 4V5L8 9H4z" fill="#FFF4E0" />

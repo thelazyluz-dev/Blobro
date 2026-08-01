@@ -71,6 +71,7 @@ export function ClickScreen() {
   const collectBonus = useGame((s) => s.collectBonus);
   const grantGoo = useGame((s) => s.grantGoo);
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
+  const clicks = useGame((s) => s.clicks);
   const activeAbility = useGame(selectActiveAbility);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   // The starter blob is always our original green one (skins are retired).
@@ -448,30 +449,35 @@ export function ClickScreen() {
             {formatExact(goo)}
           </div>
         )}
+        {/* ONE stat line: the total earned per second (creatures + robot hand),
+            with the active bonuses as compact icon badges beside it. Tapping it
+            opens the stats panel for the full breakdown. */}
         <div className="mt-3 flex items-center justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-black/25 px-4 py-1 text-base tabular ring-hairline">
-            <span className="text-goo">{formatGoo(rate)} גּוּ/שנייה</span>
+          <button
+            type="button"
+            onClick={() => useGame.getState().setStatsOpen(true)}
+            aria-label="פירוט הכנסות"
+            className="inline-flex items-center gap-2 rounded-full bg-black/25 px-4 py-1 text-base tabular ring-hairline active:scale-95"
+          >
+            <span className="text-goo">{formatGoo(rate + robotPerSec)} גּוּ/שנייה</span>
             {starBonus > 0 && (
-              <span className="font-bold text-goo/90" title="בונוס הכנסה קבוע מהישגים">
-                ⭐+{Math.round(starBonus * 100)}%
+              <span className="text-sm font-bold text-goo/90" title="בונוס הישגים">
+                ⭐{Math.round(starBonus * 100)}%
               </span>
             )}
-          </div>
+            {robotPerSec > 0 && (
+              <span className="text-sm text-cy" title="כולל את היד הרובוטית">
+                🤖
+              </span>
+            )}
+            {activeAbility && (
+              <span className="text-sm text-pop" title={ABILITY_META[activeAbility.type].descHe(abilityPct(activeAbility))}>
+                {ABILITY_META[activeAbility.type].icon}
+                {abilityPct(activeAbility)}%
+              </span>
+            )}
+          </button>
         </div>
-        {robotPerSec > 0 && (
-          <div className="mt-1.5 flex items-center justify-center">
-            <span className="inline-flex items-center gap-1 rounded-full bg-cy/15 px-3 py-0.5 text-sm text-cy ring-1 ring-cy/30">
-              🤖 +{formatGoo(robotPerSec)} גּוּ/שנייה
-            </span>
-          </div>
-        )}
-        {activeAbility && (
-          <div className="mt-1.5 flex items-center justify-center">
-            <span className="inline-flex items-center gap-1 rounded-full bg-pop/15 px-3 py-0.5 text-sm text-pop ring-1 ring-pop/30">
-              {ABILITY_META[activeAbility.type].icon} {ABILITY_META[activeAbility.type].descHe(abilityPct(activeAbility))}
-            </span>
-          </div>
-        )}
       </header>
 
       {frenzyActive && (
@@ -583,8 +589,12 @@ export function ClickScreen() {
         {bonus && <GoldenBonus key={bonus.id} top={bonus.top} reduced={reduced} onCollect={onBonus} />}
       </div>
 
+      {/* Beginner hint — retires itself once the player clearly knows the game,
+          giving the screen back to the blob. */}
       <p className="mb-2 text-center text-sm text-bone/55">
-        לוחצים על הבלוב — צוברים גּוּ! ({formatGoo(perClick)} לכל נגיעה)
+        {clicks < 100
+          ? `לוחצים על הבלוב — צוברים גּוּ! (${formatGoo(perClick)} לכל נגיעה)`
+          : `${formatGoo(perClick)} לכל נגיעה`}
       </p>
     </div>
   );

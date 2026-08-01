@@ -20,7 +20,7 @@ export function AchievementsButton() {
       type="button"
       onClick={() => setOpen(true)}
       aria-label="הישגים"
-      className={`absolute end-3 top-3 z-30 flex h-11 items-center gap-1 rounded-full bg-black/40 px-3 ring-1 active:scale-90 ${
+      className={`flex h-11 shrink-0 items-center gap-1 rounded-full bg-black/40 px-3 ring-1 active:scale-90 ${
         readyCount > 0 ? 'anim-breathe ring-pop' : 'ring-hairline'
       }`}
     >

@@ -16,7 +16,7 @@ export function StatsButton() {
       type="button"
       onClick={() => setOpen(true)}
       aria-label="סטטיסטיקות"
-      className="absolute start-3 top-16 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-lg ring-1 ring-hairline active:scale-90"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/40 text-lg ring-1 ring-hairline active:scale-90"
     >
       📊
     </button>

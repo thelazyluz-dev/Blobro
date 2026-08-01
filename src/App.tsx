@@ -62,10 +62,15 @@ export function App() {
   return (
     <div className="relative mx-auto flex h-full max-w-md flex-col">
       <div className="bg-aurora" aria-hidden style={{ backgroundImage: bgGradient }} />
-      <MuteButton />
-      <StatsButton />
-      <AchievementsButton />
-      <LeaderboardButton />
+      {/* One compact top bar instead of four floating corner buttons — the hero
+          goo counter below it then gets the full width, uncrowded. */}
+      <header className="relative z-30 flex shrink-0 items-center gap-2 px-3 pt-3">
+        <MuteButton />
+        <StatsButton />
+        <div className="flex-1" />
+        <LeaderboardButton />
+        <AchievementsButton />
+      </header>
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         {activeTab === 'click' && <ClickScreen />}
         {activeTab === 'hatch' && <HatchScreen />}
