@@ -89,8 +89,8 @@ export const upgradeConfig: Record<UpgradeId, UpgradeConfig> = {
   finger: { costBase: 15, costGrowth: 1.5, effectPerLevel: 1 },
   // +25% tap power per level (multiplier).
   power: { costBase: 200, costGrowth: 2.05, effectPerLevel: 0.25 },
-  // The robot hand's cost curve. Its effect is a fraction of creature income —
-  // see autoTapFractionPerLevel below — so effectPerLevel here is unused.
+  // The robot hand's cost curve. Its effect is an auto-tap rate — see
+  // autoTapRatePerLevel above — so effectPerLevel here is unused.
   autoTap: { costBase: 240, costGrowth: 1.95, effectPerLevel: 0 },
   // +12% to all creature income per level.
   nurture: { costBase: 250, costGrowth: 1.8, effectPerLevel: 0.12 },

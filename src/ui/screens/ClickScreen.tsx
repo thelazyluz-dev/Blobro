@@ -568,7 +568,7 @@ export function ClickScreen() {
             </span>
           ))}
 
-          {/* Robotic-hand harvest — floats up from the top of the blob. */}
+          {/* Robotic-hand auto-taps — float up from the top of the blob. */}
           {autoFloaters.map((f) => (
             <span
               key={f.id}

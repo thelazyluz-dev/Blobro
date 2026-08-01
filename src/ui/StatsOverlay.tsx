@@ -151,6 +151,26 @@ export function StatsOverlay() {
             </div>
           </section>
 
+          {/* Help + privacy, opened outside the app so progress isn't disturbed. */}
+          <section className="mt-4 flex gap-2">
+            <a
+              href="./how-to-play.html"
+              target="_blank"
+              rel="noopener"
+              className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
+            >
+              ❓ אֵיךְ מְשַׂחֲקִים
+            </a>
+            <a
+              href="./privacy.html"
+              target="_blank"
+              rel="noopener"
+              className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
+            >
+              🔒 פְּרָטִיּוּת
+            </a>
+          </section>
+
           <ResetSection />
         </div>
 
