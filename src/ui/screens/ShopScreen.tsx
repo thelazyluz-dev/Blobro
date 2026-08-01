@@ -9,11 +9,9 @@ import {
   accessories,
   backgroundSkins,
   blobById,
-  blobSkins,
   soundSkins,
   type Accessory,
   type BackgroundSkin,
-  type BlobSkin,
   type SoundSkin,
 } from '../../game/cosmetics';
 import { formatGoo } from '../../game/format';
@@ -34,14 +32,8 @@ export function ShopScreen() {
         </div>
       </header>
 
-      <section className="mb-6">
-        <h2 className="mb-2 font-display text-xl text-cy">בְּלוֹבִּים 🎨</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {blobSkins.map((skin) => (
-            <BlobCard key={skin.id} skin={skin} />
-          ))}
-        </div>
-      </section>
+      {/* Blob skins moved out of the shop: your main-screen look is now chosen in
+          the בלובים tab (the starter blob, or any creature you've collected). */}
 
       <section className="mb-6">
         <h2 className="mb-2 font-display text-xl text-cy">אֲבִיזָרִים 🎩</h2>
@@ -130,21 +122,6 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
 
 function CardShell({ children }: { children: React.ReactNode }) {
   return <div className="surface rounded-2xl p-3">{children}</div>;
-}
-
-function BlobCard({ skin }: { skin: BlobSkin }) {
-  return (
-    <CardShell>
-      <div className="mx-auto flex h-20 w-20 items-center justify-center">
-        <MainBlob colors={skin.colors} shape={skin.shape} className="h-20 w-20" />
-      </div>
-      <div className="mt-1 text-center font-display text-base text-bone">{skin.nameHe}</div>
-      <div className="text-center text-[11px] text-cy tabular">
-        {skin.clickBonus > 0 ? `+${Math.round(skin.clickBonus * 100)}% לנגיעה` : 'בְּסִיסִי'}
-      </div>
-      <ActionButton id={skin.id} cost={skin.cost} />
-    </CardShell>
-  );
 }
 
 function AccessoryCard({ acc }: { acc: Accessory }) {

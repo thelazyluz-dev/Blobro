@@ -223,3 +223,17 @@ export const MainBlob: FC<Props> = ({ colors, shape = 'goo', accessory = 'none',
     <AccessoryArtEl art={accessory} />
   </svg>
 );
+
+/**
+ * The worn accessory on its own, so it can be layered over a collected creature
+ * (which draws in its own viewBox). Same 200×200 coordinate space as MainBlob,
+ * so it lands in the same spot when overlaid on an equally-sized box.
+ */
+export const AccessoryOverlay: FC<{ art: AccessoryArt; className?: string }> = ({ art, className }) => {
+  if (art === 'none') return null;
+  return (
+    <svg viewBox="0 0 200 200" className={className} aria-hidden>
+      <AccessoryArtEl art={art} />
+    </svg>
+  );
+};

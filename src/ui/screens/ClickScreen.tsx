@@ -29,7 +29,7 @@ import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerS
 import { ABILITY_META, abilityPct } from '../../game/abilities';
 import { haptic } from '../haptics';
 import { CharacterBody } from '../characters';
-import { MainBlob } from '../MainBlob';
+import { AccessoryOverlay, MainBlob } from '../MainBlob';
 import { useReducedMotion } from '../useReducedMotion';
 
 const COMBO_WINDOW_MS = comboWindowMs;
@@ -526,7 +526,11 @@ export function ClickScreen() {
             style={{ willChange: 'transform' }}
           >
             {mainCreature ? (
-              <CharacterBody id={mainCreature} className="h-[252px] w-[252px]" />
+              // Creature on the main screen — the worn accessory layers on top.
+              <span className="relative block h-[252px] w-[252px]">
+                <CharacterBody id={mainCreature} className="h-full w-full" />
+                <AccessoryOverlay art={accessoryArt} className="pointer-events-none absolute inset-0 h-full w-full" />
+              </span>
             ) : (
               <MainBlob colors={blobColors} shape={blobShape} accessory={accessoryArt} className="h-[252px] w-[252px]" />
             )}

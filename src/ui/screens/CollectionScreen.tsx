@@ -20,8 +20,10 @@ import {
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
+import { accessoryById, blobById } from '../../game/cosmetics';
 import { selectGooPerSec, selectMods, useGame } from '../../store';
 import { CharacterBody } from '../characters';
+import { MainBlob } from '../MainBlob';
 import { haptic } from '../haptics';
 import { rarityBackground, rarityColor, rarityLabelHe } from '../rarity';
 
@@ -87,7 +89,7 @@ export function CollectionScreen() {
   return (
     <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
       <header className="mb-4 text-center">
-        <h1 className="font-display text-4xl text-bone">הָאוֹסֶף</h1>
+        <h1 className="font-display text-4xl text-bone">הַבְּלוֹבִּים שֶׁלִּי</h1>
         <p className="mt-2 text-sm text-bone/60 tabular">
           {ownedCount} מתוך {total} יצורים
         </p>
@@ -119,6 +121,10 @@ export function CollectionScreen() {
       </header>
 
       <div className="flex flex-col gap-5 pb-4">
+        {/* The original green blob — always yours, always first. Picking it puts
+            the classic blob back on the main screen (equippedMain = null). */}
+        <ClassicBlobSection />
+
         {RARITY_ORDER.map((rarity) => {
           const ids = idsByRarity[rarity];
           const haveHere = ids.filter((id) => owned[id]).length;
@@ -232,6 +238,49 @@ export function CollectionScreen() {
 
       {selected && <DetailModal id={selected} onClose={() => setSelected(null)} />}
     </div>
+  );
+}
+
+/**
+ * The starter green blob, pinned as the first entry in the Blobs tab. It isn't a
+ * creature (no level, no income) — it's the default face of the main screen, and
+ * it's always available. Selecting it clears `equippedMain`.
+ */
+function ClassicBlobSection() {
+  const isSelected = useGame((s) => s.equippedMain === null);
+  const setEquippedMain = useGame((s) => s.setEquippedMain);
+  const colors = useGame((s) => blobById(s.equippedBlob).colors);
+  const shape = useGame((s) => blobById(s.equippedBlob).shape);
+  const accessory = useGame((s) => accessoryById(s.equippedAccessory).art);
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className="inline-block h-3 w-3 rounded-full"
+          style={{ background: '#A3FF12', boxShadow: '0 0 8px #A3FF12' }}
+        />
+        <span className="font-display text-lg text-goo">הַבְּלוֹבּ שֶׁלְּךָ</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() => setEquippedMain(null)}
+          className="relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95"
+          style={{
+            backgroundColor: '#170a29',
+            boxShadow: isSelected
+              ? 'inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D'
+              : 'inset 0 0 0 2px #A3FF12, 0 0 18px -8px #A3FF12',
+          }}
+        >
+          {isSelected && <span className="absolute end-1 top-1 text-sm">🎯</span>}
+          <MainBlob colors={colors} shape={shape} accessory={accessory} className="h-12 w-12" />
+          <span className="mt-1 max-w-full truncate px-1 text-[10px] text-bone/80">בְּלוֹרְבּוֹ</span>
+          <span className="text-[10px] text-pop tabular">{isSelected ? 'בַּמָּסָךְ' : 'בְּחַר'}</span>
+        </button>
+      </div>
+    </section>
   );
 }
 
