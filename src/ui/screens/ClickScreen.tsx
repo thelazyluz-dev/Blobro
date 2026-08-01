@@ -449,35 +449,6 @@ export function ClickScreen() {
             {formatExact(goo)}
           </div>
         )}
-        {/* ONE stat line: the total earned per second (creatures + robot hand),
-            with the active bonuses as compact icon badges beside it. Tapping it
-            opens the stats panel for the full breakdown. */}
-        <div className="mt-3 flex items-center justify-center">
-          <button
-            type="button"
-            onClick={() => useGame.getState().setStatsOpen(true)}
-            aria-label="פירוט הכנסות"
-            className="inline-flex items-center gap-2 rounded-full bg-black/25 px-4 py-1 text-base tabular ring-hairline active:scale-95"
-          >
-            <span className="text-goo">{formatGoo(rate + robotPerSec)} גּוּ/שנייה</span>
-            {starBonus > 0 && (
-              <span className="text-sm font-bold text-goo/90" title="בונוס הישגים">
-                ⭐{Math.round(starBonus * 100)}%
-              </span>
-            )}
-            {robotPerSec > 0 && (
-              <span className="text-sm text-cy" title="כולל את היד הרובוטית">
-                🤖
-              </span>
-            )}
-            {activeAbility && (
-              <span className="text-sm text-pop" title={ABILITY_META[activeAbility.type].descHe(abilityPct(activeAbility))}>
-                {ABILITY_META[activeAbility.type].icon}
-                {abilityPct(activeAbility)}%
-              </span>
-            )}
-          </button>
-        </div>
       </header>
 
       {frenzyActive && (
@@ -589,13 +560,47 @@ export function ClickScreen() {
         {bonus && <GoldenBonus key={bonus.id} top={bonus.top} reduced={reduced} onCollect={onBonus} />}
       </div>
 
-      {/* Beginner hint — retires itself once the player clearly knows the game,
-          giving the screen back to the blob. */}
-      <p className="mb-2 text-center text-sm text-bone/55">
-        {clicks < 100
-          ? `לוחצים על הבלוב — צוברים גּוּ! (${formatGoo(perClick)} לכל נגיעה)`
-          : `${formatGoo(perClick)} לכל נגיעה`}
-      </p>
+      {/* All the earning numbers live BELOW the creature, so nothing ever
+          overlaps it: what you earn per second (creatures + robot, with the
+          active bonuses as small badges) and what a tap is worth. Tapping the
+          rate opens the stats panel for the full breakdown. */}
+      <div className="mb-2 flex w-full flex-col items-center gap-1.5">
+        {clicks < 100 && (
+          <p className="text-center text-sm text-bone/55">לוחצים על הבלוב — צוברים גּוּ!</p>
+        )}
+        <div className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => useGame.getState().setStatsOpen(true)}
+            aria-label="פירוט הכנסות"
+            className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1 text-sm tabular ring-hairline active:scale-95"
+          >
+            <span className="text-goo">{formatGoo(rate + robotPerSec)}/שנייה</span>
+            {starBonus > 0 && (
+              <span className="text-xs font-bold text-goo/90" title="בונוס הישגים">
+                ⭐{Math.round(starBonus * 100)}%
+              </span>
+            )}
+            {robotPerSec > 0 && (
+              <span className="text-xs text-cy" title="כולל את היד הרובוטית">
+                🤖
+              </span>
+            )}
+            {activeAbility && (
+              <span
+                className="text-xs text-pop"
+                title={ABILITY_META[activeAbility.type].descHe(abilityPct(activeAbility))}
+              >
+                {ABILITY_META[activeAbility.type].icon}
+                {abilityPct(activeAbility)}%
+              </span>
+            )}
+          </button>
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/25 px-3 py-1 text-sm tabular text-pop ring-hairline">
+            👆 {formatGoo(perClick)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
