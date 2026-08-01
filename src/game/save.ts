@@ -160,7 +160,9 @@ export function migrate(raw: unknown, now: number): SaveState {
   const remapLegacy = num(data.version, 0) < 6;
   const ownedCosmetics = sanitizeCosmetics(data.ownedCosmetics);
   // Equip a saved choice only if it's a real, owned item; else the default.
-  const blobPick = typeof data.equippedBlob === 'string' ? data.equippedBlob : '';
+  // Blob skins are retired: the starter blob is always our original green one,
+  // so old saves are normalized back to it (no invisible click bonus lingering).
+  const blobPick = DEFAULT_BLOB;
   const bgPick = typeof data.equippedBackground === 'string' ? data.equippedBackground : '';
   const accPick = typeof data.equippedAccessory === 'string' ? data.equippedAccessory : '';
   const equippedBlob = ownedCosmetics.includes(blobPick) ? blobById(blobPick).id : DEFAULT_BLOB;

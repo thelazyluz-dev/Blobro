@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { adPlaceholderMs, adRewardMult } from '../game/balance';
+import { hasRewardedAds, showRewardedAd } from '../net/ads';
 import { useGame } from '../store';
 import { useReducedMotion } from './useReducedMotion';
 
@@ -82,7 +83,19 @@ export function AdOverlay() {
   const [done, setDone] = useState(false);
   const endRef = useRef(0);
 
-  // Start / restart the countdown whenever the overlay opens.
+  // When a REAL rewarded ad is available, hand off to Google's player: it takes
+  // over the screen, and we grant (or skip) the reward from its callbacks. The
+  // placeholder countdown below only runs when no real ad can be shown.
+  useEffect(() => {
+    if (!open || !hasRewardedAds()) return;
+    const handed = showRewardedAd({
+      onReward: () => useGame.getState().finishAd(),
+      onNoReward: () => useGame.getState().cancelAd(),
+    });
+    if (!handed) return; // API vanished mid-flight — fall through to placeholder
+  }, [open]);
+
+  // Start / restart the placeholder countdown whenever the overlay opens.
   useEffect(() => {
     if (!open) return;
     setDone(false);
@@ -102,6 +115,9 @@ export function AdOverlay() {
   }, [open]);
 
   if (!open) return null;
+  // A real rewarded ad renders its own full-screen player — don't draw the
+  // placeholder underneath it.
+  if (hasRewardedAds()) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-6" role="dialog" aria-modal="true">

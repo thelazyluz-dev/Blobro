@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { initAds } from './net/ads';
 import { unlockAudio } from './audio/synth';
 import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
 import { AdOverlay, BonusButton } from './ui/AdBonus';
@@ -42,6 +43,11 @@ export function App() {
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
     return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
+
+  // Configure H5 Games Ads once (no-op when the API isn't available).
+  useEffect(() => {
+    initAds(useGame.getState().muted);
   }, []);
 
   if (!loaded) {

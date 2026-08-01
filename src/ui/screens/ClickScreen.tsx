@@ -24,7 +24,7 @@ import {
 } from '../../game/balance';
 import { formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { autoClicksPerSec } from '../../game/economy';
-import { accessoryById, blobById } from '../../game/cosmetics';
+import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
 import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, selectStarBonus, useGame } from '../../store';
 import { ABILITY_META, abilityPct } from '../../game/abilities';
 import { haptic } from '../haptics';
@@ -73,8 +73,8 @@ export function ClickScreen() {
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const activeAbility = useGame(selectActiveAbility);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
-  const blobColors = useGame((s) => blobById(s.equippedBlob).colors);
-  const blobShape = useGame((s) => blobById(s.equippedBlob).shape);
+  // The starter blob is always our original green one (skins are retired).
+  const { colors: blobColors, shape: blobShape } = blobById(DEFAULT_BLOB);
   const accessoryArt = useGame((s) => accessoryById(s.equippedAccessory).art);
   // The chosen main creature — shown only if the player actually owns it,
   // otherwise we fall back to the classic green blob.

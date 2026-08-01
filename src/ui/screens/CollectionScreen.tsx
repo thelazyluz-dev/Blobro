@@ -20,7 +20,7 @@ import {
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
-import { accessoryById, blobById } from '../../game/cosmetics';
+import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
 import { selectGooPerSec, selectMods, useGame } from '../../store';
 import { CharacterBody } from '../characters';
 import { MainBlob } from '../MainBlob';
@@ -249,9 +249,9 @@ export function CollectionScreen() {
 function ClassicBlobSection() {
   const isSelected = useGame((s) => s.equippedMain === null);
   const setEquippedMain = useGame((s) => s.setEquippedMain);
-  const colors = useGame((s) => blobById(s.equippedBlob).colors);
-  const shape = useGame((s) => blobById(s.equippedBlob).shape);
   const accessory = useGame((s) => accessoryById(s.equippedAccessory).art);
+  // The starter blob is always our original green one.
+  const { colors, shape } = blobById(DEFAULT_BLOB);
 
   return (
     <section>

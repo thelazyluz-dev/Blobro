@@ -12,10 +12,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="בלורבו" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
-    <!-- Google AdSense — site verification + ad serving. -->
+    <!-- Google AdSense + H5 Games Ads (Ad Placement API: adConfig/adBreak).
+         data-tag-for-age-treatment="1" marks every ad request as child-directed
+         (TFAT=1, the replacement for the deprecated TFCD) — this disables
+         interest-based/personalized ads, which is required for a kids' game. -->
     <script
       async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4684491615356401"
+      data-ad-client="ca-pub-4684491615356401"
+      data-ad-frequency-hint="30s"
+      data-tag-for-age-treatment="1"
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
       crossorigin="anonymous"
     ></script>
     <title>בלורבו</title>
