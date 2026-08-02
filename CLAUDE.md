@@ -117,7 +117,10 @@ is provably running the exact rules the client ships.
   consumed into the JSON, so `src/game/*` itself never needs a PRNG.
 
 Owner decisions (do not revisit without asking):
-- **Login is mandatory** (Google OAuth + email/password). Accepted alongside the
+- **Login is mandatory**, and it is **Google OAuth only** — the Worker's
+  email/password endpoints stay implemented and tested but are not offered in
+  the UI, because there is no password-reset flow (a child who forgets one is
+  locked out forever). Accepted alongside the
   kids-safety trade-off, which was raised and acknowledged: it means collecting
   an email, so COPPA/GDPR-K obligations apply and the privacy policy must be
   updated when auth ships.

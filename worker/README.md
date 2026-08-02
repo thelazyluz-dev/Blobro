@@ -112,6 +112,11 @@ later PR) and it does **not** touch the `scores` table or the leaderboard
 endpoints above — they keep working exactly as before, with or without auth
 configured.
 
+**The app only offers Google sign-in.** The `/auth/register` and `/auth/login`
+endpoints remain implemented and tested, but no UI reaches them: there is no
+password-reset flow, so a child who forgets a password would be locked out
+permanently. See the header comment in `src/ui/AuthGate.tsx`.
+
 The auth endpoints are served from `api.bl-or-bo.com` (a subdomain of the app,
 so the session cookie is same-site) — see `cookieDomainFor` in `src/auth.ts`.
 Until that custom domain is wired up, the Worker's `*.workers.dev` URL still

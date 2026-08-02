@@ -21,7 +21,7 @@ test('AUTH_REQUIRED is false by default: no gate ever appears, the game loads an
 
   const blob = page.getByRole('button', { name: 'לחיצה על הבלוב' });
   await expect(blob).toBeVisible();
-  await expect(page.getByRole('button', { name: 'הַרְשָׁמָה' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Google/ })).toHaveCount(0);
 
   const counter = page.getByRole('button', { name: 'מקרא מספרים' });
   const before = await counter.innerText();
@@ -42,8 +42,11 @@ test('forcing the gate on renders the sign-in screen instead of the game', async
   await page.goto('/');
 
   await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole('button', { name: 'הַרְשָׁמָה' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'הִתְחַבְּרוּת' })).toBeVisible();
+  // Google is the ONLY sign-in route offered (see src/ui/AuthGate.tsx: there is
+  // no password-reset flow, so we don't hand out passwords we can't recover).
   await expect(page.getByRole('link', { name: /Google/ })).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+  // The game itself must be unreachable behind the gate.
   await expect(page.getByRole('button', { name: 'לחיצה על הבלוב' })).toHaveCount(0);
 });
