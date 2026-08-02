@@ -49,4 +49,10 @@ export { milestonesCrossed } from '../../src/game/milestones';
 
 export { currentEvent, eventStateAt } from '../../src/game/events';
 
+// Save shape + migration. The server accepts uploaded saves (PR 4), and it
+// sanitizes them with the SAME migrate() the client loads with — so a save
+// that round-trips through the cloud comes back byte-identical to one that
+// never left the device, and neither side can invent a field the other drops.
+export { CURRENT_VERSION, defaultSaveState, migrate } from '../../src/game/save';
+
 export * as balance from '../../src/game/balance';

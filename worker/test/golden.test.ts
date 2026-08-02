@@ -27,6 +27,7 @@ import {
   gooPerSec,
   hatch,
   isComplete,
+  migrate,
   milestonesCrossed,
   modifiersFrom,
   openEggs,
@@ -230,6 +231,25 @@ describe('golden vectors via worker/src/rules — isComplete', () => {
 describe('golden vectors via worker/src/rules — computeOffline', () => {
   it.each(vectors.computeOffline)('matches for rate=$rate secondsAway=$secondsAway', (c: any) => {
     expect(computeOffline(c.rate, c.secondsAway)).toEqual(c.expected);
+  });
+});
+
+// The one that matters most for PR 4: the server sanitizes every uploaded save
+// with this exact function, so a cloud round-trip must be a no-op.
+describe('golden vectors via worker/src/rules — migrate', () => {
+  // See src/game/golden.test.ts for why `freshRng` cases compare with the rng
+  // nulled out: migrate mints a random seed when the input has no usable one.
+  const MIGRATE_NOW = 1_754_000_000_000;
+  it.each(vectors.migrate)('matches for $label', (c: any) => {
+    const actual = migrate(c.raw, MIGRATE_NOW);
+    if (!c.freshRng) {
+      expect(actual).toEqual(c.expected);
+      return;
+    }
+    expect(actual.rng.cursor).toBe(0);
+    expect(Number.isInteger(actual.rng.seed)).toBe(true);
+    expect(actual.rng.seed).toBeGreaterThanOrEqual(0);
+    expect({ ...actual, rng: null }).toEqual(c.expected);
   });
 });
 

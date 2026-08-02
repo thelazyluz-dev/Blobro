@@ -32,7 +32,21 @@ import { buyableEggs, hatch, openEggs, pickChar, rollRarity } from './hatching';
 import { milestonesCrossed } from './milestones';
 import { computeOffline } from './offline';
 import { createRng } from './rng';
+import { migrate } from './save';
 import vectors from './__golden__/vectors.json';
+
+// Cases flagged `freshRng` carry no usable rng stream, so migrate mints a
+// random seed. Its value can't be pinned in a contract file, so assert its
+// SHAPE here and null it out — everything else is still compared in full.
+const MIGRATE_NOW = 1_754_000_000_000;
+function migrateGolden(c: { raw: unknown; freshRng?: boolean }) {
+  const actual = migrate(c.raw, MIGRATE_NOW);
+  if (!c.freshRng) return actual;
+  expect(actual.rng.cursor).toBe(0);
+  expect(Number.isInteger(actual.rng.seed)).toBe(true);
+  expect(actual.rng.seed).toBeGreaterThanOrEqual(0);
+  return { ...actual, rng: null };
+}
 
 // A recorded rng sequence "replays" as a plain index cursor over pre-baked
 // values — no PRNG algorithm needed here (see scripts/generate-golden.ts).
@@ -220,6 +234,12 @@ describe('golden vectors — isComplete', () => {
 describe('golden vectors — computeOffline', () => {
   it.each(vectors.computeOffline)('matches for rate=$rate secondsAway=$secondsAway', (c: any) => {
     expect(computeOffline(c.rate, c.secondsAway)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors — migrate', () => {
+  it.each(vectors.migrate)('matches for $label', (c: any) => {
+    expect(migrateGolden(c)).toEqual(c.expected);
   });
 });
 

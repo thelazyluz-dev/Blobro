@@ -48,6 +48,7 @@ import { buyableEggs, hatch, openEggs, pickChar, rollRarity } from '../src/game/
 import { milestones, milestonesCrossed } from '../src/game/milestones';
 import { computeOffline } from '../src/game/offline';
 import { createRng, type RngState } from '../src/game/rng';
+import { migrate } from '../src/game/save';
 import { defaultUpgrades } from '../src/game/upgrades';
 import type { CharId, OwnedCharacters, Rarity, Upgrades } from '../src/game/types';
 
@@ -445,6 +446,121 @@ const computeOfflineCases = [
   { rate: 1_000_000, secondsAway: 10_000 }, // far above cap, huge rate
 ].map((c) => ({ ...c, expected: computeOffline(c.rate, c.secondsAway) }));
 
+// ── migrate ──────────────────────────────────────────────────────────────
+// Save migration became a SHARED rule in PR 4: the server sanitizes every
+// uploaded save with this same function, so client and server must agree on
+// exactly what a save is. Drift here doesn't just break a screen — it
+// silently rewrites a child's progress on every cloud round-trip.
+//
+// Every case pins a valid `rng` and an explicit `lastSeen`, because migrate's
+// fallbacks for those two are deliberately non-deterministic (randomSeed(),
+// and `now`). The fallback behaviour itself is covered by src/game/save.test.ts,
+// which can assert "a fresh seed appeared" without baking a random number into
+// a contract file.
+// `freshRng` marks the cases whose input carries no usable rng stream, so
+// migrate mints a random seed. Baking that seed into the file would make
+// vectors.json churn on every regeneration and turn a contract into noise, so
+// the generator nulls it out and the tests assert its shape instead of its
+// value. Every other case pins a stream and is compared in full.
+const MIGRATE_NOW = 1_754_000_000_000;
+const validRng = { seed: 123456789, cursor: 42 };
+const migrateCases = [
+  { label: 'empty object → defaults', raw: {}, freshRng: true },
+  { label: 'null → defaults', raw: null, freshRng: true },
+  { label: 'garbage scalar → defaults', raw: 7, freshRng: true },
+  { label: 'a malformed rng stream is replaced, not trusted', raw: { version: 12, lastSeen: MIGRATE_NOW, rng: { seed: 'nope', cursor: -1 } }, freshRng: true },
+  {
+    label: 'v1 single fingerLevel folds into the upgrades map',
+    raw: { version: 1, fingerLevel: 9, goo: 500, lastSeen: MIGRATE_NOW, rng: validRng },
+  },
+  {
+    label: 'pre-v6 additive creature levels are remapped to compounding',
+    raw: {
+      version: 5,
+      characters: { blobby: { level: 94072 }, drippy: { level: 1 } },
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'legacy shiny:true becomes evolution stage 1',
+    raw: {
+      version: 11,
+      characters: { blobby: { level: 200, shiny: true } },
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'evolution is capped to what the level allows',
+    raw: {
+      version: 11,
+      characters: { blobby: { level: 1, evolution: 99 } },
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'unknown creature ids and unknown cosmetics are dropped',
+    raw: {
+      version: 12,
+      characters: { blobby: { level: 3 }, 'not-a-creature': { level: 999 } },
+      ownedCosmetics: ['definitely-not-a-cosmetic'],
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'negative and non-finite numbers are clamped, never NaN',
+    raw: {
+      version: 12,
+      goo: -5,
+      lifetimeGoo: Number.NaN,
+      eggs: -3,
+      clicks: 12.9,
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'equipping an unowned cosmetic falls back to the free default',
+    raw: {
+      version: 12,
+      ownedCosmetics: [],
+      equippedBackground: 'bg-that-is-not-owned',
+      equippedAccessory: 'acc-that-is-not-owned',
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'an in-progress rng stream survives untouched',
+    raw: { version: 12, lastSeen: MIGRATE_NOW, rng: { seed: 4294967295, cursor: 1000 } },
+  },
+  {
+    label: 'leaderboard entries are trimmed, sorted and de-junked',
+    raw: {
+      version: 12,
+      leaderboard: [
+        { name: '  ', clicks: 99 },
+        { name: 'גִּיל', clicks: 10 },
+        { name: 'דָּנָה', clicks: 50 },
+        { name: 'רָן', clicks: -4 },
+      ],
+      lastSeen: MIGRATE_NOW,
+      rng: validRng,
+    },
+  },
+  {
+    label: 'invalid achievement ids are dropped',
+    raw: { version: 12, achievements: ['not-an-achievement'], lastSeen: MIGRATE_NOW, rng: validRng },
+  },
+].map((c) => {
+  const expected = migrate(c.raw, MIGRATE_NOW);
+  const freshRng = 'freshRng' in c && c.freshRng === true;
+  return { ...c, freshRng, expected: freshRng ? { ...expected, rng: null } : expected };
+});
+
 // ── milestonesCrossed ────────────────────────────────────────────────────
 // We lock the THRESHOLDS crossed (the rule), not the celebratory copy.
 const milestonesCrossedCases = [
@@ -552,6 +668,7 @@ const vectors = {
   starBonusFor: starBonusForCases,
   isComplete: isCompleteCases,
   computeOffline: computeOfflineCases,
+  migrate: migrateCases,
   milestonesCrossed: milestonesCrossedCases,
   eventStateAt: eventStateAtCases,
   rng: {
