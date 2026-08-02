@@ -40,6 +40,7 @@ import {
   backgroundIncomeBonus,
   clickCosmeticBonus,
   cosmeticsById,
+  meetsClickRequirement,
   soundById,
   type CosmeticKind,
 } from './game/cosmetics';
@@ -676,6 +677,9 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const c = cosmeticsById.get(id);
       if (!c || s.ownedCosmetics.includes(id) || s.goo < c.cost) return;
+      // Enforced here, not only in the shop UI: this is the rule, and the
+      // screen is just one caller of it.
+      if (!meetsClickRequirement(c, s.clicks)) return;
       set({
         goo: s.goo - c.cost,
         ownedCosmetics: [...s.ownedCosmetics, id],

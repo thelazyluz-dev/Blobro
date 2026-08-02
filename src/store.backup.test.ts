@@ -29,6 +29,7 @@ vi.mock('./net/save', async () => {
 
 const { useGame } = await import('./store');
 const { defaultSaveState } = await import('./game/save');
+const { accessories, backgroundSkins } = await import('./game/cosmetics');
 
 const NOW = 1_754_000_000_000;
 
@@ -107,5 +108,37 @@ describe('restoreBackup', () => {
     expect(useGame.getState().lifetimeGoo).toBe(0);
     expect(useGame.getState().clicks).toBe(0);
     expect(useGame.getState().characters['not-real' as never]).toBeUndefined();
+  });
+});
+
+describe('buyCosmetic — the tap gate is a rule, not a button state', () => {
+  it('refuses a gated item on wealth alone', async () => {
+    const gated = [...backgroundSkins, ...accessories].find((c) => (c.requiresClicks ?? 0) > 0)!;
+    useGame.setState({ goo: Number.MAX_SAFE_INTEGER, clicks: 0, ownedCosmetics: [] });
+
+    useGame.getState().buyCosmetic(gated.id);
+
+    // Infinite goo must not be enough — this is called directly, bypassing the
+    // shop UI entirely, because the UI is only one caller of the rule.
+    expect(useGame.getState().ownedCosmetics).not.toContain(gated.id);
+    expect(useGame.getState().goo).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it('allows it once the taps are there', () => {
+    const gated = [...backgroundSkins, ...accessories].find((c) => (c.requiresClicks ?? 0) > 0)!;
+    useGame.setState({ goo: Number.MAX_SAFE_INTEGER, clicks: gated.requiresClicks!, ownedCosmetics: [] });
+
+    useGame.getState().buyCosmetic(gated.id);
+
+    expect(useGame.getState().ownedCosmetics).toContain(gated.id);
+  });
+
+  it('still refuses when the taps are there but the goo is not', () => {
+    const gated = [...backgroundSkins, ...accessories].find((c) => (c.requiresClicks ?? 0) > 0)!;
+    useGame.setState({ goo: 0, clicks: gated.requiresClicks!, ownedCosmetics: [] });
+
+    useGame.getState().buyCosmetic(gated.id);
+
+    expect(useGame.getState().ownedCosmetics).not.toContain(gated.id);
   });
 });

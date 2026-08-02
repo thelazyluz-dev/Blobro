@@ -9,11 +9,33 @@ export type CosmeticKind = 'blob' | 'background' | 'accessory' | 'sound';
 export type BlobShape = 'goo' | 'round' | 'star' | 'ghost' | 'spiky' | 'heart';
 export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo';
 
+/**
+ * Taps a player must have made — ever — before an item can be bought at all.
+ *
+ * Goo prices alone cannot keep the shop interesting, because income grows
+ * exponentially without bound while a price is a fixed number: whatever it is,
+ * it becomes pocket change. Measured, a deep player could buy the entire shop
+ * in an afternoon.
+ *
+ * Taps can't be out-earned. The counter only moves on a real physical tap (the
+ * robot hand deliberately does NOT feed it — see store.click), so this is a
+ * genuine "you have actually played this game" gate that no amount of wealth
+ * short-circuits. Thresholds sit alongside the creature click-unlock ladder in
+ * game/characters.ts so the two progressions read as one.
+ *
+ * Nothing is SPENT here, only required. Spending taps would corrupt three
+ * things at once: the leaderboard metric, the click achievements, and the
+ * server's anti-cheat, which treats a falling tap count as evidence of an
+ * edited save.
+ */
+export type ClickRequirement = number;
+
 export interface BlobSkin {
   id: string;
   kind: 'blob';
   nameHe: string;
   cost: number;
+  requiresClicks?: ClickRequirement;
   clickBonus: number; // fraction added to tap power
   shape: BlobShape;
   colors: { body: string; belly: string; highlight: string; arm: string };
@@ -24,6 +46,7 @@ export interface BackgroundSkin {
   kind: 'background';
   nameHe: string;
   cost: number;
+  requiresClicks?: ClickRequirement;
   incomeBonus: number; // fraction added to passive income
   gradient: string; // CSS background-image for the full-screen layer
 }
@@ -33,6 +56,7 @@ export interface Accessory {
   kind: 'accessory';
   nameHe: string;
   cost: number;
+  requiresClicks?: ClickRequirement;
   clickBonus: number; // fraction added to tap power (stacks with the blob)
   art: AccessoryArt;
 }
@@ -42,6 +66,7 @@ export interface SoundSkin {
   kind: 'sound';
   nameHe: string;
   cost: number;
+  requiresClicks?: ClickRequirement;
   melody: number[]; // the 8-bit combo melody (note frequencies in Hz) this pack plays
 }
 
@@ -157,6 +182,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     kind: 'background',
     nameHe: 'שְׁקִיעָה',
     cost: 750_000,
+    requiresClicks: 3_000,
     incomeBonus: 0.14,
     gradient:
       'linear-gradient(180deg, rgba(55,18,95,0.55) 0%, rgba(190,55,120,0.42) 42%, rgba(255,135,60,0.46) 74%, rgba(255,205,110,0.52) 100%),' +
@@ -167,6 +193,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     kind: 'background',
     nameHe: 'יַעַר קָסוּם',
     cost: 22_000_000,
+    requiresClicks: 12_000,
     incomeBonus: 0.2,
     gradient:
       'radial-gradient(65% 55% at 80% 12%, rgba(163,255,18,0.32), transparent 60%),' +
@@ -178,7 +205,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-galaxy',
     kind: 'background',
     nameHe: 'גָּלַקְסִיָּה',
-    cost: 750_000_000,
+    cost: 3_000_000_000,
+    requiresClicks: 40_000,
     incomeBonus: 0.26,
     gradient:
       'radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),' +
@@ -197,7 +225,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-neon',
     kind: 'background',
     nameHe: 'רֶשֶׁת נֵאוֹן',
-    cost: 30_000_000_000,
+    cost: 400_000_000_000,
+    requiresClicks: 100_000,
     incomeBonus: 0.32,
     gradient:
       'repeating-linear-gradient(0deg, rgba(0,229,255,0.13) 0 1px, transparent 1px 38px),' +
@@ -209,7 +238,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-candy',
     kind: 'background',
     nameHe: 'סֻכָּרִיָּה',
-    cost: 1_500_000_000_000,
+    cost: 60_000_000_000_000,
+    requiresClicks: 250_000,
     incomeBonus: 0.4,
     gradient:
       'conic-gradient(from 20deg at 50% 40%, rgba(255,46,136,0.34), rgba(0,229,255,0.34), rgba(255,216,77,0.34), rgba(163,255,18,0.34), rgba(155,93,229,0.34), rgba(255,46,136,0.34)),' +
@@ -219,7 +249,8 @@ export const backgroundSkins: BackgroundSkin[] = [
     id: 'bg-lava',
     kind: 'background',
     nameHe: 'לָבָה',
-    cost: 100_000_000_000_000,
+    cost: 9_000_000_000_000_000,
+    requiresClicks: 600_000,
     incomeBonus: 0.5,
     gradient:
       'radial-gradient(98% 55% at 50% 106%, rgba(255,110,0,0.58), transparent 60%),' +
@@ -233,10 +264,14 @@ export const backgroundSkins: BackgroundSkin[] = [
 export const accessories: Accessory[] = [
   { id: DEFAULT_ACCESSORY, kind: 'accessory', nameHe: 'בְּלִי', cost: 0, clickBonus: 0, art: 'none' },
   { id: 'acc-hat', kind: 'accessory', nameHe: 'כּוֹבַע מְסִבָּה', cost: 60_000, clickBonus: 0.05, art: 'hat' },
-  { id: 'acc-glasses', kind: 'accessory', nameHe: 'מִשְׁקְפֵי שֶׁמֶשׁ', cost: 1_500_000, clickBonus: 0.08, art: 'glasses' },
-  { id: 'acc-bow', kind: 'accessory', nameHe: 'פַּפְּיוֹן', cost: 50_000_000, clickBonus: 0.12, art: 'bow' },
-  { id: 'acc-crown', kind: 'accessory', nameHe: 'כֶּתֶר מֶלֶךְ', cost: 2_500_000_000, clickBonus: 0.2, art: 'crown' },
-  { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 150_000_000_000, clickBonus: 0.28, art: 'halo' },
+  { id: 'acc-glasses', kind: 'accessory', nameHe: 'מִשְׁקְפֵי שֶׁמֶשׁ', cost: 1_500_000,
+    requiresClicks: 5_000, clickBonus: 0.08, art: 'glasses' },
+  { id: 'acc-bow', kind: 'accessory', nameHe: 'פַּפְּיוֹן', cost: 120_000_000,
+    requiresClicks: 20_000, clickBonus: 0.12, art: 'bow' },
+  { id: 'acc-crown', kind: 'accessory', nameHe: 'כֶּתֶר מֶלֶךְ', cost: 25_000_000_000,
+    requiresClicks: 70_000, clickBonus: 0.2, art: 'crown' },
+  { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 8_000_000_000_000,
+    requiresClicks: 180_000, clickBonus: 0.28, art: 'halo' },
 ];
 
 // Sound packs: each is a different 8-bit combo melody that plays once your tap
@@ -269,20 +304,23 @@ export const soundSkins: SoundSkin[] = [
     kind: 'sound',
     nameHe: 'רָגוּעַ',
     cost: 2_500_000,
+    requiresClicks: 8_000,
     melody: [392, 440, 523, 587, 523, 440, 392, 440, 523, 659, 587, 523, 440, 392, 440, 523],
   },
   {
     id: 'sound-space',
     kind: 'sound',
     nameHe: 'חָלָל',
-    cost: 60_000_000,
+    cost: 150_000_000,
+    requiresClicks: 35_000,
     melody: [440, 523, 659, 880, 659, 523, 494, 587, 740, 988, 740, 587, 440, 523, 659, 880],
   },
   {
     id: 'sound-royal',
     kind: 'sound',
     nameHe: 'מַלְכוּתִי',
-    cost: 1_500_000_000,
+    cost: 20_000_000_000,
+    requiresClicks: 90_000,
     melody: [523, 659, 784, 1047, 784, 1047, 1319, 1047, 880, 1047, 1319, 1568, 1319, 1047, 880, 784],
   },
 ];
@@ -319,4 +357,18 @@ export function clickCosmeticBonus(equippedBlob: string, equippedAccessory: stri
 /** Small passive-income bonus from the equipped background. */
 export function backgroundIncomeBonus(equippedBackground: string): number {
   return backgroundById(equippedBackground).incomeBonus;
+}
+
+
+/**
+ * Can this cosmetic be bought yet? Pure, so the server can check it too.
+ * An item with no requirement is always unlocked.
+ */
+export function meetsClickRequirement(c: Cosmetic, clicks: number): boolean {
+  return clicks >= (c.requiresClicks ?? 0);
+}
+
+/** Taps still needed before this item unlocks (0 once it is available). */
+export function clicksRemainingFor(c: Cosmetic, clicks: number): number {
+  return Math.max(0, (c.requiresClicks ?? 0) - clicks);
 }

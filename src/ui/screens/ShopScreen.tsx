@@ -9,12 +9,15 @@ import {
   accessories,
   backgroundSkins,
   blobById,
+  clicksRemainingFor,
+  cosmeticsById,
+  meetsClickRequirement,
   soundSkins,
   type Accessory,
   type BackgroundSkin,
   type SoundSkin,
 } from '../../game/cosmetics';
-import { formatGoo } from '../../game/format';
+import { formatExact, formatGoo } from '../../game/format';
 import { useGame } from '../../store';
 import { haptic } from '../haptics';
 import { MainBlob } from '../MainBlob';
@@ -68,6 +71,7 @@ export function ShopScreen() {
 
 function ActionButton({ id, cost }: { id: string; cost: number }) {
   const goo = useGame((s) => s.goo);
+  const clicks = useGame((s) => s.clicks);
   const owned = useGame((s) => s.ownedCosmetics.includes(id));
   const equippedBlob = useGame((s) => s.equippedBlob);
   const equippedBackground = useGame((s) => s.equippedBackground);
@@ -77,6 +81,10 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
   const equip = useGame((s) => s.equipCosmetic);
   const equipped =
     id === equippedBlob || id === equippedBackground || id === equippedAccessory || id === equippedSound;
+  const def = cosmeticsById.get(id);
+  const required = def?.requiresClicks ?? 0;
+  const unlocked = !def || meetsClickRequirement(def, clicks);
+  const remaining = def ? clicksRemainingFor(def, clicks) : 0;
 
   const onClick = () => {
     const muted = useGame.getState().muted;
@@ -85,7 +93,7 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
       equip(id);
       playPurchase(muted);
       haptic(15);
-    } else if (goo >= cost) {
+    } else if (goo >= cost && unlocked) {
       buy(id);
       playPurchase(muted);
       haptic([0, 30, 20, 50]);
@@ -108,6 +116,23 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
       </button>
     );
   }
+  // Locked by taps beats "can't afford it": showing a price the player could
+  // pay, on something they still can't have, reads as the game being broken.
+  // The tap gate is the harder wall, so it's the one we name.
+  if (!unlocked) {
+    const done = Math.min(clicks, required);
+    return (
+      <div className="mt-2 w-full rounded-2xl bg-black/30 px-2 py-1.5 text-center ring-hairline">
+        <div className="text-[11px] text-bone/55">
+          👆 עוֹד <span className="tabular text-hot">{formatExact(remaining)}</span> לְחִיצוֹת
+        </div>
+        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-black/40">
+          <div className="h-full rounded-full bg-hot/70" style={{ width: `${(done / required) * 100}%` }} />
+        </div>
+      </div>
+    );
+  }
+
   const afford = goo >= cost;
   return (
     <button
