@@ -11,3 +11,11 @@ compatibility_date = "2024-11-01"
 binding = "DB"                       # available in code as env.DB
 database_name = "blorbo-leaderboard"
 database_id = "PASTE_DATABASE_ID_HERE"
+
+# Auth (PR 3a) config. GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are SECRETS —
+# never put them here; set them with `wrangler secret put` (see README.md).
+# These two [vars] are optional; both have safe code defaults (see
+# worker/src/index.ts appOrigin()/sessionTtlDays()) — uncomment to override.
+# [vars]
+# APP_ORIGIN = "https://bl-or-bo.com"
+# SESSION_TTL_DAYS = "30"

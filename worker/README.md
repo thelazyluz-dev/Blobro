@@ -107,3 +107,108 @@ npx wrangler d1 execute blorbo-leaderboard --remote \
 
 That's it. If `LEADERBOARD_API` in `src/config.ts` is left empty, the app falls
 back to a device-only leaderboard and nothing breaks.
+
+---
+
+## Auth (PR 3a) — accounts + sessions
+
+This adds **identity only**: email/password and Google sign-in, session
+cookies, `/auth/me`. It does **not** move any game logic server-side (that's a
+later PR) and it does **not** touch the `scores` table or the leaderboard
+endpoints above — they keep working exactly as before, with or without auth
+configured.
+
+The auth endpoints are served from `api.bl-or-bo.com` (a subdomain of the app,
+so the session cookie is same-site) — see `cookieDomainFor` in `src/auth.ts`.
+Until that custom domain is wired up, the Worker's `*.workers.dev` URL still
+works for `/auth/*` too, just with a host-only cookie instead of one shared
+across the apex domain.
+
+### 1. Apply the additive schema changes
+
+The `users`, `sessions`, and `login_throttle` tables were added to
+`schema.sql`. Re-running the whole file is safe — every statement is
+`CREATE TABLE/INDEX IF NOT EXISTS`, and the existing `scores` table/rows are
+never touched:
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql
+```
+
+### 2. Configure environment variables and secrets
+
+| Name | Kind | Purpose | Default if unset |
+|---|---|---|---|
+| `GOOGLE_CLIENT_ID` | secret | OAuth client ID from Google Cloud Console | Google sign-in answers `501` |
+| `GOOGLE_CLIENT_SECRET` | secret | OAuth client secret. Also used to HMAC-sign the short-lived PKCE `state` cookie — see `src/auth.ts` | Google sign-in answers `501` |
+| `APP_ORIGIN` | var | Where `/auth/google/callback` redirects back to after sign-in | `https://bl-or-bo.com` |
+| `SESSION_TTL_DAYS` | var | How long a session cookie/row lasts | `30` |
+
+Both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are treated as secrets here
+(not committed, not in `wrangler.toml`) even though the client ID alone isn't
+very sensitive — it keeps the two together and avoids splitting Google config
+across two different mechanisms:
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+`APP_ORIGIN` and `SESSION_TTL_DAYS` are plain vars (not secret) — add them to
+`wrangler.toml` if you want to override the defaults, e.g.:
+
+```toml
+[vars]
+APP_ORIGIN = "https://bl-or-bo.com"
+SESSION_TTL_DAYS = "30"
+```
+
+**Getting a Google OAuth client:** in
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+create an "OAuth client ID" of type "Web application", with an authorized
+redirect URI of `https://api.bl-or-bo.com/auth/google/callback` (and, for
+local testing, your `*.workers.dev` equivalent).
+
+### 3. Redeploy
+
+```bash
+npx wrangler deploy
+```
+
+### Testing
+
+- **Unit tests** for the crypto/session primitives (`worker/src/auth.ts`) live
+  in `worker/test/auth.test.ts` and run under the root `npm test` (plain
+  Node — WebCrypto is a global in both Node ≥18 and the Workers runtime, so
+  no special environment is needed for these).
+- **Real endpoint integration tests** (`worker/test/auth-endpoints.integration.test.ts`)
+  run the actual `src/index.ts` `fetch` handler inside Miniflare/workerd via
+  `@cloudflare/vitest-pool-workers`, against a local D1 seeded from the real
+  `schema.sql`. These are **not** part of the root `npm test` (they need their
+  own vitest install/pool — see `worker/vitest.config.ts` for why) and don't
+  run automatically; from this folder:
+
+  ```bash
+  cd worker
+  npm install   # first time only — installs @cloudflare/vitest-pool-workers
+  npx vitest run
+  ```
+
+  Not covered even here: the Google OAuth callback's happy path, which needs
+  a real authorization `code` from Google. What's tested instead is that both
+  Google routes fail closed (`501`) when the secrets aren't configured, plus
+  the PKCE/state-signing mechanics as plain unit tests.
+
+### Security properties (and honest limits)
+
+- Passwords: PBKDF2-HMAC-SHA256, 100,000+ iterations, random salt,
+  constant-time verification. See `worker/src/auth.ts` for the exact format.
+- Session tokens: 32 random bytes; only their SHA-256 hash is ever stored.
+- Login throttling is **per-email only**, backed by a small D1 table, with no
+  IP dimension and no cleanup sweep for probed-but-nonexistent emails — it
+  stops a naive password-guessing loop against one account, nothing more.
+  See `isThrottled` in `src/auth.ts`.
+- Google sign-in trusts the `userinfo` endpoint reached via the server-side
+  code+PKCE token exchange, rather than verifying the ID token's RS256
+  signature against Google's JWKS by hand. Common and accepted, but weaker
+  than local JWT verification — a candidate for later hardening.
