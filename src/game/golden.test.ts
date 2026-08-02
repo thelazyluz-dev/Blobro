@@ -16,6 +16,7 @@ import {
   autoClicksPerSec,
   charIncome,
   clickPower,
+  effectiveClickPower,
   creatureContribution,
   creatureIncome,
   creatureLevelCost,
@@ -241,6 +242,12 @@ describe('golden vectors — computeOffline', () => {
 describe('golden vectors — migrate', () => {
   it.each(vectors.migrate)('matches for $label', (c: any) => {
     expect(migrateGolden(c)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors — effectiveClickPower', () => {
+  it.each(vectors.effectiveClickPower)('matches for $label', (c: any) => {
+    expect(effectiveClickPower(mods(c.params), c.rate)).toBe(c.expected);
   });
 });
 

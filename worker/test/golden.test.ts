@@ -20,6 +20,7 @@ import {
   creatureIncome,
   creatureLevelCost,
   currentEvent,
+  effectiveClickPower,
   eggCost,
   evolveCost,
   evolveIncomeMult,
@@ -257,6 +258,12 @@ describe('golden vectors via worker/src/rules — migrate', () => {
 
 // PR 5: the server decides with these whether an upload is achievable. If the
 // two sides disagreed by even a rounding step, honest players would be flagged.
+describe('golden vectors via worker/src/rules — effectiveClickPower', () => {
+  it.each(vectors.effectiveClickPower)('matches for $label', (c: any) => {
+    expect(effectiveClickPower(mods(c.params), c.rate)).toBe(c.expected);
+  });
+});
+
 describe('golden vectors via worker/src/rules — plausibilityCeiling', () => {
   it.each(vectors.plausibilityCeiling)('matches for $label', (c: any) => {
     expect(plausibilityCeiling(c.save, c.elapsed)).toEqual(c.expected);

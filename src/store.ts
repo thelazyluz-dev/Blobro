@@ -46,7 +46,7 @@ import {
 import {
   affordableCreatureLevels,
   autoClicksPerSec,
-  clickPower,
+  effectiveClickPower,
   creatureLevelCost,
   eggCost,
   evolveCost,
@@ -405,7 +405,9 @@ export const useGame = create<GameState>((set, get) => {
       );
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
       // Offline earns creature income PLUS the robot hand's auto-clicks.
-      const offlineRate = gooPerSec(save.characters, m) + clickPower(m) * autoClicksPerSec(save.upgrades.autoTap);
+      const offlinePassive = gooPerSec(save.characters, m);
+      const offlineRate =
+        offlinePassive + effectiveClickPower(m, offlinePassive) * autoClicksPerSec(save.upgrades.autoTap);
       const report = computeOffline(offlineRate, secondsAway);
 
       // Retroactively grant any click-unlock creatures already earned (silently,
@@ -479,7 +481,7 @@ export const useGame = create<GameState>((set, get) => {
       const rng = createRng(s.rng);
       const crit = rng.next() < m.critChance;
       const frenzy = Date.now() < s.frenzyUntil;
-      let gain = clickPower(m);
+      let gain = effectiveClickPower(m, gooPerSec(s.characters, m));
       if (crit) gain *= critMultiplier;
       if (frenzy) gain *= frenzyMultiplier;
       gain *= currentEvent(Date.now()).clickMult;
@@ -706,7 +708,8 @@ export const useGame = create<GameState>((set, get) => {
     applyAwayEarnings: (seconds) => {
       const s = get();
       const m = mods();
-      const rate = gooPerSec(s.characters, m) + clickPower(m) * autoClicksPerSec(s.upgrades.autoTap);
+      const passive = gooPerSec(s.characters, m);
+      const rate = passive + effectiveClickPower(m, passive) * autoClicksPerSec(s.upgrades.autoTap);
       const report = computeOffline(rate, seconds);
       if (!report) return null;
       set({ goo: s.goo + report.goo, lifetimeGoo: s.lifetimeGoo + report.goo });
@@ -728,7 +731,7 @@ export const useGame = create<GameState>((set, get) => {
       const reward = Math.round(
         Math.max(
           Math.round(perSec * bonusIncomeSeconds),
-          Math.round(clickPower(m) * bonusClickEquivalent),
+          Math.round(effectiveClickPower(m, gooPerSec(s.characters, m)) * bonusClickEquivalent),
           bonusMinGoo,
         ) * bonusMult,
       );
@@ -806,7 +809,8 @@ export const useGame = create<GameState>((set, get) => {
       // Passive = creatures only. The robot hand auto-clicks on the side, each
       // auto-tap worth a manual tap's goo (event/ad multipliers apply like taps).
       const passive = gooPerSec(s.characters, m) * ev.incomeMult;
-      const robot = clickPower(m) * autoClicksPerSec(s.upgrades.autoTap) * ev.clickMult;
+      const robot =
+        effectiveClickPower(m, gooPerSec(s.characters, m)) * autoClicksPerSec(s.upgrades.autoTap) * ev.clickMult;
       const gain = (passive + robot) * ad * dtSeconds;
       if (gain <= 0) return;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
@@ -1182,7 +1186,9 @@ export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
 export const selectEggCost = (s: GameState) =>
   Math.max(1, Math.round(eggCost(s.totalHatches + s.eggs) * currentEvent(Date.now()).eggCostMult));
 export const selectClickPower = (s: GameState) =>
-  clickPower(modsOf(s)) * currentEvent(Date.now()).clickMult * adMultOf(s, Date.now());
+  effectiveClickPower(modsOf(s), gooPerSec(s.characters, modsOf(s))) *
+  currentEvent(Date.now()).clickMult *
+  adMultOf(s, Date.now());
 /** The combo melody (note frequencies) of the equipped sound pack. */
 export const selectComboMelody = (s: GameState) => soundById(s.equippedSound).melody;
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);

@@ -16,7 +16,8 @@ import {
   plausibilityCeiling,
   verifySaveDelta,
 } from './verify';
-import { clickPower, gooPerSec, modifiersFrom } from './economy';
+import { clickPower, effectiveClickPower, gooPerSec, modifiersFrom } from './economy';
+import { tapProductionShare } from './balance';
 import { starBonusFor } from './achievements';
 import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
 import type { SaveState } from './types';
@@ -163,5 +164,43 @@ describe('ownsImpossibleCreatures', () => {
 
   it('is true only for the clear case: creatures with no hatches and no taps behind them', () => {
     expect(ownsImpossibleCreatures(midGame({ totalHatches: 0, clicks: 0 }))).toBe(true);
+  });
+});
+
+describe('the tap production floor (balance.tapProductionShare)', () => {
+  it('keeps taps worth something no matter how deep the game goes', () => {
+    // The reason the floor exists: measured, tap income used to fall to
+    // literally 0% of a deep player's earnings. A tap must always be worth
+    // SOMETHING relative to what the player produces.
+    const deep = midGame({ characters: { blombo: { level: 300, evolution: 4 } } });
+    const m = modifiersFrom(
+      deep.upgrades,
+      starBonusFor(deep.achievements),
+      clickCosmeticBonus(deep.equippedBlob, deep.equippedAccessory),
+      backgroundIncomeBonus(deep.equippedBackground),
+    );
+    const passive = gooPerSec(deep.characters, m);
+    expect(effectiveClickPower(m, passive)).toBeGreaterThan(clickPower(m));
+    expect(effectiveClickPower(m, passive) / passive).toBeCloseTo(tapProductionShare, 10);
+  });
+
+  it('never pays less than the upgrades bought, even with no production at all', () => {
+    const m = modifiersFrom(base.upgrades, 0, 0, 0);
+    expect(effectiveClickPower(m, 0)).toBe(clickPower(m));
+  });
+
+  it('is bounded by production, so it cannot run away', () => {
+    // A share of production can never exceed production — this is what makes
+    // the floor safe where lowering the cost curves was not (that overshot to
+    // 1e198 in simulation).
+    const m = modifiersFrom(base.upgrades, 0, 0, 0);
+    for (const rate of [1e3, 1e9, 1e18]) {
+      expect(effectiveClickPower(m, rate)).toBeLessThanOrEqual(rate);
+    }
+  });
+
+  it('ignores a negative production rate rather than paying negatively', () => {
+    const m = modifiersFrom(base.upgrades, 0, 0, 0);
+    expect(effectiveClickPower(m, -1e9)).toBe(clickPower(m));
   });
 });

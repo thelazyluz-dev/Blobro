@@ -14,6 +14,7 @@ import {
   eggCostGrowth,
   evolveMultiplierByStage,
   evolvePaybackSeconds,
+  evolveRarityCostMult,
   maxEvolution,
   fingerBonusBase,
   fingerBonusGrowth,
@@ -23,6 +24,7 @@ import {
   paybackMultMin,
   paybackPivotRate,
   paybackSlopePerDecade,
+  tapProductionShare,
   upgradeConfig,
 } from './balance';
 import { characters, incomeMultOf } from './characters';
@@ -66,6 +68,22 @@ export function clickPower(m: Modifiers): number {
     m.starMultiplier *
     globalMultiplier
   );
+}
+
+/**
+ * What a tap is ACTUALLY worth: the upgrade-driven value, or a small share of
+ * the player's own production, whichever is larger (see tapProductionShare for
+ * why the floor exists at all).
+ *
+ * Deliberately a separate function rather than a change to clickPower: the
+ * upgrade screen still wants to show what the upgrades themselves bought, and
+ * keeping clickPower pure of the player's income keeps its own contract — and
+ * its golden vectors — untouched.
+ */
+export function effectiveClickPower(m: Modifiers, gooPerSecValue: number): number {
+  const fromUpgrades = clickPower(m);
+  const fromProduction = Math.max(0, gooPerSecValue) * tapProductionShare;
+  return Math.max(fromUpgrades, fromProduction);
 }
 
 /** The robot hand's auto-tap rate (taps/second) at a given upgrade level (capped). */
@@ -181,7 +199,10 @@ export function evolveCost(
   const gain =
     creatureContribution(rarity, { level: held.level, evolution: stage + 1 }, m, incomeMult) -
     creatureContribution(rarity, held, m, incomeMult);
-  return Math.max(1, Math.round(gain * evolvePaybackSeconds * wealthPaybackMult(gooPerSecValue)));
+  return Math.max(
+    1,
+    Math.round(gain * evolvePaybackSeconds * wealthPaybackMult(gooPerSecValue) * evolveRarityCostMult[rarity]),
+  );
 }
 
 /**

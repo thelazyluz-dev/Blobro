@@ -105,6 +105,22 @@ export const critBaseChance = 0.02; // before any upgrade
 export const critChanceCap = 0.6;
 export const critMultiplier = 8; // a crit tap is worth this many normal taps
 
+// A tap is never worth less than this share of the player's own production.
+//
+// Without a floor, tapping dies. The "strong finger" upgrade's cost grows ×1.5
+// per level while its effect grows ×1.21, so every level is ~24% worse value
+// than the last, while creature levels are payback-priced and hold their value
+// forever. Creatures therefore always win in the end: measured, taps fall from
+// ~67% of income early to literally 0% by the billions, and the robot hand
+// never even reaches its own rate cap because buying it stops being worth it.
+//
+// Fixing that through the cost curves is a knife edge — exponential effect vs
+// exponential cost has no stable middle. Dropping the finger's growth to 1.32
+// inflates income a hundred-thousandfold; to 1.21 it reaches 1e198. This floor
+// sidesteps the whole problem: tied to production, tapping can't decay, and
+// because it's a SHARE of production it can't run away either.
+export const tapProductionShare = 0.02;
+
 // --- Combo milestones --------------------------------------------------------
 // Sustained rapid tapping pays off: reaching a combo milestone grants a lump sum
 // worth (milestone × current tap value) — the streak "cashed in", so a longer
@@ -128,6 +144,22 @@ export const luckLegendaryShare = 0.3; // …and this to legendary
 // An evolution costs this many seconds of the extra income it grants — same
 // sensible payback idea as leveling, but a bigger commitment (a premium jump).
 export const evolvePaybackSeconds = 600;
+
+// Evolution already costs more for a rarer creature, because it's priced as a
+// payback on the income the evolution adds and a legendary adds far more — a
+// legendary evolution runs ~350× a common one. What was identical across
+// rarities was the *payback time*: 1500s for every creature, so a rare one was
+// no bigger a commitment than a common one, just a bigger number.
+//
+// That's why a freshly-hatched legendary could be taken through three of its
+// four evolutions in about a minute of a wealthy player's income. This makes
+// rarity a real investment rather than only a larger price tag.
+export const evolveRarityCostMult: Record<Rarity, number> = {
+  common: 1,
+  uncommon: 2,
+  rare: 3.5,
+  legendary: 6,
+};
 
 // --- Goo rain event ----------------------------------------------------------
 export const rainIntervalMinMs = 70_000;

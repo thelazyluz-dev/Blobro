@@ -22,6 +22,7 @@ export {
   creatureContribution,
   creatureIncome,
   creatureLevelCost,
+  effectiveClickPower,
   eggCost,
   evolveCost,
   evolveIncomeMult,

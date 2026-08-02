@@ -32,6 +32,7 @@ import {
   autoClicksPerSec,
   charIncome,
   clickPower,
+  effectiveClickPower,
   creatureContribution,
   creatureIncome,
   creatureLevelCost,
@@ -273,13 +274,19 @@ const creatureLevelCostCases = wealthLevels.map((gooPerSecValue) => ({
   expected: creatureLevelCost(levelCostHeld.rarity, levelCostHeld.held, mods(modParamsForCosts), gooPerSecValue, 1),
 }));
 
-const evolveCostCases = wealthLevels.map((gooPerSecValue) => ({
-  ...evolveCostHeld,
-  modParams: modParamsForCosts,
-  gooPerSecValue,
-  incomeMult: 2,
-  expected: evolveCost(evolveCostHeld.rarity, evolveCostHeld.held, mods(modParamsForCosts), gooPerSecValue, 2),
-}));
+// Every rarity, not just one: evolution now carries an explicit per-rarity
+// cost multiplier (balance.evolveRarityCostMult), so a vector set that only
+// exercised `uncommon` would let three quarters of that rule change silently.
+const evolveCostCases = rarities.flatMap((rarity) =>
+  wealthLevels.map((gooPerSecValue) => ({
+    ...evolveCostHeld,
+    rarity,
+    modParams: modParamsForCosts,
+    gooPerSecValue,
+    incomeMult: 2,
+    expected: evolveCost(rarity, evolveCostHeld.held, mods(modParamsForCosts), gooPerSecValue, 2),
+  })),
+);
 
 // ── affordableCreatureLevels ─────────────────────────────────────────────
 const affordableCreatureLevelsCases = [0, 50, 5_000, 500_000, 1e9].map((goo) => {
@@ -563,13 +570,32 @@ const migrateCases = [
 });
 
 
+// ── effectiveClickPower ──────────────────────────────────────────────────
+// A tap is worth the upgrade value OR a share of production, whichever is
+// larger (see balance.tapProductionShare). The SERVER uses this too, in its
+// plausibility ceiling — if the two sides disagreed about what a tap is worth,
+// deep players would be flagged for tapping normally. Cases straddle the
+// crossover in both directions.
+const effectiveClickPowerCases = [
+  { label: 'no production — upgrades decide', params: { upgrades: upgrades({ finger: 5 }), achievementStarBonus: 0 }, rate: 0 },
+  { label: 'tiny production — upgrades still win', params: { upgrades: upgrades({ finger: 20 }), achievementStarBonus: 0 }, rate: 100 },
+  { label: 'huge production — the floor takes over', params: { upgrades: upgrades(), achievementStarBonus: 0 }, rate: 1_000_000 },
+  { label: 'deep game — floor well above the upgrades', params: { upgrades: upgrades({ finger: 30, power: 5 }), achievementStarBonus: 0.2 }, rate: 1e12 },
+  { label: 'negative production is ignored, never negative pay', params: { upgrades: upgrades({ finger: 3 }), achievementStarBonus: 0 }, rate: -50 },
+  { label: 'exactly at the crossover', params: { upgrades: upgrades({ finger: 10 }), achievementStarBonus: 0 }, rate: 0 },
+].map((c) => ({ ...c, expected: effectiveClickPower(mods(c.params), c.rate) }));
+
 // ── plausibility (PR 5) ──────────────────────────────────────────────────
 // The server runs these to decide whether an uploaded save is physically
 // achievable, so client and server MUST agree on the bound to the last
 // decimal — a server that computes a slightly different ceiling than the
 // client's rules imply would flag honest players.
 const PLAUS_NOW = 1_754_000_000_000;
-const plausBase = defaultSaveState(PLAUS_NOW);
+// defaultSaveState mints a RANDOM rng seed, and these cases embed the whole
+// save — so leaving it would rewrite vectors.json on every regeneration and
+// turn a contract file into noise. The seed is irrelevant to a plausibility
+// ceiling; pin it.
+const plausBase = { ...defaultSaveState(PLAUS_NOW), rng: { seed: 987_654_321, cursor: 0 } };
 const plausMid = {
   ...plausBase,
   characters: { blombo: { level: 60 }, fizzik: { level: 45 }, nono: { level: 30 } },
@@ -734,6 +760,7 @@ const vectors = {
   starBonusFor: starBonusForCases,
   isComplete: isCompleteCases,
   computeOffline: computeOfflineCases,
+  effectiveClickPower: effectiveClickPowerCases,
   migrate: migrateCases,
   plausibilityCeiling: plausibilityCeilingCases,
   verifySaveDelta: verifySaveDeltaCases,

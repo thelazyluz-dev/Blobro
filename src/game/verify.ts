@@ -28,7 +28,7 @@ import { adRewardMult, critMultiplier, frenzyMultiplier } from './balance';
 import { charactersById } from './characters';
 import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
 import { EVENTS } from './events';
-import { autoClicksPerSec, clickPower, gooPerSec, modifiersFrom } from './economy';
+import { autoClicksPerSec, effectiveClickPower, gooPerSec, modifiersFrom } from './economy';
 import { starBonusFor } from './achievements';
 import type { SaveState } from './types';
 
@@ -100,7 +100,10 @@ export function plausibilityCeiling(save: SaveState, elapsedSeconds: number): Pl
   const m = modsFor(save);
 
   const passivePerSec = gooPerSec(save.characters, m);
-  const perTap = clickPower(m);
+  // Must use the SAME floor the game pays out (see effectiveClickPower): a
+  // ceiling computed from the upgrade value alone would sit below what a deep
+  // player legitimately earns per tap, and flag them for playing normally.
+  const perTap = effectiveClickPower(m, passivePerSec);
   const tapsPerSec = maxHumanTapsPerSec + autoClicksPerSec(save.upgrades.autoTap);
 
   const incomeCeiling = passivePerSec * maxEventIncomeMult * adRewardMult;
