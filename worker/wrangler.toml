@@ -12,10 +12,13 @@ binding = "DB"                       # available in code as env.DB
 database_name = "blorbo-leaderboard"
 database_id = "PASTE_DATABASE_ID_HERE"
 
-# Auth (PR 3a) config. GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are SECRETS —
-# never put them here; set them with `wrangler secret put` (see README.md).
-# These two [vars] are optional; both have safe code defaults (see
-# worker/src/index.ts appOrigin()/sessionTtlDays()) — uncomment to override.
-# [vars]
-# APP_ORIGIN = "https://bl-or-bo.com"
-# SESSION_TTL_DAYS = "30"
+# Auth config. GOOGLE_CLIENT_SECRET is a SECRET — never put it here; set it with
+# `wrangler secret put GOOGLE_CLIENT_SECRET` (see README.md).
+#
+# GOOGLE_CLIENT_ID is deliberately a plain var, not a secret: OAuth client IDs
+# are public by design (the browser sees it in the consent URL), so keeping it
+# in config means one less manual step at deploy time and one less value to lose.
+[vars]
+GOOGLE_CLIENT_ID = "873468822731-meo7kg4of4dn7qrephgtmhnq0n0n43s8.apps.googleusercontent.com"
+APP_ORIGIN = "https://bl-or-bo.com"
+SESSION_TTL_DAYS = "30"

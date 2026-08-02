@@ -139,20 +139,20 @@ npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql
 
 | Name | Kind | Purpose | Default if unset |
 |---|---|---|---|
-| `GOOGLE_CLIENT_ID` | secret | OAuth client ID from Google Cloud Console | Google sign-in answers `501` |
+| `GOOGLE_CLIENT_ID` | var (in `wrangler.toml`) | OAuth client ID from Google Cloud Console. Public by design — the browser sees it in the consent URL — so it lives in config, not in a secret. | Google sign-in answers `501` |
 | `GOOGLE_CLIENT_SECRET` | secret | OAuth client secret. Also used to HMAC-sign the short-lived PKCE `state` cookie — see `src/auth.ts` | Google sign-in answers `501` |
 | `APP_ORIGIN` | var | Where `/auth/google/callback` redirects back to after sign-in | `https://bl-or-bo.com` |
 | `SESSION_TTL_DAYS` | var | How long a session cookie/row lasts | `30` |
 
-Both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are treated as secrets here
-(not committed, not in `wrangler.toml`) even though the client ID alone isn't
-very sensitive — it keeps the two together and avoids splitting Google config
-across two different mechanisms:
+Only `GOOGLE_CLIENT_SECRET` is a secret. The client ID is public by design (the
+browser sees it in Google's consent URL), so it lives in `wrangler.toml` — one
+less thing to set by hand and one less value to lose:
 
 ```bash
-npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 ```
+
+(`GOOGLE_CLIENT_ID` needs no command — it is already set in `wrangler.toml`.)
 
 `APP_ORIGIN` and `SESSION_TTL_DAYS` are plain vars (not secret) — add them to
 `wrangler.toml` if you want to override the defaults, e.g.:
