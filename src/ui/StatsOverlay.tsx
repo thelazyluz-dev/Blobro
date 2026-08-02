@@ -70,6 +70,77 @@ function ResetSection() {
 // Identity + sign-out (PR 3b). Renders nothing when nobody's signed in — with
 // AUTH_REQUIRED off (the default) that's everybody, so this section is
 // invisible until the owner turns auth on and players start creating accounts.
+// Recovery for a save displaced by a cloud merge. Renders NOTHING in the
+// normal case — a stash only exists when signing in on this device brought
+// down a save that outranked the local one, which for almost every player
+// never happens. It is deliberately not framed as an error or a warning: for
+// a kid this reads as "your other game is here too", not "something broke".
+//
+// The confirm step is worth the friction. Swapping the whole save is the
+// single most consequential button in the game, and it sits right next to
+// sign-out; a mis-tap should not silently replace what you were just playing.
+function BackupSection() {
+  const backup = useGame((s) => s.backupAvailable);
+  const restoreBackup = useGame((s) => s.restoreBackup);
+  const lifetimeGoo = useGame((s) => s.lifetimeGoo);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (!backup) return null;
+
+  const onRestore = () => {
+    if (busy) return;
+    setBusy(true);
+    void restoreBackup().finally(() => {
+      setBusy(false);
+      setConfirming(false);
+    });
+  };
+
+  return (
+    <div className="mb-2 rounded-2xl bg-black/25 p-3 text-center ring-hairline">
+      <p className="text-[11px] leading-relaxed text-bone/60">
+        יֵשׁ כָּאן עוֹד מִשְׂחָק שָׁמוּר מֵהַמַּכְשִׁיר הַזֶּה, עִם{' '}
+        <strong className="text-cy" dir="ltr">
+          {formatGoo(backup.lifetimeGoo)}
+        </strong>{' '}
+        גּוּ סַךְ הַכֹּל. הַמִּשְׂחָק הַנּוֹכְחִי שֶׁלְּךָ:{' '}
+        <strong dir="ltr">{formatGoo(lifetimeGoo)}</strong>.
+      </p>
+      {confirming ? (
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onClick={onRestore}
+            disabled={busy}
+            className="btn flex-1 bg-cy py-2 text-xs text-void disabled:opacity-60"
+          >
+            כֵּן, לְהַחְלִיף
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="btn flex-1 bg-black/30 py-2 text-xs text-bone ring-1 ring-hairline"
+          >
+            בִּיטּוּל
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="btn mt-2 w-full bg-black/30 py-2 text-xs text-bone ring-1 ring-hairline"
+        >
+          🔄 לַחֲזוֹר לַמִּשְׂחָק הַשָּׁמוּר
+        </button>
+      )}
+      {/* Says plainly that this is reversible — the action swaps rather than
+          overwrites, and a player who can't undo won't dare press at all. */}
+      <p className="mt-1.5 text-[10px] text-bone/40">אֶפְשָׁר תָּמִיד לַחֲזוֹר אֲחוֹרָה — שׁוּם מִשְׂחָק לֹא נִמְחָק.</p>
+    </div>
+  );
+}
+
 function AccountSection() {
   const authUser = useGame((s) => s.authUser);
   const cloudSynced = useGame((s) => s.cloudSynced);
@@ -96,6 +167,7 @@ function AccountSection() {
       <p className="mb-2 text-[11px] text-bone/45">
         {cloudSynced ? '☁️ נִשְׁמַר בַּעֲנָן' : '☁️ עוֹד מִתְחַבֵּר לֶעָנָן…'}
       </p>
+      <BackupSection />
       <button
         type="button"
         onClick={onSignOut}

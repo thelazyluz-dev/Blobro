@@ -64,7 +64,7 @@ import { upgradeCost } from './game/upgrades';
 import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { decideMergeWinner, fetchCloudSave, pushCloudSave } from './net/save';
-import { backupLocal, loadRaw, persist } from './persistence';
+import { backupLocal, loadBackup, loadRaw, persist } from './persistence';
 import type {
   CharId,
   LeaderboardEntry,
@@ -123,6 +123,13 @@ interface GameState {
   // only ("did the last push succeed"), see StatsOverlay's AccountSection.
   cloudRev: number;
   cloudSynced: boolean;
+
+  // --- displaced-save recovery (PR 4 safety net, surfaced in PR 5) ---
+  // When a cloud save outranks this device's, the local one is stashed rather
+  // than dropped (see loadGame). This is what makes that stash reachable: a
+  // stash nobody can restore is not a safety net, it's a comforting comment.
+  // null = nothing stashed. Transient — recomputed from IndexedDB on load.
+  backupAvailable: { lifetimeGoo: number; savedAt: number } | null;
 
   // --- transient UI / session ---
   loaded: boolean;
@@ -204,6 +211,7 @@ interface GameState {
   dismissMilestone: () => void;
   pulseMagnitude: (exp: number) => void;
   initAuth: () => void;
+  restoreBackup: () => Promise<void>;
   setAuthUser: (user: AuthUser | null) => void;
   clearAuthUser: () => void;
   signOut: () => void;
@@ -335,6 +343,7 @@ export const useGame = create<GameState>((set, get) => {
     authChecked: false,
     cloudRev: 0,
     cloudSynced: false,
+    backupAvailable: null,
 
     loaded: false,
     activeTab: 'click',
@@ -436,6 +445,16 @@ export const useGame = create<GameState>((set, get) => {
         nicknameOpen: shouldPromptNickname(),
         cloudRev: decision.cloudRev,
         cloudSynced: false,
+      });
+
+      // Surface any stashed save from a previous cloud merge, so the player
+      // (or a parent) can get it back. Done after `set` and without awaiting
+      // so it never delays first paint — the banner just appears a moment
+      // later if there is something to offer.
+      void loadBackup().then((raw) => {
+        if (!raw) return;
+        const stashed = migrate(raw, Date.now());
+        set({ backupAvailable: { lifetimeGoo: stashed.lifetimeGoo, savedAt: stashed.lastSeen } });
       });
 
       // Seed/refresh the cloud right away so a brand-new device's save
@@ -946,6 +965,54 @@ export const useGame = create<GameState>((set, get) => {
     // keeps playing with the exact same blob/goo/creatures they had. Only
     // identity is cleared. If AUTH_REQUIRED is on, clearing authUser here is
     // what sends the player back to the gate (see App.tsx).
+    /**
+     * Put the stashed save back. This is the escape hatch for the one way the
+     * cloud merge can hurt someone: the rule picks by lifetimeGoo, which is
+     * monotonic and so almost always right — but a corrupted or edited cloud
+     * save carrying an inflated number would win, and overwrite a real one.
+     *
+     * Deliberately a SWAP, not a one-way restore: the save being replaced is
+     * stashed in turn, so pressing this can't itself lose anything and can be
+     * pressed again to go back. Never destructive in either direction.
+     */
+    restoreBackup: async () => {
+      const raw = await loadBackup();
+      if (!raw) {
+        set({ backupAvailable: null });
+        return;
+      }
+      const now = Date.now();
+      const restored = migrate(raw, now);
+      const current = snapshot(get(), now);
+      await backupLocal(current); // the swap — what we're replacing becomes the new stash
+
+      set({
+        goo: restored.goo,
+        lifetimeGoo: restored.lifetimeGoo,
+        upgrades: restored.upgrades,
+        characters: restored.characters,
+        eggs: restored.eggs,
+        totalHatches: restored.totalHatches,
+        sinceRare: restored.sinceRare,
+        bonusesCollected: restored.bonusesCollected,
+        clicks: restored.clicks,
+        leaderboard: restored.leaderboard,
+        achievements: restored.achievements,
+        ownedCosmetics: restored.ownedCosmetics,
+        equippedBlob: restored.equippedBlob,
+        equippedBackground: restored.equippedBackground,
+        equippedAccessory: restored.equippedAccessory,
+        equippedSound: restored.equippedSound,
+        equippedMain: restored.equippedMain,
+        milestonesShown: restored.milestonesShown,
+        muted: restored.muted,
+        rng: restored.rng,
+        backupAvailable: { lifetimeGoo: current.lifetimeGoo, savedAt: current.lastSeen },
+      });
+      await persist(restored);
+      cloudDirty = true; // the cloud should learn about this at the next checkpoint
+    },
+
     signOut: () => {
       set({ authUser: null });
       void logout();
