@@ -14,14 +14,14 @@ export const AUTH_API = 'https://api.bl-or-bo.com';
 // AUTH_REQUIRED: the gate flag (see src/ui/AuthGate.tsx / src/App.tsx). This
 // is the ONLY thing separating "you can create an account" from "you must".
 //
-// MUST default to `false`. Flipping it to `true` locks every player out
-// behind sign-in — that is only safe once the Worker above is actually
-// deployed *and* its Google OAuth secrets are set (see worker/README.md);
-// ship this `true` one minute too early and the game is unplayable for
-// everyone until the owner notices. The owner flips this by hand, after
-// verifying the backend is live, never as a side effect of a routine PR.
-// Before flipping this to `true`, re-read public/privacy.html: it describes what
-// signing up stores, and it is written to stay accurate either way — but any
-// wording that implies playing without an account is possible must go in the
-// SAME commit. A privacy policy that lies to a parent is not a small bug.
-export const AUTH_REQUIRED = false;
+// Turned ON by the owner after verifying the live Google flow end-to-end
+// against the deployed Worker. While it is `true`, the game is unreachable
+// without a session, so it is now load-bearing: if the Worker's Google OAuth
+// secrets ever lapse (see worker/README.md), nobody can play. Flipping it back
+// to `false` is the emergency valve, and takes one commit.
+//
+// public/privacy.html is written to match this flag and must be re-read
+// whenever it changes — any wording about whether an account is optional has
+// to move in the SAME commit. A privacy policy that lies to a parent is not a
+// small bug.
+export const AUTH_REQUIRED = true;

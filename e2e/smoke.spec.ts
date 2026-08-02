@@ -1,20 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import { dismissNicknameWelcome, signIn } from './helpers';
 
 // This is a Hebrew RTL app; nav labels and copy carry nikud, so selectors
 // below use the exact on-screen strings (see src/ui/*) rather than guessing.
-
-// First launch (no localStorage yet) shows a "pick a nickname" welcome modal
-// that would otherwise sit on top of the blob and eat every tap in the tests
-// below. Dismiss it via its "later" button before each test.
-async function dismissNicknameWelcome(page: Page): Promise<void> {
-  const later = page.getByRole('button', { name: 'אַחַר כָּךְ' });
-  try {
-    await later.waitFor({ state: 'visible', timeout: 5000 });
-    await later.click();
-  } catch {
-    // Modal never appeared (e.g. leaderboard disabled) — nothing to dismiss.
-  }
-}
 
 // Milestone / unlock / hatch celebration overlays are goo- and click-gated far
 // above what these smoke tests reach, but if one ever slips through (e.g. a
@@ -33,6 +21,7 @@ async function dismissAnyCelebration(page: Page): Promise<void> {
 }
 
 test.beforeEach(async ({ page }) => {
+  await signIn(page); // sign-in is mandatory — see e2e/helpers.ts
   await page.goto('/');
   await dismissNicknameWelcome(page);
   await dismissAnyCelebration(page);

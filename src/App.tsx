@@ -63,21 +63,14 @@ export function App() {
     initAds(useGame.getState().muted);
   }, []);
 
-  // Mandatory-login gate (PR 3b). AUTH_REQUIRED defaults to `false` — this
-  // never fires until the owner deliberately flips it on. Checked before the
-  // `loaded` splash below so a required sign-in blocks the game outright
-  // rather than flashing it first.
+  // Mandatory-login gate (PR 3b). Checked before the `loaded` splash below so a
+  // required sign-in blocks the game outright rather than flashing it first.
   //
-  // __FORCE_AUTH_GATE__ is a test-only escape hatch (e2e/auth-gate.spec.ts) for
-  // exercising the gate against a normal build without flipping the real flag.
-  // It only ever ADDS the gate, never removes it. It is additionally restricted
-  // to localhost, where the e2e preview runs, so that on the live site no
-  // third-party script on the page (the AdSense loader, say) could set the
-  // global and lock a real player out of a working game.
-  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  const forcedGate =
-    isLocalhost && (window as unknown as { __FORCE_AUTH_GATE__?: boolean }).__FORCE_AUTH_GATE__ === true;
-  if ((AUTH_REQUIRED || forcedGate) && authChecked && !authUser) {
+  // `authChecked` matters as much as `authUser`: initAuth sets it synchronously
+  // for anyone with a cached identity, so a returning player never sees this
+  // gate flash — and offline, where /auth/me can't answer, the cached user is
+  // kept and the game stays playable (see net/auth.ts fetchMe).
+  if (AUTH_REQUIRED && authChecked && !authUser) {
     return <AuthGate />;
   }
 
