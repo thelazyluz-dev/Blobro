@@ -9,5 +9,11 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  // Widened so the Worker can import the shared, DOM-free game core straight
+  // from ../src/game — see worker/src/rules.ts. Do NOT narrow this back to
+  // "src" only; that would silently stop typechecking the shared imports.
+  "include": ["src", "../src/game/**/*.ts"],
+  // *.test.ts files pull in vitest types the Worker project doesn't have —
+  // they're covered by the root project's typecheck instead.
+  "exclude": ["node_modules", "../src/game/**/*.test.ts"]
 }

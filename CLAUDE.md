@@ -93,6 +93,24 @@ The game is moving from fully client-side to a server-authoritative product, in
 *same functions* rather than reimplementing the rules. Golden-vector contract
 tests prove client and server agree. Never let the two drift apart.
 
+**Golden vectors (PR 1) — how the lock works:**
+`src/game/__golden__/vectors.json` pins hundreds of concrete
+input → expected-output pairs across the whole rule surface (economy,
+hatching, abilities, achievements, milestones, events, offline). Two test
+files assert against the SAME file: `src/game/golden.test.ts` (direct client
+imports) and `worker/test/golden.test.ts` (through `worker/src/rules.ts`, the
+Worker's one import surface onto the shared core). If both pass, the Worker
+is provably running the exact rules the client ships.
+- If you **intentionally** change a rule in `src/game/*`, run
+  `npm run golden:generate` and the changed expected values MUST show up as a
+  reviewable diff in `vectors.json` in the same PR, with the change explained.
+- **Never** run `golden:generate` just to turn a red test green. A failing
+  golden test after a balance-file edit means "you just changed a business
+  rule" — stop and confirm that was intended before regenerating anything.
+- The generator (`scripts/generate-golden.mjs`/`.ts`) is the only place a test
+  PRNG (mulberry32) exists — it bakes the exact random draws each seeded call
+  consumed into the JSON, so `src/game/*` itself never needs a PRNG.
+
 Owner decisions (do not revisit without asking):
 - **Login is mandatory** (Google OAuth + email/password). Accepted alongside the
   kids-safety trade-off, which was raised and acknowledged: it means collecting

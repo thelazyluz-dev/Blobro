@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
-    "sanity": "node scripts/sanity.mjs"
+    "sanity": "node scripts/sanity.mjs",
+    "golden:generate": "vite-node scripts/generate-golden.ts"
   },
   "dependencies": {
     "@fontsource/rubik": "^5.0.19",
