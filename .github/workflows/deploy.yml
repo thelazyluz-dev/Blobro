@@ -27,6 +27,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
         with:
@@ -46,3 +47,16 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  sanity:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Give Pages a moment to actually serve the new deployment before
+      # hitting it — deploy-pages can report success just ahead of propagation.
+      - run: sleep 15
+      - run: node scripts/sanity.mjs https://bl-or-bo.com
