@@ -1,3 +1,6 @@
+export type { RngState } from './rng';
+import type { RngState } from './rng';
+
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
 export type CharId =
@@ -71,7 +74,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 11;
+  version: 12;
   goo: number;
   lifetimeGoo: number;
   upgrades: Upgrades;
@@ -92,6 +95,10 @@ export interface SaveState {
   milestonesShown: number[]; // goo thresholds whose fact has already been celebrated (once each)
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
+  // The seeded outcome-RNG stream (crit rolls, hatching — see game/rng.ts).
+  // Persisting the cursor means reloading resumes mid-stream instead of
+  // re-rolling a pending draw, which also closes a save-scumming exploit.
+  rng: RngState;
 }
 
 /** All active income/click modifiers derived from upgrades + achievements. */

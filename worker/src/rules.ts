@@ -33,6 +33,12 @@ export {
 
 export { buyableEggs, hatch, openEggs, pickChar, rollRarity } from '../../src/game/hatching';
 
+// The seeded outcome-RNG (crit rolls, hatching) — the server needs the exact
+// same generator to replay/verify a client's reported draws (see
+// src/game/rng.ts for the "why" and the resume-from-cursor contract).
+export { createRng, randomSeed } from '../../src/game/rng';
+export type { RngState } from '../../src/game/rng';
+
 export { abilityOf } from '../../src/game/abilities';
 
 export { computeOffline } from '../../src/game/offline';

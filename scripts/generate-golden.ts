@@ -2,14 +2,18 @@
 // that locks the shared game rules (see CLAUDE.md, "Direction:
 // server-authoritative rebuild"). Run with `npm run golden:generate`.
 //
-// This script is the ONLY place a PRNG algorithm is implemented for the
-// contract tests: the seeded functions (rollRarity/pickChar/hatch/openEggs)
-// take `rng: () => number` as a real parameter, so instead of asking the test
-// files to reimplement mulberry32 to "replay" a seed, we record the EXACT
-// sequence of random draws each call actually consumed and bake that
-// sequence into the vectors. src/game/golden.test.ts and
-// worker/test/golden.test.ts then just pop numbers off that recorded array —
-// no PRNG in src/game, ever (see the brief: "do NOT add it to src/game/").
+// Two different PRNG roles show up in this file — don't conflate them:
+//  1. The local `mulberry32`/`recordingRng` below is a TEST-ONLY generator
+//     used to feed the seeded rule functions (rollRarity/pickChar/hatch/
+//     openEggs), which take `rng: () => number` as a real parameter. Instead
+//     of asking the test files to reimplement a PRNG to "replay" a seed, we
+//     record the EXACT sequence of draws each call consumed and bake that
+//     sequence into the vectors — src/game/golden.test.ts and
+//     worker/test/golden.test.ts just pop numbers off that recorded array.
+//  2. `createRng` from src/game/rng.ts is the REAL production PRNG (PR 2) —
+//     the one src/store.ts and, later, the server actually run. Its own
+//     "rng" vector category below calls it directly (no recording needed:
+//     we're locking the generator itself, not something it feeds).
 //
 // Never run this to "make a failing test pass" — if a golden value changes,
 // that's a business-rule change that must be visible and justified in the
@@ -43,6 +47,7 @@ import { currentEvent, eventStateAt } from '../src/game/events';
 import { buyableEggs, hatch, openEggs, pickChar, rollRarity } from '../src/game/hatching';
 import { milestones, milestonesCrossed } from '../src/game/milestones';
 import { computeOffline } from '../src/game/offline';
+import { createRng, type RngState } from '../src/game/rng';
 import { defaultUpgrades } from '../src/game/upgrades';
 import type { CharId, OwnedCharacters, Rarity, Upgrades } from '../src/game/types';
 
@@ -483,6 +488,34 @@ const eventStateAtCases = eventTimestamps.map((now) => {
   };
 });
 
+// ── rng (src/game/rng.ts) — the REAL production PRNG, not the local
+// mulberry32 above (that one only exists to feed injected `rng: () => number`
+// params for the hatching vectors and is never shipped in src/game/*). This
+// category locks src/game/rng.ts itself: a fixed seed's draw sequence, and
+// that resuming from a saved {seed, cursor} continues that SAME sequence —
+// the exact guarantee the server needs to replay a client's stream. ────────
+function genRngDraws(seed: number, count: number) {
+  const rng = createRng({ seed, cursor: 0 });
+  const values = Array.from({ length: count }, () => rng.next());
+  return { seed, count, values, finalState: rng.state() };
+}
+const rngDrawCases = [1, 42, 123456789, 0xdeadbeef, 999999937].map((seed) => genRngDraws(seed, 20));
+
+function genRngResume(seed: number, cursor: number, count: number) {
+  const rng = createRng({ seed, cursor });
+  const values = Array.from({ length: count }, () => rng.next());
+  return { seed, cursor, count, values, finalState: rng.state() };
+}
+// Resuming at cursor N must reproduce draws [N..N+count) of the same seed's
+// fresh-from-0 sequence — i.e. these should equal a slice of rngDrawCases'
+// `values` for the matching seed (asserted directly in the test files too).
+const rngResumeCases: { seed: number; cursor: number; count: number; values: number[]; finalState: RngState }[] = [
+  genRngResume(1, 5, 15),
+  genRngResume(42, 10, 10),
+  genRngResume(123456789, 1, 19),
+  genRngResume(999999937, 100, 10), // cursor far past the initial 20-draw sample above
+];
+
 // ── write ────────────────────────────────────────────────────────────────
 const vectors = {
   meta: {
@@ -521,6 +554,10 @@ const vectors = {
   computeOffline: computeOfflineCases,
   milestonesCrossed: milestonesCrossedCases,
   eventStateAt: eventStateAtCases,
+  rng: {
+    draws: rngDrawCases,
+    resume: rngResumeCases,
+  },
 };
 
 writeFileSync(OUT_PATH, JSON.stringify(vectors, null, 2) + '\n', 'utf-8');

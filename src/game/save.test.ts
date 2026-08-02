@@ -92,6 +92,43 @@ describe('migrate', () => {
 
   it('a fresh save is already current', () => {
     expect(defaultSaveState(NOW).version).toBe(CURRENT_VERSION);
-    expect(migrate(defaultSaveState(NOW), NOW)).toEqual(defaultSaveState(NOW));
+    // rng gets a fresh random seed each call, so compare everything else.
+    const { rng: _r1, ...freshRest } = defaultSaveState(NOW);
+    const { rng: _r2, ...migratedRest } = migrate(defaultSaveState(NOW), NOW);
+    expect(migratedRest).toEqual(freshRest);
+  });
+
+  describe('rng stream (PR 2: deterministic outcome randomness)', () => {
+    it('a fresh save gets a valid rng stream at cursor 0', () => {
+      const s = defaultSaveState(NOW);
+      expect(Number.isInteger(s.rng.seed)).toBe(true);
+      expect(s.rng.seed).toBeGreaterThanOrEqual(0);
+      expect(s.rng.seed).toBeLessThan(4294967296);
+      expect(s.rng.cursor).toBe(0);
+    });
+
+    it('an old save with no rng field gets a fresh valid stream, not a crash', () => {
+      const s = migrate(v9Save, NOW);
+      expect(Number.isInteger(s.rng.seed)).toBe(true);
+      expect(s.rng.cursor).toBe(0);
+    });
+
+    it('a malformed rng field is sanitized to a fresh stream instead of throwing', () => {
+      for (const junk of [null, 'nope', 42, {}, { seed: 'x', cursor: 0 }, { seed: 1, cursor: -5 }, { seed: NaN, cursor: 0 }]) {
+        expect(() => migrate({ ...v9Save, rng: junk }, NOW)).not.toThrow();
+        const s = migrate({ ...v9Save, rng: junk }, NOW);
+        expect(Number.isInteger(s.rng.seed)).toBe(true);
+        expect(s.rng.cursor).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('round-trips an in-progress stream exactly (this is what closes save-scumming)', () => {
+      const withProgress = { ...v9Save, rng: { seed: 123456, cursor: 789 } };
+      const s = migrate(withProgress, NOW);
+      expect(s.rng).toEqual({ seed: 123456, cursor: 789 });
+      // Migrating again (simulating a reload) must not reset or re-roll it.
+      const again = migrate(s, NOW);
+      expect(again.rng).toEqual({ seed: 123456, cursor: 789 });
+    });
   });
 });

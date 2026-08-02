@@ -31,6 +31,7 @@ import { currentEvent, eventStateAt } from './events';
 import { buyableEggs, hatch, openEggs, pickChar, rollRarity } from './hatching';
 import { milestonesCrossed } from './milestones';
 import { computeOffline } from './offline';
+import { createRng } from './rng';
 import vectors from './__golden__/vectors.json';
 
 // A recorded rng sequence "replays" as a plain index cursor over pre-baked
@@ -244,5 +245,39 @@ describe('golden vectors — eventStateAt / currentEvent', () => {
       next: { id: state.next.id },
     }).toEqual(c.expected);
     expect(currentEvent(c.now).id).toBe(c.currentEventId);
+  });
+});
+
+// This is the production PRNG itself (src/game/rng.ts), not a rule fed by
+// one — see scripts/generate-golden.ts for why it isn't a "recorded
+// sequence" like the vectors above.
+describe('golden vectors — rng (createRng, fresh from cursor 0)', () => {
+  it.each(vectors.rng.draws)('matches the exact draw sequence for seed=$seed', (c: any) => {
+    const rng = createRng({ seed: c.seed, cursor: 0 });
+    const values = Array.from({ length: c.count }, () => rng.next());
+    expect(values).toEqual(c.values);
+    expect(rng.state()).toEqual(c.finalState);
+  });
+});
+
+describe('golden vectors — rng (createRng, resumed from a saved cursor)', () => {
+  it.each(vectors.rng.resume)('resuming at seed=$seed cursor=$cursor continues identically', (c: any) => {
+    const rng = createRng({ seed: c.seed, cursor: c.cursor });
+    const values = Array.from({ length: c.count }, () => rng.next());
+    expect(values).toEqual(c.values);
+    expect(rng.state()).toEqual(c.finalState);
+  });
+
+  it('a resumed stream reproduces the tail of the equivalent fresh-from-0 stream', () => {
+    // Cross-check against the `draws` vectors above: resuming at cursor N
+    // must equal drawing N+count values from 0 and taking the tail — this is
+    // the exact guarantee a reloaded save (or a resumed server checkpoint)
+    // depends on.
+    for (const r of vectors.rng.resume as any[]) {
+      const full = vectors.rng.draws.find((d: any) => d.seed === r.seed);
+      if (!full || full.count < r.cursor + r.count) continue; // not covered by the sampled draws
+      const expectedTail = full.values.slice(r.cursor, r.cursor + r.count);
+      expect(r.values).toEqual(expectedTail);
+    }
   });
 });

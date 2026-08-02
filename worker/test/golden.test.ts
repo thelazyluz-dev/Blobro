@@ -15,6 +15,7 @@ import {
   charIncome,
   clickPower,
   computeOffline,
+  createRng,
   creatureContribution,
   creatureIncome,
   creatureLevelCost,
@@ -254,5 +255,26 @@ describe('golden vectors via worker/src/rules — eventStateAt / currentEvent', 
       next: { id: state.next.id },
     }).toEqual(c.expected);
     expect(currentEvent(c.now).id).toBe(c.currentEventId);
+  });
+});
+
+// The production PRNG itself, imported through the Worker's one import
+// surface (worker/src/rules.ts re-exports src/game/rng.ts) — this is what
+// proves the server can run the exact same generator the client does.
+describe('golden vectors via worker/src/rules — rng (createRng, fresh from cursor 0)', () => {
+  it.each(vectors.rng.draws)('matches the exact draw sequence for seed=$seed', (c: any) => {
+    const rng = createRng({ seed: c.seed, cursor: 0 });
+    const values = Array.from({ length: c.count }, () => rng.next());
+    expect(values).toEqual(c.values);
+    expect(rng.state()).toEqual(c.finalState);
+  });
+});
+
+describe('golden vectors via worker/src/rules — rng (createRng, resumed from a saved cursor)', () => {
+  it.each(vectors.rng.resume)('resuming at seed=$seed cursor=$cursor continues identically', (c: any) => {
+    const rng = createRng({ seed: c.seed, cursor: c.cursor });
+    const values = Array.from({ length: c.count }, () => rng.next());
+    expect(values).toEqual(c.values);
+    expect(rng.state()).toEqual(c.finalState);
   });
 });

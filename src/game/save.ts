@@ -25,6 +25,7 @@ import {
   soundById,
 } from './cosmetics';
 import { defaultUpgrades } from './upgrades';
+import { randomSeed, type RngState } from './rng';
 import type {
   CharId,
   LeaderboardEntry,
@@ -34,7 +35,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 11 as const;
+export const CURRENT_VERSION = 12 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -71,6 +72,7 @@ export function defaultSaveState(now: number): SaveState {
     milestonesShown: [],
     lastSeen: now,
     muted: false,
+    rng: { seed: randomSeed(), cursor: 0 },
   };
 }
 
@@ -135,6 +137,28 @@ function sanitizeLeaderboard(raw: unknown): LeaderboardEntry[] {
     .filter((e) => e.name.length > 0)
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, leaderboardMaxEntries);
+}
+
+/**
+ * A missing or malformed rng stream (old save, or corrupted data) gets a
+ * fresh random seed at cursor 0 — never throws, and never blocks a load.
+ * A valid-looking stream is kept as-is so an in-progress stream survives a
+ * reload (that's the whole point — see SaveState.rng).
+ */
+function sanitizeRng(raw: unknown): RngState {
+  if (raw && typeof raw === 'object') {
+    const r = raw as { seed?: unknown; cursor?: unknown };
+    if (
+      typeof r.seed === 'number' &&
+      Number.isFinite(r.seed) &&
+      typeof r.cursor === 'number' &&
+      Number.isFinite(r.cursor) &&
+      r.cursor >= 0
+    ) {
+      return { seed: r.seed >>> 0, cursor: Math.floor(r.cursor) };
+    }
+  }
+  return { seed: randomSeed(), cursor: 0 };
 }
 
 /** Keep only real cosmetic ids; always include the free defaults. */
@@ -206,5 +230,6 @@ export function migrate(raw: unknown, now: number): SaveState {
     milestonesShown,
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
+    rng: sanitizeRng(data.rng),
   };
 }

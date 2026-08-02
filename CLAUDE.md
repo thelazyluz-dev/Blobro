@@ -51,6 +51,11 @@ unverified work. Report failures honestly, with the output.
 - **`npm i <pkg>` prunes packages that aren't in package.json.** `playwright-core`
   is installed ad hoc; reinstall with `npm i --no-save playwright-core` if it
   disappears.
+- **`git checkout <file>` cannot revert an UNTRACKED file** — it fails with
+  "pathspec did not match". When mutation-testing a brand-new file (deliberately
+  breaking it to prove a test catches it), the revert silently does nothing and
+  the mutation stays. Undo it explicitly, then re-run the suite and confirm green
+  before committing. This nearly shipped a corrupted PRNG.
 - The Cloudflare Worker is **deployed manually by the owner** (`wrangler deploy`
   from `worker/`). Changing `worker/src/index.ts` in the repo does NOT deploy it —
   always tell the owner a deploy is needed, and give them the exact steps.

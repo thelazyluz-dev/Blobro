@@ -58,6 +58,7 @@ import { currentEvent } from './game/events';
 import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
+import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
@@ -67,6 +68,7 @@ import type {
   LeaderboardEntry,
   Modifiers,
   OwnedCharacters,
+  RngState,
   SaveState,
   UpgradeId,
   Upgrades,
@@ -104,6 +106,7 @@ interface GameState {
   equippedMain: CharId | null; // creature shown on the main screen (null = classic blob)
   milestonesShown: number[]; // goo thresholds already celebrated (each fact shows once)
   muted: boolean;
+  rng: RngState; // seeded stream driving crit rolls + hatching (see game/rng.ts)
 
   // --- transient UI / session ---
   loaded: boolean;
@@ -242,6 +245,7 @@ function snapshot(s: GameState, now: number): SaveState {
     milestonesShown: s.milestonesShown,
     lastSeen: now,
     muted: s.muted,
+    rng: s.rng,
   };
 }
 
@@ -268,6 +272,7 @@ export const useGame = create<GameState>((set, get) => {
     equippedMain: null,
     milestonesShown: [],
     muted: false,
+    rng: { seed: 0, cursor: 0 }, // placeholder — loadGame() overwrites with the saved stream
 
     loaded: false,
     activeTab: 'click',
@@ -340,6 +345,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedMain: save.equippedMain,
         milestonesShown: save.milestonesShown,
         muted: save.muted,
+        rng: save.rng,
         loaded: true,
         offlineReport: report,
         // First-launch (global leaderboard on, no nickname yet) → invite them
@@ -357,15 +363,17 @@ export const useGame = create<GameState>((set, get) => {
     setTab: (tab) => set({ activeTab: tab }),
 
     click: () => {
+      const s = get();
       const m = mods();
-      const crit = Math.random() < m.critChance;
-      const frenzy = Date.now() < get().frenzyUntil;
+      const rng = createRng(s.rng);
+      const crit = rng.next() < m.critChance;
+      const frenzy = Date.now() < s.frenzyUntil;
       let gain = clickPower(m);
       if (crit) gain *= critMultiplier;
       if (frenzy) gain *= frenzyMultiplier;
       gain *= currentEvent(Date.now()).clickMult;
-      gain *= adMultOf(get(), Date.now());
-      set((s) => ({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1 }));
+      gain *= adMultOf(s, Date.now());
+      set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1, rng: rng.state() });
       return { gain, frenzy, crit };
     },
 
@@ -401,7 +409,8 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       if (s.eggs <= 0) return;
 
-      const outcome = hatch(Math.random, {
+      const rng = createRng(s.rng);
+      const outcome = hatch(rng.next, {
         owned: s.characters,
         sinceRare: s.sinceRare,
         totalHatches: s.totalHatches,
@@ -424,6 +433,7 @@ export const useGame = create<GameState>((set, get) => {
         totalHatches: outcome.nextTotalHatches,
         sinceRare: outcome.nextSinceRare,
         hatchResult: outcome,
+        rng: rng.state(),
       });
     },
 
@@ -431,8 +441,9 @@ export const useGame = create<GameState>((set, get) => {
     openAllEggs: () => {
       const s = get();
       if (s.eggs <= 0) return;
+      const rng = createRng(s.rng);
       const result = openEggs({
-        rng: Math.random,
+        rng: rng.next,
         owned: s.characters,
         sinceRare: s.sinceRare,
         totalHatches: s.totalHatches,
@@ -448,6 +459,7 @@ export const useGame = create<GameState>((set, get) => {
         totalHatches: result.totalHatches,
         sinceRare: result.sinceRare,
         multiHatchResult: result,
+        rng: rng.state(),
       });
     },
 
@@ -780,6 +792,7 @@ export const useGame = create<GameState>((set, get) => {
         equippedSound: fresh.equippedSound,
         equippedMain: fresh.equippedMain,
         milestonesShown: [],
+        rng: fresh.rng,
         hatchResult: null,
         multiHatchResult: null,
         offlineReport: null,
