@@ -64,22 +64,26 @@ export function BottomNav() {
     <nav className="relative z-10 flex shrink-0 items-stretch justify-around border-t border-hairline bg-[var(--surface-2)]/80 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       {ITEMS.map(({ tab, label, Icon }) => {
         const active = tab === activeTab;
+        // The BUTTON stays a large touch target (~59px tall, comfortably above
+        // the 44px minimum) — only the drawn pill inside it got smaller. The bar
+        // used to be a flat 82px, which is 14.4% of a 320x568 screen and pushed
+        // the hatch screen's buy buttons underneath itself.
         return (
           <button
             key={tab}
             type="button"
             onClick={() => setTab(tab)}
             aria-current={active ? 'page' : undefined}
-            className="flex flex-1 flex-col items-center gap-1 py-2"
+            className="flex flex-1 flex-col items-center gap-0.5 py-1.5"
           >
             <span
-              className={`flex h-11 w-11 items-center justify-center rounded-2xl transition ${
+              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
                 active ? 'bg-cy shadow-[0_0_20px_-4px_#00E5FF]' : 'bg-transparent'
               }`}
             >
               <Icon active={active} />
             </span>
-            <span className={`text-[11px] ${active ? 'text-cy' : 'text-bone/60'}`}>{label}</span>
+            <span className={`text-[10px] leading-none ${active ? 'text-cy' : 'text-bone/60'}`}>{label}</span>
           </button>
         );
       })}

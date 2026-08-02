@@ -103,3 +103,41 @@ test('/how-to-play.html and /privacy.html load with real content', async ({ page
     expect(html.length).toBeGreaterThan(200);
   }
 });
+
+test('the hatch screen fits above the nav on small phones', async ({ page }) => {
+  // The buy buttons and the "still needed" line used to render UNDER the bottom
+  // bar on short screens — on a 320x568 the screen was unplayable. The egg was
+  // pinned at 210px and the flex column had no min-h-0, so nothing could
+  // shrink and the content simply spilled.
+  for (const size of [
+    { width: 320, height: 568 },
+    { width: 360, height: 640 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.getByRole('button', { name: 'בְּקִיעָה' }).click();
+    await expect(page.getByRole('heading', { name: 'בְּקִיעָה' })).toBeVisible();
+
+    const navBox = (await page.locator('nav').boundingBox())!;
+    const buy = page.getByRole('button', { name: 'קְנֵה בֵּיצָה' });
+    const buyBox = (await buy.boundingBox())!;
+
+    expect(
+      buyBox.y + buyBox.height,
+      `buy button runs under the nav at ${size.width}x${size.height}`,
+    ).toBeLessThanOrEqual(navBox.y + 1);
+  }
+});
+
+test('the bottom nav keeps a large touch target while staying compact', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const navBox = (await page.locator('nav').boundingBox())!;
+  // Compact enough not to crowd a short screen...
+  expect(navBox.height).toBeLessThan(70);
+  // ...but every tab still comfortably above the 44px minimum touch target.
+  const tabs = page.locator('nav button');
+  for (let i = 0; i < (await tabs.count()); i++) {
+    const b = (await tabs.nth(i).boundingBox())!;
+    expect(b.height, `nav tab ${i} is too small to tap`).toBeGreaterThanOrEqual(44);
+    expect(b.width, `nav tab ${i} is too narrow to tap`).toBeGreaterThanOrEqual(44);
+  }
+});

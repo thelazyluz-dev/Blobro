@@ -57,7 +57,7 @@ export function HatchScreen() {
   };
 
   return (
-    <div className="anim-tab-in flex h-full flex-col items-center justify-between px-6 py-6">
+    <div className="anim-tab-in flex h-full flex-col items-center justify-between overflow-y-auto px-6 py-4">
       <header className="text-center">
         <h1 className="font-display text-4xl text-bone">בְּקִיעָה</h1>
         <p className="mt-1 text-sm text-bone/60">קונים ביצים — פותחים ומגלים יצורים!</p>
@@ -82,9 +82,9 @@ export function HatchScreen() {
       </div>
 
       {/* The stash: tap the egg to open one (crack-by-crack in the overlay). */}
-      <div className="relative flex flex-1 items-center justify-center">
+      <div className="relative flex min-h-0 flex-1 shrink items-center justify-center py-2">
         <div
-          className={`pointer-events-none absolute h-56 w-56 rounded-full ${reduced ? '' : 'anim-breathe'}`}
+          className={`pointer-events-none absolute h-[clamp(140px,28vh,224px)] w-[clamp(140px,28vh,224px)] rounded-full ${reduced ? '' : 'anim-breathe'}`}
           style={{ background: 'radial-gradient(circle, rgba(255,216,77,0.28), transparent 65%)' }}
         />
         <button
@@ -96,7 +96,10 @@ export function HatchScreen() {
             hasEggs ? 'active:scale-95' : 'opacity-60'
           }`}
         >
-          <EggArt spotColor="#A3FF12" className={`h-[210px] w-[168px] ${reduced || !hasEggs ? '' : 'anim-idle'}`} />
+          <EggArt
+            spotColor="#A3FF12"
+            className={`h-[clamp(130px,26vh,210px)] w-[clamp(104px,20.8vh,168px)] ${reduced || !hasEggs ? '' : 'anim-idle'}`}
+          />
           {/* inventory count badge */}
           <span
             className="absolute -end-1 -top-1 flex h-9 min-w-9 items-center justify-center rounded-full bg-hot px-2 font-display text-lg text-bone tabular ring-2 ring-void/60"
@@ -107,7 +110,7 @@ export function HatchScreen() {
         </button>
       </div>
 
-      <div className="w-full max-w-xs text-center">
+      <div className="w-full max-w-xs shrink-0 text-center">
         {hasEggs ? (
           <p className="mb-3 text-sm text-bone/70">לְחַץ עַל הַבֵּיצָה כְּדֵי לִשְׁבֹּר אוֹתָהּ! 🥚</p>
         ) : (
