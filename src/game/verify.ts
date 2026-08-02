@@ -1,0 +1,210 @@
+// Plausibility bounds for a save delta (PR 5). Pure — no window, no React, no
+// store — so the SERVER runs this exact function rather than a reimplementation
+// of it (see worker/src/rules.ts). Golden-locked like every other shared rule.
+//
+// WHAT THIS IS
+// Given a save and how much wall-clock time really passed (measured by the
+// SERVER, never taken from the client), this computes the most goo a player
+// could possibly have earned in that window if every advantage in the game were
+// stacked in their favour the entire time. A reported gain above that ceiling
+// cannot be explained by playing.
+//
+// WHAT THIS IS NOT
+// It is not proof of cheating and it is not a simulation of what a player
+// actually did. It is a ceiling, and it is deliberately a GENEROUS one. The
+// stated goal (see CLAUDE.md) is to make cheating "too expensive to bother",
+// not to catch every cheat — and the failure modes are wildly asymmetric: a
+// missed cheat costs a leaderboard place, while a false positive punishes a
+// real child for playing well. So every judgement call below rounds in the
+// player's favour, and the caller is expected to treat a breach as a signal to
+// record, not a reason to reject.
+//
+// The multiplier ceilings are DERIVED from the balance and event tables rather
+// than copied as literals. If a future event is added with a bigger multiplier,
+// this ceiling rises with it automatically — a hardcoded number would silently
+// start flagging honest players the day that event shipped.
+
+import { adRewardMult, critMultiplier, frenzyMultiplier } from './balance';
+import { charactersById } from './characters';
+import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
+import { EVENTS } from './events';
+import { autoClicksPerSec, clickPower, gooPerSec, modifiersFrom } from './economy';
+import { starBonusFor } from './achievements';
+import type { SaveState } from './types';
+
+/**
+ * Physical tap ceiling. A fast adult sustains roughly 10 taps/sec; this is set
+ * well above that so a kid drumming with several fingers on a tablet, or a
+ * burst of autoclicks landing in the same second, never trips it. The same
+ * spirit as CLICK_RATE_PER_SEC in the leaderboard's anti-cheat clamp.
+ */
+export const maxHumanTapsPerSec = 25;
+
+/**
+ * Floor on the measured interval. Two saves can land within milliseconds of
+ * each other (a checkpoint racing a pagehide push), and dividing a real gain by
+ * a near-zero window would manufacture an enormous apparent rate. Treating any
+ * interval as at least this long removes that whole class of false positive.
+ */
+export const minIntervalSeconds = 10;
+
+/**
+ * A flat allowance on top of the computed ceiling, in goo. Covers the small,
+ * awkward-to-model grants — a collected bonus button, a milestone reward
+ * landing right at the boundary, an offline report applied a moment after the
+ * previous save was written. Small enough to be irrelevant to a real cheat,
+ * which overshoots by orders of magnitude, not by a few taps' worth.
+ */
+export const plausibilityGraceGoo = 10_000;
+
+/** The largest income multiplier any single event grants. */
+export const maxEventIncomeMult = EVENTS.reduce((max, e) => Math.max(max, e.incomeMult), 1);
+
+/** The largest tap multiplier any single event grants. */
+export const maxEventClickMult = EVENTS.reduce((max, e) => Math.max(max, e.clickMult), 1);
+
+/** Modifiers for a save, folded together exactly as the client does. */
+function modsFor(save: SaveState) {
+  return modifiersFrom(
+    save.upgrades,
+    starBonusFor(save.achievements),
+    clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
+    backgroundIncomeBonus(save.equippedBackground),
+  );
+}
+
+export interface PlausibilityCeiling {
+  /** Most goo obtainable in the interval, all advantages stacked. */
+  maxGain: number;
+  /** The interval actually used, after applying minIntervalSeconds. */
+  effectiveSeconds: number;
+  /** Passive goo/sec at this save's state, before event/ad multipliers. */
+  passivePerSec: number;
+  /** Goo per tap at this save's state, before crit/frenzy/event multipliers. */
+  perTap: number;
+}
+
+/**
+ * The ceiling itself. Assumes, simultaneously and for the entire interval:
+ * a permanent maximum-multiplier event, a permanent ad boost, every tap a
+ * critical hit landing inside a permanent frenzy, and the player tapping at
+ * the physical maximum on top of a fully-levelled robot hand. No real session
+ * looks like this — that is the point.
+ *
+ * Note it uses the LATER save's state, which is the more generous reading:
+ * a player who bought creatures mid-interval gets credited as though they had
+ * owned them the whole time.
+ */
+export function plausibilityCeiling(save: SaveState, elapsedSeconds: number): PlausibilityCeiling {
+  const effectiveSeconds = Math.max(minIntervalSeconds, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
+  const m = modsFor(save);
+
+  const passivePerSec = gooPerSec(save.characters, m);
+  const perTap = clickPower(m);
+  const tapsPerSec = maxHumanTapsPerSec + autoClicksPerSec(save.upgrades.autoTap);
+
+  const incomeCeiling = passivePerSec * maxEventIncomeMult * adRewardMult;
+  const tapCeiling = perTap * tapsPerSec * maxEventClickMult * frenzyMultiplier * critMultiplier * adRewardMult;
+
+  return {
+    maxGain: (incomeCeiling + tapCeiling) * effectiveSeconds + plausibilityGraceGoo,
+    effectiveSeconds,
+    passivePerSec,
+    perTap,
+  };
+}
+
+export type PlausibilityFlag =
+  /** lifetimeGoo grew by more than the ceiling allows. */
+  | 'goo-rate'
+  /** More taps reported than a human plus their robot hand could produce. */
+  | 'click-rate'
+  /** lifetimeGoo went DOWN — it is monotonic, so this is a rewritten save. */
+  | 'lifetime-goo-decreased'
+  /** Creatures were owned that no hatch could have produced (count went down then up). */
+  | 'clicks-decreased';
+
+export interface PlausibilityVerdict {
+  ok: boolean;
+  flags: PlausibilityFlag[];
+  /** Reported lifetimeGoo gain over the interval. */
+  gooGain: number;
+  /** The ceiling that gain was measured against. */
+  maxGain: number;
+  /** Reported tap-count gain over the interval. */
+  clickGain: number;
+  /** The tap ceiling that gain was measured against. */
+  maxClicks: number;
+  /**
+   * gooGain / maxGain. This is the number worth STORING, not just the pass/fail
+   * — the ceiling is deliberately a loose bound (every tap a crit, inside a
+   * permanent frenzy, under a permanent ad boost and a permanent maximum
+   * event), so honest play lands orders of magnitude below 1 and only gross
+   * fabrication exceeds it. Accumulating real ratios is what will let a later
+   * PR set a tight, evidence-based threshold instead of a guessed one. Until
+   * then, be honest that this catches gross cheating only.
+   */
+  ratio: number;
+}
+
+/**
+ * Compare two consecutive saves from the same account.
+ *
+ * `elapsedSeconds` MUST come from the server's own clock (the gap between the
+ * stored write time and now). Reading it from the save's own `lastSeen` would
+ * hand the cheater the very number that bounds them.
+ *
+ * `previous` is null for an account's first-ever save, which nothing can be
+ * compared against — that is reported as ok with no flags rather than as
+ * suspicious, because everyone has a first save and most first saves are also
+ * a migration of real, legitimately-earned progress from before accounts
+ * existed.
+ */
+export function verifySaveDelta(
+  previous: SaveState | null,
+  next: SaveState,
+  elapsedSeconds: number,
+): PlausibilityVerdict {
+  const ceiling = plausibilityCeiling(next, elapsedSeconds);
+  const maxClicks = (maxHumanTapsPerSec + autoClicksPerSec(next.upgrades.autoTap)) * ceiling.effectiveSeconds;
+
+  if (!previous) {
+    return { ok: true, flags: [], gooGain: 0, maxGain: ceiling.maxGain, clickGain: 0, maxClicks, ratio: 0 };
+  }
+
+  const gooGain = next.lifetimeGoo - previous.lifetimeGoo;
+  const clickGain = next.clicks - previous.clicks;
+  const flags: PlausibilityFlag[] = [];
+
+  // lifetimeGoo and clicks only ever grow within an honest save. Going
+  // backwards means the save was edited, or two devices are diverging — worth
+  // knowing about either way, and cheap to spot.
+  if (gooGain < 0) flags.push('lifetime-goo-decreased');
+  else if (gooGain > ceiling.maxGain) flags.push('goo-rate');
+
+  if (clickGain < 0) flags.push('clicks-decreased');
+  else if (clickGain > maxClicks) flags.push('click-rate');
+
+  return {
+    ok: flags.length === 0,
+    flags,
+    gooGain,
+    maxGain: ceiling.maxGain,
+    clickGain,
+    maxClicks,
+    ratio: ceiling.maxGain > 0 ? gooGain / ceiling.maxGain : 0,
+  };
+}
+
+/**
+ * Sanity bound on owned creatures: a save can't own a creature it never
+ * hatched. Cheap structural check that doesn't depend on timing at all, so it
+ * catches an edited save even on a first upload where there's nothing to diff.
+ */
+export function ownsImpossibleCreatures(save: SaveState): boolean {
+  const owned = Object.keys(save.characters).filter((id) => charactersById[id as keyof typeof charactersById]);
+  // Creatures also arrive from click-unlocks, so hatches alone don't bound the
+  // count — only flag the clear case of owning creatures with no hatches and
+  // no clicks behind them at all.
+  return owned.length > 0 && save.totalHatches === 0 && save.clicks === 0;
+}

@@ -48,7 +48,8 @@ import { buyableEggs, hatch, openEggs, pickChar, rollRarity } from '../src/game/
 import { milestones, milestonesCrossed } from '../src/game/milestones';
 import { computeOffline } from '../src/game/offline';
 import { createRng, type RngState } from '../src/game/rng';
-import { migrate } from '../src/game/save';
+import { migrate, defaultSaveState } from '../src/game/save';
+import { plausibilityCeiling, verifySaveDelta } from '../src/game/verify';
 import { defaultUpgrades } from '../src/game/upgrades';
 import type { CharId, OwnedCharacters, Rarity, Upgrades } from '../src/game/types';
 
@@ -561,6 +562,71 @@ const migrateCases = [
   return { ...c, freshRng, expected: freshRng ? { ...expected, rng: null } : expected };
 });
 
+
+// ── plausibility (PR 5) ──────────────────────────────────────────────────
+// The server runs these to decide whether an uploaded save is physically
+// achievable, so client and server MUST agree on the bound to the last
+// decimal — a server that computes a slightly different ceiling than the
+// client's rules imply would flag honest players.
+const PLAUS_NOW = 1_754_000_000_000;
+const plausBase = defaultSaveState(PLAUS_NOW);
+const plausMid = {
+  ...plausBase,
+  characters: { blombo: { level: 60 }, fizzik: { level: 45 }, nono: { level: 30 } },
+  upgrades: { ...plausBase.upgrades, finger: 40, power: 12, nurture: 10, autoTap: 20, crit: 8, luck: 4 },
+  lifetimeGoo: 5_000_000,
+  clicks: 20_000,
+} as typeof plausBase;
+
+const plausibilityCeilingCases = [
+  { label: 'fresh save, one minute', save: plausBase, elapsed: 60 },
+  { label: 'fresh save, interval below the floor is raised to it', save: plausBase, elapsed: 0 },
+  { label: 'fresh save, negative interval is floored too', save: plausBase, elapsed: -100 },
+  { label: 'mid-game save, one minute', save: plausMid, elapsed: 60 },
+  { label: 'mid-game save, one hour', save: plausMid, elapsed: 3600 },
+  { label: 'mid-game save, a day', save: plausMid, elapsed: 86_400 },
+].map((c) => ({ ...c, expected: plausibilityCeiling(c.save, c.elapsed) }));
+
+const verifySaveDeltaCases = [
+  { label: 'first-ever save has nothing to compare against', prev: null, next: plausMid, elapsed: 60 },
+  {
+    label: 'an honest minute of hard play is within bounds',
+    prev: plausMid,
+    next: { ...plausMid, lifetimeGoo: plausMid.lifetimeGoo + 12_000_000, clicks: plausMid.clicks + 300 },
+    elapsed: 60,
+  },
+  {
+    label: 'a thousandfold overshoot is flagged',
+    prev: plausMid,
+    next: { ...plausMid, lifetimeGoo: plausMid.lifetimeGoo + 1e15, clicks: plausMid.clicks + 300 },
+    elapsed: 60,
+  },
+  {
+    label: 'lifetimeGoo going backwards is flagged',
+    prev: plausMid,
+    next: { ...plausMid, lifetimeGoo: 1 },
+    elapsed: 60,
+  },
+  {
+    label: 'clicks going backwards is flagged',
+    prev: plausMid,
+    next: { ...plausMid, clicks: 5 },
+    elapsed: 60,
+  },
+  {
+    label: 'more taps than a human plus robot hand could make is flagged',
+    prev: plausMid,
+    next: { ...plausMid, clicks: plausMid.clicks + 100_000 },
+    elapsed: 60,
+  },
+  {
+    label: 'a long legitimate absence stays within bounds',
+    prev: plausMid,
+    next: { ...plausMid, lifetimeGoo: plausMid.lifetimeGoo + 60_000 },
+    elapsed: 86_400,
+  },
+].map((c) => ({ ...c, expected: verifySaveDelta(c.prev, c.next, c.elapsed) }));
+
 // ── milestonesCrossed ────────────────────────────────────────────────────
 // We lock the THRESHOLDS crossed (the rule), not the celebratory copy.
 const milestonesCrossedCases = [
@@ -669,6 +735,8 @@ const vectors = {
   isComplete: isCompleteCases,
   computeOffline: computeOfflineCases,
   migrate: migrateCases,
+  plausibilityCeiling: plausibilityCeilingCases,
+  verifySaveDelta: verifySaveDeltaCases,
   milestonesCrossed: milestonesCrossedCases,
   eventStateAt: eventStateAtCases,
   rng: {

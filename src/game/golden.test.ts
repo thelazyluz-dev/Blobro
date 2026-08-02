@@ -33,6 +33,7 @@ import { milestonesCrossed } from './milestones';
 import { computeOffline } from './offline';
 import { createRng } from './rng';
 import { migrate } from './save';
+import { plausibilityCeiling, verifySaveDelta } from './verify';
 import vectors from './__golden__/vectors.json';
 
 // Cases flagged `freshRng` carry no usable rng stream, so migrate mints a
@@ -240,6 +241,18 @@ describe('golden vectors — computeOffline', () => {
 describe('golden vectors — migrate', () => {
   it.each(vectors.migrate)('matches for $label', (c: any) => {
     expect(migrateGolden(c)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors — plausibilityCeiling', () => {
+  it.each(vectors.plausibilityCeiling)('matches for $label', (c: any) => {
+    expect(plausibilityCeiling(c.save, c.elapsed)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors — verifySaveDelta', () => {
+  it.each(vectors.verifySaveDelta)('matches for $label', (c: any) => {
+    expect(verifySaveDelta(c.prev, c.next, c.elapsed)).toEqual(c.expected);
   });
 });
 

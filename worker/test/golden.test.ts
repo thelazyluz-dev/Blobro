@@ -30,6 +30,8 @@ import {
   migrate,
   milestonesCrossed,
   modifiersFrom,
+  plausibilityCeiling,
+  verifySaveDelta,
   openEggs,
   ownedCreatureIncome,
   pickChar,
@@ -250,6 +252,20 @@ describe('golden vectors via worker/src/rules — migrate', () => {
     expect(Number.isInteger(actual.rng.seed)).toBe(true);
     expect(actual.rng.seed).toBeGreaterThanOrEqual(0);
     expect({ ...actual, rng: null }).toEqual(c.expected);
+  });
+});
+
+// PR 5: the server decides with these whether an upload is achievable. If the
+// two sides disagreed by even a rounding step, honest players would be flagged.
+describe('golden vectors via worker/src/rules — plausibilityCeiling', () => {
+  it.each(vectors.plausibilityCeiling)('matches for $label', (c: any) => {
+    expect(plausibilityCeiling(c.save, c.elapsed)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors via worker/src/rules — verifySaveDelta', () => {
+  it.each(vectors.verifySaveDelta)('matches for $label', (c: any) => {
+    expect(verifySaveDelta(c.prev, c.next, c.elapsed)).toEqual(c.expected);
   });
 });
 

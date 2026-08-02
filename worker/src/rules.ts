@@ -55,4 +55,17 @@ export { currentEvent, eventStateAt } from '../../src/game/events';
 // never left the device, and neither side can invent a field the other drops.
 export { CURRENT_VERSION, defaultSaveState, migrate } from '../../src/game/save';
 
+// Plausibility bounds (PR 5). The server measures the interval with its own
+// clock and asks these functions what was physically obtainable in it — same
+// pure code the client ships, so the bound can't drift from the rules that
+// produce the numbers it bounds.
+export {
+  ownsImpossibleCreatures,
+  plausibilityCeiling,
+  verifySaveDelta,
+  maxHumanTapsPerSec,
+  minIntervalSeconds,
+} from '../../src/game/verify';
+export type { PlausibilityFlag, PlausibilityVerdict } from '../../src/game/verify';
+
 export * as balance from '../../src/game/balance';
