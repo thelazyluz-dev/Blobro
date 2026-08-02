@@ -29,7 +29,7 @@ test('signed in: no gate, the game loads and is playable', async ({ page }) => {
   await expect(blob).toBeVisible();
   await expect(page.getByRole('link', { name: /Google/ })).toHaveCount(0);
 
-  const counter = page.getByRole('button', { name: 'מקרא מספרים' });
+  const counter = page.getByRole('status', { name: 'מוֹנֶה גּוּ' });
   const before = await counter.innerText();
   for (let i = 0; i < 6; i++) await blob.click({ force: true });
   await expect(counter).not.toHaveText(before);

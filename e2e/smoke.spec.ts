@@ -28,12 +28,29 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('app loads and the goo counter is visible', async ({ page }) => {
-  const counter = page.getByRole('button', { name: 'מקרא מספרים' });
+  const counter = page.getByRole('status', { name: 'מוֹנֶה גּוּ' });
   await expect(counter).toBeVisible();
 });
 
+test('the goo counter is not a tap target — it sits right above the blob', async ({ page }) => {
+  // It used to be a ~200x96 button opening the number legend, so a tap that
+  // landed a little high opened a modal instead of scoring. Guard the fix:
+  // the counter must not be clickable, and the legend must live elsewhere.
+  const counter = page.getByRole('status', { name: 'מוֹנֶה גּוּ' });
+  await expect(counter).toBeVisible();
+  await expect(counter).not.toHaveAttribute('type', 'button');
+
+  const legend = page.getByRole('button', { name: 'מקרא מספרים' });
+  await expect(legend).toBeVisible();
+
+  // And the legend must be BELOW the blob, not stacked on top of it.
+  const blobBox = (await page.getByRole('button', { name: 'לחיצה על הבלוב' }).boundingBox())!;
+  const legendBox = (await legend.boundingBox())!;
+  expect(legendBox.y, 'the legend button overlaps the blob tap area').toBeGreaterThan(blobBox.y + blobBox.height);
+});
+
 test('tapping the main blob increases the goo value', async ({ page }) => {
-  const counter = page.getByRole('button', { name: 'מקרא מספרים' });
+  const counter = page.getByRole('status', { name: 'מוֹנֶה גּוּ' });
   const blob = page.getByRole('button', { name: 'לחיצה על הבלוב' });
   await expect(blob).toBeVisible();
 

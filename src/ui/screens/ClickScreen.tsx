@@ -3,7 +3,7 @@
 // All motion honors reduced-motion.
 
 import { useEffect, useRef, useState } from 'react';
-import { playBonus, playClick, playCrit, playRainDrop } from '../../audio/sfx';
+import { playBonus, playClick, playRainDrop } from '../../audio/sfx';
 import {
   bonusIntervalMaxMs,
   bonusIntervalMinMs,
@@ -298,13 +298,12 @@ export function ClickScreen() {
     }
 
     const muted = useGame.getState().muted;
-    if (crit) {
-      playCrit(muted);
-      haptic([0, 30, 20, 50]);
-    } else {
-      playClick(muted, frenzy ? c.count + 8 : c.count, comboMelody);
-      if (frenzy) haptic(12);
-    }
+    // One entry point: playClick decides whether a crit is a standalone zap or
+    // an accent on the melody's own note, so a bought melody is never silenced
+    // by a lucky tap (see clickSoundFor).
+    playClick(muted, frenzy ? c.count + 8 : c.count, comboMelody, crit);
+    if (crit) haptic([0, 30, 20, 50]);
+    else if (frenzy) haptic(12);
 
     if (reduced) return;
 
@@ -425,13 +424,12 @@ export function ClickScreen() {
       )}
 
       <header className="mt-2 text-center">
-        {/* Tapping the counter opens the number legend (what K/M/B/T… mean). */}
-        <button
-          type="button"
-          onClick={() => useGame.getState().setNumberLegendOpen(true)}
-          aria-label="מקרא מספרים"
-          className="mx-auto block outline-none"
-        >
+        {/* Deliberately NOT a button. It used to open the number legend, but it
+            is a ~200x96 target sitting directly above the blob, so a tap that
+            landed a little high opened a modal instead of scoring — on the main
+            screen, where nearly every tap in the game happens. The legend moved
+            to the info row at the bottom, out of the tap path. */}
+        <div role="status" aria-label="מוֹנֶה גּוּ" className="mx-auto block">
           <div
             className={`font-display text-7xl leading-none tabular text-glow-pop ${
               frenzyActive ? 'text-hot' : 'text-pop'
@@ -439,10 +437,8 @@ export function ClickScreen() {
           >
             {formatGooHero(goo)}
           </div>
-          <div className="mt-1 text-sm tracking-wide text-bone/60">
-            גּוּ <span className="text-bone/35">🔢</span>
-          </div>
-        </button>
+          <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
+        </div>
         {goo >= 1000 && (
           <div className="mt-0.5 text-sm text-bone/60 tabular" dir="ltr">
             {formatExact(goo)}
@@ -589,6 +585,14 @@ export function ClickScreen() {
             <span className="text-goo">{formatGoo(rate + robotPerSec)}/ש׳</span>
             <span className="text-pop">👆 {formatGoo(perClick)}</span>
             <span className="text-cy">ℹ️</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => useGame.getState().setNumberLegendOpen(true)}
+            aria-label="מקרא מספרים"
+            className="inline-flex shrink-0 items-center rounded-full bg-black/30 px-3 py-1.5 text-sm ring-1 ring-hairline active:scale-95"
+          >
+            🔢
           </button>
         </div>
       </div>

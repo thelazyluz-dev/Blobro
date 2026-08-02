@@ -64,21 +64,68 @@ function melodyNote(ctx: AudioContext, freq: number, when: number, gain = 0.12):
   voice(ctx, freq / 2, when, 0.07, { type: 'triangle', gain: gain * 0.5, filter: 3500, decay: 0.05 });
 }
 
+/**
+ * A critical tap landing DURING a melody. Plays the melody's own note an octave
+ * up rather than a separate zap.
+ *
+ * The zap used to replace the note entirely, so with the crit upgrade near its
+ * 60% cap most of the tune simply went missing — the melody you paid for was
+ * audible only on the taps that didn't crit. An octave is the most consonant
+ * interval there is, so this can never land out of key whichever pack is
+ * equipped, and the crit reads as a highlight in the music instead of an
+ * interruption of it.
+ */
+function critAccent(ctx: AudioContext, freq: number, when: number): void {
+  voice(ctx, freq * 2, when, 0.07, { type: 'square', gain: 0.13, filter: 9000, decay: 0.05 });
+  voice(ctx, freq * 4, when + 0.02, 0.05, { type: 'sine', gain: 0.06, filter: 12000, decay: 0.04 });
+}
+
+/** The original standalone crit zap — still used when no melody is playing. */
+function critTone(ctx: AudioContext, now: number): void {
+  voice(ctx, 1500, now, 0.05, { type: 'sawtooth', gain: 0.2, filter: 7000, decay: 0.06 });
+  voice(ctx, 500, now + 0.03, 0.08, { type: 'square', gain: 0.2, filter: 4000, decay: 0.1 });
+  voice(ctx, 1000, now + 0.03, 0.08, { type: 'sine', gain: 0.1, filter: 8000, decay: 0.1 });
+}
+
+/**
+ * Which sound a tap should make. Split out from the synthesis so the RULE can
+ * be tested without a WebAudio context — the part worth protecting is the
+ * decision, not the oscillators.
+ */
+export type ClickSound = 'melody' | 'melody-crit' | 'crit' | 'blip';
+
+export function clickSoundFor(combo: number, melodyLength: number, crit: boolean): ClickSound {
+  const inMelody = combo >= COMBO_MELODY_START && melodyLength > 0;
+  if (inMelody) return crit ? 'melody-crit' : 'melody';
+  return crit ? 'crit' : 'blip';
+}
+
 /** A tiny blip whose pitch rises with the tap combo — rapid tapping "runs up".
  * With a non-empty `melody` (a bought sound pack), a high combo flips into that
  * 8-bit melody; with an empty melody (the CLASSIC pack) it stays the original
- * rising blip, exactly as the game shipped. */
-export function playClick(muted: boolean, combo = 1, melody: number[] = []): void {
+ * rising blip, exactly as the game shipped. A crit never silences the melody —
+ * see critAccent. */
+export function playClick(muted: boolean, combo = 1, melody: number[] = [], crit = false): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
-  if (combo >= COMBO_MELODY_START && melody.length > 0) {
-    melodyNote(ctx, melody[(combo - COMBO_MELODY_START) % melody.length], now);
-    return;
+  switch (clickSoundFor(combo, melody.length, crit)) {
+    case 'melody':
+    case 'melody-crit': {
+      const freq = melody[(combo - COMBO_MELODY_START) % melody.length];
+      melodyNote(ctx, freq, now, crit ? 0.15 : 0.12);
+      if (crit) critAccent(ctx, freq, now);
+      return;
+    }
+    case 'crit':
+      critTone(ctx, now);
+      return;
+    default: {
+      const freq = Math.min(1300, 520 + combo * 42);
+      voice(ctx, freq, now, 0.04, { type: 'square', gain: 0.1, filter: 6000, decay: 0.03 });
+    }
   }
-  const freq = Math.min(1300, 520 + combo * 42);
-  voice(ctx, freq, now, 0.04, { type: 'square', gain: 0.1, filter: 6000, decay: 0.03 });
 }
 
 /** Preview a sound pack in the shop. An empty melody = the classic pack, so we
@@ -227,15 +274,12 @@ export function playCrack(muted: boolean, rarityLevel: number): void {
   notes.forEach((f, i) => voice(ctx, f, now + 0.05 + i * 0.05, 0.1, { type: 'triangle', gain: 0.14, filter: 7000, decay: 0.14 }));
 }
 
-/** Punchy zap for a critical tap. */
+/** Punchy zap for a critical tap outside the melody (kept for other callers). */
 export function playCrit(muted: boolean): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
-  const now = ctx.currentTime;
-  voice(ctx, 1500, now, 0.05, { type: 'sawtooth', gain: 0.2, filter: 7000, decay: 0.06 });
-  voice(ctx, 500, now + 0.03, 0.08, { type: 'square', gain: 0.2, filter: 4000, decay: 0.1 });
-  voice(ctx, 1000, now + 0.03, 0.08, { type: 'sine', gain: 0.1, filter: 8000, decay: 0.1 });
+  critTone(ctx, ctx.currentTime);
 }
 
 /** Soft plink when a goo-rain drop is tapped. */
