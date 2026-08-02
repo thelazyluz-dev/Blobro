@@ -43,6 +43,13 @@
  *   GET  /save                      → { rev, updated, save } | { rev:0, save:null } | 401
  *   PUT  /save                      → { rev, updated } | 409 { error, rev, updated, save } | 401
  *        body: { baseRev, save }
+ *
+ * PR 5 adds save AUDITING, SHADOW MODE ONLY — see the "Save auditing (PR 5)"
+ * section below. Every successful `PUT /save` now also records the server's
+ * opinion of whether the upload's delta was physically achievable into
+ * `save_audit`. It never rejects, blocks, or alters the write or its response
+ * — this PR is purely "observe and record", so a later PR can pick an
+ * enforcement threshold from real data instead of a guess.
  */
 
 import {
@@ -71,7 +78,7 @@ import {
 } from './auth';
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
 // — see worker/src/rules.ts for why this is never reimplemented locally.
-import { CURRENT_VERSION, migrate } from './rules';
+import { CURRENT_VERSION, migrate, verifySaveDelta } from './rules';
 
 export interface Env {
   DB: D1Database;
@@ -723,6 +730,10 @@ async function authGoogleCallback(request: Request, env: Env, url: URL): Promise
 // WHERE clauses) so two concurrent writes against the same row can't both
 // succeed — whichever commits first moves `rev` forward and the loser's
 // guard fails.
+//
+// PR 5 adds a plausibility AUDIT of every successful write (see the
+// try/catch around `verifySaveDelta` in `savePut` below) — shadow mode only,
+// see worker/README.md "Save auditing (PR 5)" for what it records and why.
 
 interface SaveRow {
   rev: number;
@@ -796,6 +807,19 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
   const newRev = baseRev + 1;
 
   try {
+    // Read the row as it stood BEFORE this write — this is the PREVIOUS save
+    // the audit (PR 5) measures this upload's delta against. It has to be read
+    // up front, because after the UPSERT the row IS the new save and there is
+    // nothing left to compare to.
+    //
+    // It is safe to use for exactly that and nothing else: the UPSERT only
+    // succeeds when the stored rev still equals baseRev, so on success this
+    // snapshot is provably the row we just replaced. It is NOT reused for the
+    // 409 response — see the comment there.
+    const previousRow = await env.DB.prepare('SELECT rev, payload, updated FROM saves WHERE user_id = ?1')
+      .bind(user.id)
+      .first<SaveRow>();
+
     // A single guarded UPSERT:
     //  - No row yet: the SELECT source only yields a row when baseRev is 0
     //    (the only correct baseRev for "no save"), so a stale baseRev with no
@@ -821,12 +845,53 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       .run();
 
     if ((result.meta?.changes ?? 0) === 0) {
+      // Re-read rather than reuse `previousRow`. The whole point of a 409 is
+      // to hand back the save that BEAT us, and `previousRow` was read before
+      // the UPSERT — if the winning write landed in between, that snapshot is
+      // already stale. Answering with it would send the client away to merge
+      // against its own old state and retry at a rev the server has moved
+      // past, conflicting forever. One extra read, only on the conflict path.
       const current = await env.DB.prepare('SELECT rev, payload, updated FROM saves WHERE user_id = ?1')
         .bind(user.id)
         .first<SaveRow>();
       if (!current) return authJson({ error: 'stale', rev: 0, updated: 0, save: null }, 409, origin);
       const currentSave = migrate(tryParseJson(current.payload), now);
       return authJson({ error: 'stale', rev: current.rev, updated: current.updated, save: currentSave }, 409, origin);
+    }
+
+    // ── Save auditing (PR 5, shadow mode) ─────────────────────────────────
+    // Record whether this delta was physically achievable — never blocks or
+    // alters the response. A failure here (bad SQL, or `save_audit` not
+    // existing yet because the owner hasn't re-run schema.sql against this
+    // deploy) is caught and logged, not propagated: a player must never lose
+    // a save because auditing hiccuped.
+    try {
+      const previousSave = previousRow ? migrate(tryParseJson(previousRow.payload), now) : null;
+      // elapsedSeconds MUST come from the SERVER's own clock (the gap since
+      // the previous stored write) — never from anything in the uploaded
+      // save (e.g. `lastSeen`), which would hand a cheater exactly the
+      // number that's supposed to bound them.
+      const elapsedSeconds = previousRow ? Math.max(0, (now - previousRow.updated) / 1000) : 0;
+      const verdict = verifySaveDelta(previousSave, sanitized, elapsedSeconds);
+      await env.DB.prepare(
+        `INSERT INTO save_audit (user_id, rev, created, elapsed_sec, goo_gain, max_gain, ratio, click_gain, flags, ok)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+      )
+        .bind(
+          user.id,
+          newRev,
+          now,
+          elapsedSeconds,
+          verdict.gooGain,
+          verdict.maxGain,
+          verdict.ratio,
+          verdict.clickGain,
+          verdict.flags.join(','),
+          verdict.ok ? 1 : 0,
+        )
+        .run();
+    } catch (err) {
+      console.error('save_audit insert failed', err);
     }
 
     return authJson({ rev: newRev, updated: now }, 200, origin);

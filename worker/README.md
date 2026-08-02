@@ -291,3 +291,93 @@ rejected with the current save attached, the 64 KiB size cap, junk-save
 sanitization (unknown creature ids, negative goo, `NaN` fields, an unknown
 cosmetic), that one user can't read or overwrite another's save, and
 malformed bodies answering `400` rather than `500`.
+
+---
+
+## Save auditing (PR 5) — SHADOW MODE, records only, rejects nothing
+
+Every successful `PUT /save` now also writes one row to a new `save_audit`
+table, recording the server's opinion of whether the upload's delta was
+physically achievable. **This PR observes and records. It does not reject,
+block, clamp, or otherwise change a single byte of the save or the
+response** — a flagged upload still returns `200` with its new `rev`, exactly
+as an honest one would. Enforcement is a deliberately later PR, once real
+`ratio` data from real players exists to set a threshold — see
+`src/game/verify.ts` for the full reasoning.
+
+What gets recorded per write (see `verifySaveDelta` in `src/game/verify.ts`,
+imported the same way as every other shared rule — via `worker/src/rules.ts`,
+never reimplemented):
+
+- `elapsed_sec` — the gap since the account's previous write, measured by the
+  **Worker's own clock** (`now - previousRow.updated`). This is intentional:
+  reading the interval from anything in the uploaded save (e.g. `lastSeen`)
+  would hand a cheater exactly the number that's supposed to bound them.
+- `goo_gain` / `max_gain` / `ratio` — the reported `lifetimeGoo` increase,
+  the ceiling it was checked against, and their quotient. The ceiling
+  assumes every advantage in the game stacked simultaneously for the whole
+  interval (permanent max-multiplier event, permanent ad boost, every tap a
+  crit inside a permanent frenzy) — deliberately generous, so a false
+  positive doesn't punish a real child for playing well.
+- `click_gain` — the reported tap-count increase, checked against a
+  humanly-plausible tap rate plus the account's robot-hand level.
+- `flags` — a comma-joined list of what tripped (`goo-rate`, `click-rate`,
+  `lifetime-goo-decreased`, `clicks-decreased`); `''` when clean.
+- `ok` — `1` if nothing tripped, `0` if anything did. Never affects the HTTP
+  response.
+
+**Be honest about what this catches.** The ceiling is loose by design — it
+only flags gross fabrication, roughly a thousandfold overshoot or more, not
+subtle inflation. That's exactly why `ratio` (not just the pass/fail) is
+stored: honest play should land orders of magnitude below `1`, and
+accumulating real ratios across real saves is what lets a future PR pick an
+evidence-based enforcement threshold instead of a guessed one.
+
+**Failure isolation.** The audit insert is wrapped in its own `try`/`catch`
+inside `savePut` — if it throws for any reason (bad SQL, or `save_audit` not
+existing yet because the schema hasn't been re-applied to this deploy), the
+error is logged and swallowed, never propagated. A player's save write must
+never fail because auditing had a bad day.
+
+### Schema change — apply and redeploy to go live
+
+`schema.sql` gained one new table, `save_audit`, plus two indexes. Same
+additive contract as PR 3a/4: every statement is `CREATE TABLE/INDEX IF NOT
+EXISTS`, nothing in `scores`, `users`, `sessions`, `login_throttle`, or
+`saves` is touched, and the whole file is safe to re-run against production:
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql
+```
+
+As always, shipping this code is not the same as the feature being live —
+run the schema command above, then:
+
+```bash
+npx wrangler deploy
+```
+
+Until the schema is re-applied, `PUT /save` keeps working exactly as before
+(see "Failure isolation" above) — auditing just silently doesn't record
+anything until the table exists.
+
+### Testing
+
+Integration tests live in `worker/test/save-audit.integration.test.ts`, same
+rig as the other integration suites (see "Testing" under PR 3a above). Run
+them the same way:
+
+```bash
+cd worker
+npx vitest run
+```
+
+They cover: a first save (nothing to compare against) recording clean, a
+modest second save recording clean with a server-measured `elapsed_sec`, an
+absurd `lifetimeGoo` jump recording `goo-rate` while the write still succeeds
+with `200` (the one that matters most — shadow mode never blocks), a
+decreasing `lifetimeGoo` recording `lifetime-goo-decreased`, an impossible
+tap-count jump recording `click-rate`, `ratio` separating honest play from
+gross fabrication, two accounts' audit rows never cross-contaminating, and
+that a missing `save_audit` table (the "schema not re-applied yet" window)
+cannot break a save.

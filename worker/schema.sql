@@ -94,3 +94,47 @@ CREATE TABLE IF NOT EXISTS saves (
   payload      TEXT    NOT NULL,           -- the sanitized SaveState, JSON-encoded
   updated      INTEGER NOT NULL DEFAULT 0  -- last write, ms since epoch
 );
+
+-- ────────────────────────────────────────────────────────────────────────
+-- PR 5: save plausibility auditing. ADDITIVE ONLY, same as PR 3a/4 above —
+-- nothing here touches `scores`, `users`, `sessions`, `login_throttle`, or
+-- `saves`, and every statement is safe to re-run against the existing
+-- production DB (IF NOT EXISTS throughout).
+--
+-- SHADOW MODE: every successful `PUT /save` writes one row here recording the
+-- server's opinion of whether the upload's delta was physically achievable —
+-- see `verifySaveDelta` in src/game/verify.ts (imported via
+-- worker/src/rules.ts) and `savePut` in src/index.ts. It never rejects,
+-- blocks, or alters the write itself; enforcement is a later PR, once real
+-- data exists to set a threshold instead of a guess.
+--
+-- A SEPARATE table rather than new columns on `saves`: SQLite has no
+-- `ADD COLUMN IF NOT EXISTS`, so altering an existing table isn't safely
+-- re-runnable the way every other statement in this file is. An append-only
+-- audit trail is also more useful than a single latest verdict — it's the
+-- history a later PR needs to pick an evidence-based enforcement threshold.
+--
+-- `ratio` (goo_gain / max_gain) is the point of this table: the ceiling is
+-- deliberately generous (every tap a crit, inside a permanent frenzy, under a
+-- permanent ad boost and a permanent max-multiplier event, the whole
+-- interval), so honest play should land orders of magnitude below 1 and only
+-- gross fabrication crosses it. Accumulating real ratios from real saves is
+-- what lets a future PR tighten the bound with evidence instead of a guess.
+-- ────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS save_audit (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       TEXT    NOT NULL,           -- references users.id
+  rev           INTEGER NOT NULL,           -- the rev this write produced
+  created       INTEGER NOT NULL,           -- ms since epoch
+  elapsed_sec   REAL    NOT NULL,           -- SERVER-measured gap since the previous write (never client-reported — see savePut)
+  goo_gain      REAL    NOT NULL,           -- reported lifetimeGoo gain over the interval
+  max_gain      REAL    NOT NULL,           -- the ceiling goo_gain was measured against
+  ratio         REAL    NOT NULL,           -- goo_gain / max_gain — the tuning data this table exists to collect
+  click_gain    INTEGER NOT NULL,           -- reported tap-count gain over the interval
+  flags         TEXT    NOT NULL,           -- comma-joined PlausibilityFlag list; '' when clean
+  ok            INTEGER NOT NULL            -- 1 = within bounds, 0 = flagged (never blocks — shadow mode)
+);
+
+CREATE INDEX IF NOT EXISTS idx_save_audit_user_created ON save_audit (user_id, created DESC);
+CREATE INDEX IF NOT EXISTS idx_save_audit_ok ON save_audit (ok);
