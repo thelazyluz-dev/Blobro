@@ -43,17 +43,11 @@ This opens your browser to authorize. Approve it.
 npx wrangler d1 create blorbo-leaderboard
 ```
 
-It prints something like:
-
-```
-[[d1_databases]]
-binding = "DB"
-database_name = "blorbo-leaderboard"
-database_id = "abc123-your-real-id-here"
-```
-
-Copy the `database_id` value and paste it into **`wrangler.toml`**, replacing
-`PASTE_DATABASE_ID_HERE`.
+It prints a `database_id`. **This is already filled in** in `wrangler.toml` for
+the existing database — you only need to paste a new one if you ever create a
+fresh database. The id is an identifier, not a credential: reaching the data
+still requires access to this Cloudflare account, which is why it lives in
+config instead of being re-pasted on every checkout.
 
 ### 5. Create the table
 

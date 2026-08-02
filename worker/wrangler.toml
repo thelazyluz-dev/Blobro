@@ -5,12 +5,13 @@ name = "blorbo-leaderboard"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
-# D1 database binding. After you run `wrangler d1 create blorbo-leaderboard`,
-# Cloudflare prints a database_id — paste it below (replace PASTE_DATABASE_ID_HERE).
+# D1 database binding. The id is just an identifier, not a credential — reaching
+# the database still requires this Cloudflare account — so it lives in config
+# rather than being pasted by hand on every fresh checkout.
 [[d1_databases]]
 binding = "DB"                       # available in code as env.DB
 database_name = "blorbo-leaderboard"
-database_id = "PASTE_DATABASE_ID_HERE"
+database_id = "4a7a92f4-c1ff-4618-a026-bc9eb67eb3c2"
 
 # Auth config. GOOGLE_CLIENT_SECRET is a SECRET — never put it here; set it with
 # `wrangler secret put GOOGLE_CLIENT_SECRET` (see README.md).
