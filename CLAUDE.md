@@ -83,6 +83,28 @@ unverified work. Report failures honestly, with the output.
   field in `defaultSaveState` **and** `migrate`, and add a test. Never drop a
   player's progress.
 
+## Direction: server-authoritative rebuild (owner-approved)
+
+The game is moving from fully client-side to a server-authoritative product, in
+11 incremental PRs, so that scores can be trusted and a monetization system
+(ads + shop + future payments) can be built on top.
+
+**The preservation mechanism:** `src/game/*` is pure, so the server runs the
+*same functions* rather than reimplementing the rules. Golden-vector contract
+tests prove client and server agree. Never let the two drift apart.
+
+Owner decisions (do not revisit without asking):
+- **Login is mandatory** (Google OAuth + email/password). Accepted alongside the
+  kids-safety trade-off, which was raised and acknowledged: it means collecting
+  an email, so COPPA/GDPR-K obligations apply and the privacy policy must be
+  updated when auth ships.
+- **Some hosting cost is acceptable** (~$5/mo Workers Paid at scale), on the
+  expectation that ad revenue covers it. Still prefer checkpoint-based syncing
+  over per-tick requests.
+- Anti-cheat target is "too expensive to bother", not perfection. Client-side
+  HMAC keys are extractable; the real defence is server re-simulation plus
+  wall-clock plausibility caps. Never claim more than that.
+
 ## Product rules (these came from the owner — don't quietly change them)
 
 - **Kids-safe, no PII**: no accounts, no email, no location. The leaderboard
