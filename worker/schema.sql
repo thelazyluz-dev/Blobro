@@ -68,3 +68,29 @@ CREATE TABLE IF NOT EXISTS login_throttle (
   attempts     INTEGER NOT NULL DEFAULT 0,
   window_start INTEGER NOT NULL DEFAULT 0
 );
+
+-- ────────────────────────────────────────────────────────────────────────
+-- PR 4: cloud save (one mirrored save per account). ADDITIVE ONLY, same as
+-- PR 3a above — nothing here touches `scores`, `users`, `sessions`, or
+-- `login_throttle`, and every statement is safe to re-run against the
+-- existing production DB (IF NOT EXISTS throughout).
+--
+-- The client stays authoritative in this PR: the server sanitizes an
+-- uploaded save with the same pure `migrate()` the client loads with (see
+-- worker/src/rules.ts) and stores the result, it does not re-simulate or
+-- verify the numbers are *earned*. `lifetime_goo` and `clicks` are pulled
+-- out of `payload` and duplicated as their own columns on purpose: a later
+-- anti-cheat PR needs to re-simulate and compare against exactly these two
+-- fields, and that should be a cheap indexed/column read, not a JSON parse
+-- of every row's blob.
+-- ────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS saves (
+  user_id      TEXT PRIMARY KEY,           -- one save per account (references users.id)
+  rev          INTEGER NOT NULL DEFAULT 0, -- optimistic-concurrency counter; 0 = no save yet
+  version      INTEGER NOT NULL DEFAULT 0, -- SaveState.version at last write (CURRENT_VERSION)
+  lifetime_goo REAL    NOT NULL DEFAULT 0, -- denormalized from payload — see banner above
+  clicks       INTEGER NOT NULL DEFAULT 0, -- denormalized from payload — see banner above
+  payload      TEXT    NOT NULL,           -- the sanitized SaveState, JSON-encoded
+  updated      INTEGER NOT NULL DEFAULT 0  -- last write, ms since epoch
+);

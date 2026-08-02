@@ -211,3 +211,83 @@ npx wrangler deploy
   code+PKCE token exchange, rather than verifying the ID token's RS256
   signature against Google's JWKS by hand. Common and accepted, but weaker
   than local JWT verification — a candidate for later hardening.
+
+---
+
+## Cloud save (PR 4) — mirror a signed-in player's save
+
+This adds two credentialed (cookie-session) endpoints so a signed-in
+player's save can follow them across devices:
+
+```
+GET  /save   → { rev, updated, save } | { rev: 0, updated: 0, save: null } | 401
+PUT  /save   → { rev, updated } | 409 { error: 'stale', rev, updated, save } | 401
+     body: { baseRev, save }
+```
+
+**The client stays authoritative in this PR.** The server does not
+re-simulate anything or check that a save's numbers were actually earned —
+it only *sanitizes* an uploaded save and stores it. It does that by running
+the upload through `migrate()`, the exact same pure function
+(`src/game/save.ts`, imported via `worker/src/rules.ts`) the client uses to
+load a save from disk, and stores the RESULT, never the raw body. The same
+function runs again on the way out of `GET /save`, so a payload written by
+an older deploy always comes back current. `migrate()` is total — it never
+throws, a malformed upload just becomes a sane default — so a bad save can
+never 500 here, only get cleaned up. Anti-cheat (checking the numbers are
+plausible/earned) is a later PR; be honest with yourself that this one does
+not provide it.
+
+**Revisions.** `rev` is `0` when a player has no cloud save yet. A write
+sends `baseRev` (the rev it last saw); if that still matches what's stored,
+the row moves to `baseRev + 1`. If not, the write is rejected with `409` and
+the response carries the **current** cloud save so the client can merge
+without a second round trip. The write is a single guarded UPSERT (see the
+`WHERE` clauses in `savePut` in `src/index.ts`) so two concurrent writes
+against the same account can't both succeed.
+
+**Size cap.** A save is a few KB; anything over 64 KiB is rejected with
+`413` before it's even parsed — a cheap guard against using the account as
+free storage.
+
+### Schema change — apply and redeploy to go live
+
+`schema.sql` gained one new table, `saves`. Like PR 3a, this is **purely
+additive** — every statement is `CREATE TABLE IF NOT EXISTS`, and nothing
+in `scores`, `users`, `sessions`, or `login_throttle` is touched. Re-running
+the whole file against production is safe:
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql
+```
+
+`lifetime_goo` and `clicks` are pulled out of the JSON `payload` into their
+own columns on purpose — a later anti-cheat PR needs to re-simulate and
+compare against exactly those two fields, and that should be a cheap
+column read, not a JSON parse of every row.
+
+**This code shipping is not the same as this feature being live.** As
+always, the owner needs to run the schema command above and then:
+
+```bash
+npx wrangler deploy
+```
+
+### Testing
+
+Integration tests for `/save` live in
+`worker/test/save-endpoints.integration.test.ts`, using the same
+Miniflare/`@cloudflare/vitest-pool-workers` rig as the auth tests (see
+"Testing" under PR 3a above for how that rig works). Run them the same way:
+
+```bash
+cd worker
+npx vitest run
+```
+
+They cover: unauthenticated access to both endpoints, the "no save yet"
+shape, a PUT/GET round trip, sequential revision bumps, a stale write being
+rejected with the current save attached, the 64 KiB size cap, junk-save
+sanitization (unknown creature ids, negative goo, `NaN` fields, an unknown
+cosmetic), that one user can't read or overwrite another's save, and
+malformed bodies answering `400` rather than `500`.

@@ -34,6 +34,15 @@
  *   GET  /auth/me                   → { user } | 401
  *   GET  /auth/google/start         → 302 to Google's consent screen (PKCE)
  *   GET  /auth/google/callback      → 302 back to the app + Set-Cookie session
+ *
+ * PR 4 adds CLOUD SAVE under /save — see the "Cloud save (PR 4)" section
+ * below. The client stays authoritative in this PR: the server sanitizes an
+ * uploaded save with the same pure `migrate()` the client loads with (never
+ * a reimplementation, so the two can't drift) and stores it; it does not yet
+ * re-simulate or verify the numbers are earned (that's anti-cheat, later).
+ *   GET  /save                      → { rev, updated, save } | { rev:0, save:null } | 401
+ *   PUT  /save                      → { rev, updated } | 409 { error, rev, updated, save } | 401
+ *        body: { baseRev, save }
  */
 
 import {
@@ -60,6 +69,9 @@ import {
   sessionExpiresAt,
   verifyPassword,
 } from './auth';
+// The Worker's one import surface onto the shared, pure game rules (PR 4)
+// — see worker/src/rules.ts for why this is never reimplemented locally.
+import { CURRENT_VERSION, migrate } from './rules';
 
 export interface Env {
   DB: D1Database;
@@ -79,12 +91,13 @@ const CORS: Record<string, string> = {
   'Access-Control-Max-Age': '86400',
 };
 
-// ── Auth CORS (PR 3a) ────────────────────────────────────────────────────
+// ── Auth CORS (PR 3a; also covers /save from PR 4) ────────────────────────
 // Cookies require credentialed CORS, and `Access-Control-Allow-Origin: *` is
 // INVALID together with `Access-Control-Allow-Credentials: true` (browsers
-// reject it outright). So /auth/* gets its own, separate CORS story: reflect
-// the request's Origin only if it's in this allowlist, never a wildcard.
-// The leaderboard routes above are untouched — they stay public/uncredentialed.
+// reject it outright). So credentialed routes get their own, separate CORS
+// story: reflect the request's Origin only if it's in this allowlist, never
+// a wildcard. The leaderboard routes above are untouched — they stay
+// public/uncredentialed.
 const AUTH_ALLOWED_ORIGINS = [
   'https://bl-or-bo.com',
   'http://localhost:5173', // vite dev
@@ -94,7 +107,7 @@ const AUTH_ALLOWED_ORIGINS = [
 
 function authCorsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Credentials': 'true',
     Vary: 'Origin',
@@ -135,6 +148,11 @@ const CLICK_BASELINE = 5_000;
 // drive-by. Established rows may grow up to MAX_GOO.
 const GOO_FIRST_CAP = 1_000_000;
 
+// A real save is a few KB; 64 KiB is a generous ceiling that still blocks
+// someone using the account as free blob storage. Checked on the raw request
+// text, in bytes, BEFORE any JSON parsing.
+const MAX_SAVE_BYTES = 65_536;
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -151,12 +169,14 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const isAuthRoute = url.pathname.startsWith('/auth/');
+    // /auth/* AND /save are both credentialed (cookie-session) routes and
+    // share the same CORS story — see authCorsHeaders.
+    const isCredentialedRoute = url.pathname.startsWith('/auth/') || url.pathname === '/save';
 
     if (request.method === 'OPTIONS') {
-      // Auth routes need credentialed (allowlisted-origin) CORS, never the
-      // wildcard the public leaderboard routes use — see authCorsHeaders.
-      if (isAuthRoute) {
+      // Credentialed routes need allowlisted-origin CORS, never the wildcard
+      // the public leaderboard routes use — see authCorsHeaders.
+      if (isCredentialedRoute) {
         return new Response(null, { status: 204, headers: authCorsHeaders(request.headers.get('Origin')) });
       }
       return new Response(null, { status: 204, headers: CORS });
@@ -282,8 +302,13 @@ export default {
     }
 
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
-    if (isAuthRoute) {
+    if (url.pathname.startsWith('/auth/')) {
       return handleAuth(request, env, url);
+    }
+
+    // ── Cloud save (PR 4) ──────────────────────────────────────────────────
+    if (url.pathname === '/save') {
+      return handleSave(request, env);
     }
 
     return json({ error: 'not-found' }, 404);
@@ -675,5 +700,137 @@ async function authGoogleCallback(request: Request, env: Env, url: URL): Promise
     return new Response(null, { status: 302, headers });
   } catch {
     return failRedirect('google-error');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Cloud save (PR 4)
+// ════════════════════════════════════════════════════════════════════════
+//
+// The client stays authoritative here: on write, an uploaded save is run
+// through `migrate()` — the SAME pure function the client loads with — and
+// the RESULT is stored, never the raw body. On read, the stored payload is
+// run through `migrate()` again before it goes out, so a payload written by
+// an older deploy always comes back current. `migrate()` is total (it never
+// throws — a malformed save just becomes a fresh default one), so a bad
+// upload can never 500 here.
+//
+// Revisions: `rev` is 0 when no row exists yet. A write sends `baseRev` (the
+// rev it last saw) and, if it still matches the stored rev, the row is
+// updated to `baseRev + 1`; otherwise it's a stale write and the CURRENT
+// cloud save comes back with the 409 so the client can merge without a
+// second round trip. The write below is a single guarded UPSERT (see the
+// WHERE clauses) so two concurrent writes against the same row can't both
+// succeed — whichever commits first moves `rev` forward and the loser's
+// guard fails.
+
+interface SaveRow {
+  rev: number;
+  payload: string;
+  updated: number;
+}
+
+/** JSON.parse that degrades to null instead of throwing — migrate() treats null as "no save". */
+function tryParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function handleSave(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (request.method === 'GET') return saveGet(request, env, origin);
+  if (request.method === 'PUT') return savePut(request, env, origin);
+  return authJson({ error: 'not-found' }, 404, origin);
+}
+
+async function saveGet(request: Request, env: Env, origin: string | null): Promise<Response> {
+  try {
+    const user = await getUserFromRequest(request, env);
+    if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+    const row = await env.DB.prepare('SELECT rev, payload, updated FROM saves WHERE user_id = ?1')
+      .bind(user.id)
+      .first<SaveRow>();
+    if (!row) return authJson({ rev: 0, updated: 0, save: null }, 200, origin);
+
+    const save = migrate(tryParseJson(row.payload), Date.now());
+    return authJson({ rev: row.rev, updated: row.updated, save }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+async function savePut(request: Request, env: Env, origin: string | null): Promise<Response> {
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  // Size cap BEFORE any parsing — a save is a few KB, this just blocks abuse.
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > MAX_SAVE_BYTES) {
+    return authJson({ error: 'too-large' }, 413, origin);
+  }
+
+  const body = tryParseJson(text);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return authJson({ error: 'bad-body' }, 400, origin);
+  const b = body as Record<string, unknown>;
+
+  const baseRev = b.baseRev;
+  if (typeof baseRev !== 'number' || !Number.isFinite(baseRev) || !Number.isInteger(baseRev) || baseRev < 0) {
+    return authJson({ error: 'bad-body' }, 400, origin);
+  }
+  if (b.save === undefined || b.save === null) return authJson({ error: 'bad-body' }, 400, origin);
+
+  // Sanitize with the shared rule — the stored payload is the RESULT of
+  // migrate(), never the raw upload. migrate() is total, so this never throws.
+  const sanitized = migrate(b.save, Date.now());
+  const payload = JSON.stringify(sanitized);
+  const now = Date.now();
+  const newRev = baseRev + 1;
+
+  try {
+    // A single guarded UPSERT:
+    //  - No row yet: the SELECT source only yields a row when baseRev is 0
+    //    (the only correct baseRev for "no save"), so a stale baseRev with no
+    //    existing row inserts nothing rather than fabricating a wrong rev.
+    //  - Row exists: ON CONFLICT tries to update it, but the DO UPDATE's own
+    //    WHERE guards on the CURRENT stored rev matching baseRev — a mismatch
+    //    makes it a no-op (0 rows changed), which is how a race between two
+    //    concurrent writers resolves to exactly one winner.
+    const result = await env.DB.prepare(
+      `INSERT INTO saves (user_id, rev, version, lifetime_goo, clicks, payload, updated)
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+       WHERE ?8 = 0 OR EXISTS (SELECT 1 FROM saves WHERE user_id = ?1)
+       ON CONFLICT(user_id) DO UPDATE SET
+         rev = excluded.rev,
+         version = excluded.version,
+         lifetime_goo = excluded.lifetime_goo,
+         clicks = excluded.clicks,
+         payload = excluded.payload,
+         updated = excluded.updated
+       WHERE saves.rev = ?8`,
+    )
+      .bind(user.id, newRev, CURRENT_VERSION, sanitized.lifetimeGoo, sanitized.clicks, payload, now, baseRev)
+      .run();
+
+    if ((result.meta?.changes ?? 0) === 0) {
+      const current = await env.DB.prepare('SELECT rev, payload, updated FROM saves WHERE user_id = ?1')
+        .bind(user.id)
+        .first<SaveRow>();
+      if (!current) return authJson({ error: 'stale', rev: 0, updated: 0, save: null }, 409, origin);
+      const currentSave = migrate(tryParseJson(current.payload), now);
+      return authJson({ error: 'stale', rev: current.rev, updated: current.updated, save: currentSave }, 409, origin);
+    }
+
+    return authJson({ rev: newRev, updated: now }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
   }
 }
