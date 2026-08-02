@@ -63,7 +63,8 @@ import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
-import { loadRaw, persist } from './persistence';
+import { decideMergeWinner, fetchCloudSave, pushCloudSave } from './net/save';
+import { backupLocal, loadRaw, persist } from './persistence';
 import type {
   CharId,
   LeaderboardEntry,
@@ -115,6 +116,13 @@ interface GameState {
   // initAuth() below.
   authUser: AuthUser | null;
   authChecked: boolean; // true once we've resolved (cache and/or /auth/me) whether anyone's signed in
+
+  // --- cloud-save checkpoint sync (PR 4) — session-only, NOT part of
+  // SaveState. cloudRev is the last cloud revision this device knows about
+  // (the baseRev the next push must send); cloudSynced is a calm UI signal
+  // only ("did the last push succeed"), see StatsOverlay's AccountSection.
+  cloudRev: number;
+  cloudSynced: boolean;
 
   // --- transient UI / session ---
   loaded: boolean;
@@ -203,6 +211,43 @@ interface GameState {
 
 let toastId = 0;
 
+// --- Cloud-save checkpoint sync (PR 4) — tuning constants -------------------
+// A slow/offline cloud fetch must never hold up the splash screen (see loadGame).
+const CLOUD_LOAD_TIMEOUT_MS = 3000;
+// Owner decision (CLAUDE.md): "prefer checkpoint-based syncing over per-tick
+// requests" — a push at most this often while the save is dirty.
+const CLOUD_PUSH_MIN_INTERVAL_MS = 60_000;
+
+/**
+ * Race `p` against a timer. On timeout, `fallback` is returned and `p` is
+ * simply left to resolve into the void — no `.then` is ever attached to it
+ * after that point, so a late answer is discarded, never applied behind the
+ * player's back.
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(fallback);
+    }, ms);
+    p.then((v) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(v);
+    }).catch(() => {
+      // fetchCloudSave() never rejects, but be defensive: a rejection here
+      // must degrade to "no cloud answer", never crash loadGame.
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(fallback);
+    });
+  });
+}
+
 /** Egg price function with an event discount folded in (e.g. half-price sale). */
 const eggPricer = (mult: number) => (n: number) => Math.max(1, Math.round(eggCost(n) * mult));
 
@@ -288,6 +333,8 @@ export const useGame = create<GameState>((set, get) => {
 
     authUser: null,
     authChecked: false,
+    cloudRev: 0,
+    cloudSynced: false,
 
     loaded: false,
     activeTab: 'click',
@@ -317,8 +364,29 @@ export const useGame = create<GameState>((set, get) => {
 
     loadGame: async () => {
       const now = Date.now();
-      const raw = await loadRaw();
-      const save = raw ? migrate(raw, now) : defaultSaveState(now);
+      const rawLocal = await loadRaw();
+      // Race the cloud fetch against a timeout so a slow or offline network
+      // never holds up the splash screen — fetchCloudSave() itself never
+      // throws, so the only thing withTimeout guards against is it being
+      // slow. A response that arrives after we've already moved on is just
+      // discarded (we never attach a .then to it), never applied behind the
+      // player's back.
+      const cloud = await withTimeout(fetchCloudSave(), CLOUD_LOAD_TIMEOUT_MS, null);
+
+      const localSave = rawLocal ? migrate(rawLocal, now) : null;
+      const cloudSave = cloud?.save != null ? migrate(cloud.save, now) : null;
+      const decision = decideMergeWinner(localSave, cloudSave ? { rev: cloud!.rev, save: cloudSave } : null);
+
+      if (decision.winner === 'cloud' && localSave) {
+        // The cloud outranks what's on this device (higher lifetimeGoo) —
+        // stash the local save under a separate key BEFORE it's replaced, so
+        // a wrong call here is recoverable, not destructive. See CLAUDE.md:
+        // "never drop a player's progress".
+        await backupLocal(localSave);
+      }
+
+      const save =
+        decision.winner === 'cloud' ? cloudSave! : decision.winner === 'local' ? localSave! : defaultSaveState(now);
 
       const m = modifiersFrom(
         save.upgrades,
@@ -366,7 +434,16 @@ export const useGame = create<GameState>((set, get) => {
         // First-launch (global leaderboard on, no nickname yet) → invite them
         // to pick a nickname so they land on the table right away.
         nicknameOpen: shouldPromptNickname(),
+        cloudRev: decision.cloudRev,
+        cloudSynced: false,
       });
+
+      // Seed/refresh the cloud right away so a brand-new device's save
+      // reaches the server immediately, instead of waiting for the first
+      // 60s checkpoint (see the cloud-sync engine below `useGame`).
+      cloudDirty = false;
+      lastCloudPushAt = Date.now();
+      void pushCheckpoint();
     },
 
     saveGame: async () => {
@@ -877,8 +954,109 @@ export const useGame = create<GameState>((set, get) => {
 });
 
 // Dev-only handle for tuning/manual testing in the console (stripped in prod).
-if (import.meta.env.DEV) {
+// `typeof window` guard so this module can be imported under vitest (node),
+// where there is no window — see store.cloud.test.ts.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   (window as unknown as { __game?: typeof useGame }).__game = useGame;
+}
+
+// --- Cloud-save checkpoint sync (PR 4) --------------------------------------
+// Wired at module scope, not inside a React hook: the hook that owns the
+// game's other browser wiring (persistence interval, visibilitychange,
+// beforeunload — see ui/useGameEngine.ts) is out of this PR's file scope.
+// These are singletons for the tab's whole lifetime, same as the dev-only
+// window handle just above.
+let cloudDirty = false;
+let lastCloudPushAt = 0;
+let pushInFlight = false;
+
+/**
+ * Push the current save at the last-known cloudRev. Best-effort and silent —
+ * a failure just leaves cloudDirty set so the next checkpoint retries it.
+ * NEVER surfaced to the player: a "sync failed" toast would alarm a kid over
+ * something that isn't theirs to fix (see CLAUDE.md — ads/errors must stay
+ * calm and opt-in, not intrusive).
+ *
+ * On a 409 (another device/tab wrote since our baseRev), re-runs the SAME
+ * merge rule used at load time against the returned cloud save:
+ *  - this device still ahead (or tied) → retry the push ONCE with the fresh
+ *    rev. Never loop past that single retry — a second conflict just stays
+ *    dirty for the next checkpoint.
+ *  - the other device pulled ahead → pushing now would overwrite ITS lead,
+ *    so we don't, and we deliberately DON'T advance cloudRev either. Holding
+ *    the stale rev is what makes that stick: every later checkpoint 409s
+ *    again and re-asks this same question, instead of quietly succeeding
+ *    with a fresh baseRev and clobbering the other device a minute later.
+ *    It also self-heals — once this device's own play overtakes the cloud's
+ *    lifetimeGoo, the merge says 'local', the retry fires, and it wins the
+ *    push honestly. Full reconciliation (with a local backup) happens at the
+ *    next loadGame. Rewinding live gameplay mid-session would be far more
+ *    alarming to a kid than a save that's briefly a beat behind.
+ */
+export async function pushCheckpoint(): Promise<void> {
+  const s = useGame.getState();
+  if (!s.loaded || pushInFlight) return;
+  pushInFlight = true;
+  try {
+    const now = Date.now();
+    const save = snapshot(s, now);
+    let result = await pushCloudSave(s.cloudRev, save);
+
+    if (!result.ok && result.conflict) {
+      const conflict = result.conflict;
+      const cloudSave = conflict.save != null ? migrate(conflict.save, now) : null;
+      const decision = decideMergeWinner(save, cloudSave ? { rev: conflict.rev, save: cloudSave } : null);
+      if (decision.winner !== 'local') {
+        // NOTE: cloudRev is left stale on purpose — see the doc comment.
+        useGame.setState({ cloudSynced: false });
+        return;
+      }
+      result = await pushCloudSave(conflict.rev, save);
+    }
+
+    if (result.ok) {
+      cloudDirty = false;
+      useGame.setState({ cloudRev: result.rev, cloudSynced: true });
+    } else {
+      useGame.setState({ cloudSynced: false });
+    }
+  } finally {
+    pushInFlight = false;
+    lastCloudPushAt = Date.now();
+  }
+}
+
+// Guard every browser API below: this module is imported by tests (and could
+// in principle run during SSR/build) where `window`/`document` don't exist.
+if (typeof document !== 'undefined') {
+  // Any state change at all means "there may be something new to push".
+  //
+  // Deliberately NOT a field-by-field comparison against the persisted set:
+  // that list would be a fourth place to remember when adding a save field
+  // (alongside snapshot, defaultSaveState and migrate), and forgetting it
+  // would fail silently. It would also buy nothing — goo changes on every
+  // animation frame while creatures are earning, so the flag is on
+  // continuously during play regardless. The real throttle is the 60s
+  // checkpoint below, not this flag's precision.
+  useGame.subscribe((state) => {
+    if (state.loaded) cloudDirty = true;
+  });
+
+  // The debounced checkpoint: at most once per CLOUD_PUSH_MIN_INTERVAL_MS,
+  // and only when there's actually something dirty to send.
+  setInterval(() => {
+    if (!cloudDirty) return;
+    if (Date.now() - lastCloudPushAt < CLOUD_PUSH_MIN_INTERVAL_MS) return;
+    void pushCheckpoint();
+  }, 10_000);
+
+  // The checkpoint that actually catches a kid closing the tab: push
+  // unconditionally (not gated on cloudDirty) the moment the page is hidden
+  // or torn down, so nothing from the last few seconds of play is lost.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') void pushCheckpoint();
+  });
+  window.addEventListener('pagehide', () => void pushCheckpoint());
 }
 
 // The ability granted by the equipped main creature (only if it's owned).

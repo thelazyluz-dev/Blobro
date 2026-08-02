@@ -72,6 +72,7 @@ function ResetSection() {
 // invisible until the owner turns auth on and players start creating accounts.
 function AccountSection() {
   const authUser = useGame((s) => s.authUser);
+  const cloudSynced = useGame((s) => s.cloudSynced);
   const signOut = useGame((s) => s.signOut);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -87,8 +88,13 @@ function AccountSection() {
   return (
     <section className="mt-1 border-t border-hairline pt-4 text-center">
       <h3 className="mb-1 font-display text-sm text-bone/60">הַחֶשְׁבּוֹן שֶׁלִּי</h3>
-      <p className="mb-2 truncate text-sm text-bone/80" dir="ltr">
+      <p className="mb-1 truncate text-sm text-bone/80" dir="ltr">
         {label}
+      </p>
+      {/* A quiet, non-alarming sync signal (PR 4) — no error codes, no red,
+          just "did the cloud last hear from us" for a curious kid/parent. */}
+      <p className="mb-2 text-[11px] text-bone/45">
+        {cloudSynced ? '☁️ נִשְׁמַר בַּעֲנָן' : '☁️ עוֹד מִתְחַבֵּר לֶעָנָן…'}
       </p>
       <button
         type="button"
