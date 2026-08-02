@@ -8,3 +8,10 @@ node_modules
 test-results
 playwright-report
 blob-report
+
+# Ad-hoc headless verification scripts (see CLAUDE.md). Written at the repo
+# root so playwright-core resolves, which means `git add -A` keeps sweeping
+# them in — this has happened twice.
+/shot.mjs
+/probe-*.ts
+/*.png
