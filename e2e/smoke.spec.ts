@@ -39,14 +39,19 @@ test('the goo counter is not a tap target — it sits right above the blob', asy
   const counter = page.getByRole('status', { name: 'מוֹנֶה גּוּ' });
   await expect(counter).toBeVisible();
   await expect(counter).not.toHaveAttribute('type', 'button');
+  const counterBox = (await counter.boundingBox())!;
 
   const legend = page.getByRole('button', { name: 'מקרא מספרים' });
   await expect(legend).toBeVisible();
 
-  // And the legend must be BELOW the blob, not stacked on top of it.
+  // The legend must be clear of the blob's tap area entirely — it now lives in
+  // the top bar, above the counter, so it costs no vertical space on the play
+  // area and cannot catch a stray tap.
   const blobBox = (await page.getByRole('button', { name: 'לחיצה על הבלוב' }).boundingBox())!;
   const legendBox = (await legend.boundingBox())!;
-  expect(legendBox.y, 'the legend button overlaps the blob tap area').toBeGreaterThan(blobBox.y + blobBox.height);
+  const overlaps = legendBox.y < blobBox.y + blobBox.height && legendBox.y + legendBox.height > blobBox.y;
+  expect(overlaps, 'the legend button overlaps the blob tap area').toBe(false);
+  expect(legendBox.y, 'the legend button should sit above the counter').toBeLessThan(counterBox.y);
 });
 
 test('tapping the main blob increases the goo value', async ({ page }) => {

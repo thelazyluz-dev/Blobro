@@ -586,14 +586,6 @@ export function ClickScreen() {
             <span className="text-pop">👆 {formatGoo(perClick)}</span>
             <span className="text-cy">ℹ️</span>
           </button>
-          <button
-            type="button"
-            onClick={() => useGame.getState().setNumberLegendOpen(true)}
-            aria-label="מקרא מספרים"
-            className="inline-flex shrink-0 items-center rounded-full bg-black/30 px-3 py-1.5 text-sm ring-1 ring-hairline active:scale-95"
-          >
-            🔢
-          </button>
         </div>
       </div>
     </div>

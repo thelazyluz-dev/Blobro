@@ -5,6 +5,7 @@ import { unlockAudio } from './audio/synth';
 import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
 import { AdOverlay } from './ui/AdBonus';
 import { AuthGate } from './ui/AuthGate';
+import { NumberLegendButton } from './ui/NumberLegendButton';
 import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
 import { EventBanner } from './ui/EventBanner';
@@ -91,6 +92,7 @@ export function App() {
       <header className="relative z-30 flex shrink-0 items-center gap-2 px-3 pt-3">
         <MuteButton />
         <StatsButton />
+        <NumberLegendButton />
         <div className="flex-1" />
         <LeaderboardButton />
         <AchievementsButton />
