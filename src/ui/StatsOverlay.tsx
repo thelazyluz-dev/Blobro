@@ -67,6 +67,41 @@ function ResetSection() {
   );
 }
 
+// Identity + sign-out (PR 3b). Renders nothing when nobody's signed in — with
+// AUTH_REQUIRED off (the default) that's everybody, so this section is
+// invisible until the owner turns auth on and players start creating accounts.
+function AccountSection() {
+  const authUser = useGame((s) => s.authUser);
+  const signOut = useGame((s) => s.signOut);
+  const [signingOut, setSigningOut] = useState(false);
+
+  if (!authUser) return null;
+  const label = authUser.displayName || authUser.email || 'חֶשְׁבּוֹן מְחֻבָּר';
+
+  const onSignOut = () => {
+    if (signingOut) return; // guard a double-tap
+    setSigningOut(true);
+    signOut(); // clears the account only — the local game save is untouched
+  };
+
+  return (
+    <section className="mt-1 border-t border-hairline pt-4 text-center">
+      <h3 className="mb-1 font-display text-sm text-bone/60">הַחֶשְׁבּוֹן שֶׁלִּי</h3>
+      <p className="mb-2 truncate text-sm text-bone/80" dir="ltr">
+        {label}
+      </p>
+      <button
+        type="button"
+        onClick={onSignOut}
+        disabled={signingOut}
+        className="btn w-full bg-black/30 py-2.5 text-sm text-bone ring-1 ring-hairline disabled:opacity-60"
+      >
+        🚪 הִתְנַתְּקוּת
+      </button>
+    </section>
+  );
+}
+
 function Tile({ icon, label, value, color = 'text-bone' }: { icon: string; label: string; value: string; color?: string }) {
   return (
     <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-hairline">
@@ -171,6 +206,7 @@ export function StatsOverlay() {
             </a>
           </section>
 
+          <AccountSection />
           <ResetSection />
         </div>
 

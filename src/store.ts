@@ -61,6 +61,7 @@ import { computeOffline, type OfflineReport } from './game/offline';
 import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
+import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { loadRaw, persist } from './persistence';
 import type {
@@ -107,6 +108,13 @@ interface GameState {
   milestonesShown: number[]; // goo thresholds already celebrated (each fact shows once)
   muted: boolean;
   rng: RngState; // seeded stream driving crit rolls + hatching (see game/rng.ts)
+
+  // --- session-only account state (PR 3b) — deliberately NOT part of
+  // SaveState: identity is separate from game progress, and this PR does not
+  // bump the save version. Hydrated from the local cache + /auth/me, see
+  // initAuth() below.
+  authUser: AuthUser | null;
+  authChecked: boolean; // true once we've resolved (cache and/or /auth/me) whether anyone's signed in
 
   // --- transient UI / session ---
   loaded: boolean;
@@ -187,6 +195,10 @@ interface GameState {
   markMilestonesShown: (goos: number[]) => void;
   dismissMilestone: () => void;
   pulseMagnitude: (exp: number) => void;
+  initAuth: () => void;
+  setAuthUser: (user: AuthUser | null) => void;
+  clearAuthUser: () => void;
+  signOut: () => void;
 }
 
 let toastId = 0;
@@ -273,6 +285,9 @@ export const useGame = create<GameState>((set, get) => {
     milestonesShown: [],
     muted: false,
     rng: { seed: 0, cursor: 0 }, // placeholder — loadGame() overwrites with the saved stream
+
+    authUser: null,
+    authChecked: false,
 
     loaded: false,
     activeTab: 'click',
@@ -834,6 +849,30 @@ export const useGame = create<GameState>((set, get) => {
       set((s) => ({ milestonesShown: [...new Set([...s.milestonesShown, ...goos])] })),
     dismissMilestone: () => set({ milestone: null }),
     pulseMagnitude: (exp) => set((s) => ({ magnitudePulse: s.magnitudePulse + 1, magnitudeExp: exp })),
+
+    // Call once on app start (see App.tsx). The cache read is synchronous, so
+    // a returning player is treated as signed in before any network round
+    // trip — this is what keeps the game playable offline even with
+    // AUTH_REQUIRED on. /auth/me then reconciles in the background: it only
+    // ever downgrades a stale cached user on a DEFINITIVE 401 (see
+    // net/auth.ts), never on a network hiccup.
+    initAuth: () => {
+      const cached = cachedUser();
+      if (cached) set({ authUser: cached, authChecked: true });
+      void fetchMe().then((user) => set({ authUser: user, authChecked: true }));
+    },
+    setAuthUser: (user) => set({ authUser: user, authChecked: true }),
+    clearAuthUser: () => set({ authUser: null }),
+
+    // Sign out. Deliberately does NOT touch the local game save — in this PR
+    // progress belongs to the device, not the account, so a signed-out player
+    // keeps playing with the exact same blob/goo/creatures they had. Only
+    // identity is cleared. If AUTH_REQUIRED is on, clearing authUser here is
+    // what sends the player back to the gate (see App.tsx).
+    signOut: () => {
+      set({ authUser: null });
+      void logout();
+    },
   };
 });
 
