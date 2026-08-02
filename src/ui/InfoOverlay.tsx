@@ -14,6 +14,7 @@ import {
   selectStarBonus,
   useGame,
 } from '../store';
+import { haptic } from './haptics';
 
 function Row({
   icon,
@@ -49,6 +50,7 @@ function Row({
 export function InfoOverlay() {
   const open = useGame((s) => s.infoOpen);
   const setOpen = useGame((s) => s.setInfoOpen);
+  const setNumberLegendOpen = useGame((s) => s.setNumberLegendOpen);
   const creatureRate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
   const starBonus = useGame(selectStarBonus);
@@ -128,6 +130,19 @@ export function InfoOverlay() {
               <div className="pt-1 text-bone/50">״/ש׳״ = לכל שנייה</div>
             </div>
           </div>
+
+          {/* The K/M/B/T… suffix legend used to be its own top-bar button; it
+              belongs with "what do these numbers mean" more than in the header. */}
+          <button
+            type="button"
+            onClick={() => {
+              setNumberLegendOpen(true);
+              haptic(10);
+            }}
+            className="btn w-full bg-black/30 py-2.5 text-sm text-bone ring-1 ring-hairline"
+          >
+            🔢 מַה זֶּה K, M, B…?
+          </button>
         </div>
 
         <button type="button" onClick={() => setOpen(false)} className="btn mt-4 w-full bg-cy py-3 text-lg text-void">

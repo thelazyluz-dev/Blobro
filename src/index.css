@@ -77,6 +77,19 @@ body {
 }
 
 @layer utilities {
+  /* The game's wordmark. The thick dark stroke is the point: every piece of
+     art in the game (the blob, the eggs, the creatures) is drawn with a heavy
+     dark outline, so the name reads as part of that world rather than as text
+     laid on top of it. `paint-order` keeps the stroke BEHIND the glyph so the
+     nikud stays legible instead of being eaten by the outline. */
+  .wordmark {
+    font-family: 'Suez One', serif;
+    color: #a3ff12;
+    -webkit-text-stroke: 3px #1a0b2e;
+    paint-order: stroke fill;
+    text-shadow: 0 0 14px rgba(163, 255, 18, 0.4);
+  }
+
   .glow-goo {
     filter: drop-shadow(0 0 18px rgba(163, 255, 18, 0.55));
   }

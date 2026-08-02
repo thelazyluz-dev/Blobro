@@ -14,6 +14,7 @@
 
 import { AUTH_API } from '../config';
 import { googleSignInUrl } from '../net/auth';
+import { Wordmark } from './Wordmark';
 
 export function AuthGate() {
   const configured = AUTH_API.trim().length > 0;
@@ -29,7 +30,11 @@ export function AuthGate() {
         style={{ boxShadow: '0 0 0 2px #00E5FF, 0 24px 60px -20px #000' }}
       >
         <div className="text-5xl">🫧</div>
-        <h2 className="mt-2 font-display text-2xl text-bone">בּוֹאוּ נִכָּנֵס!</h2>
+        {/* The sign-in gate is now the first thing anyone sees, so it is the
+            right place for the name at full size — there is nothing else on
+            screen for it to compete with. */}
+        <Wordmark size="hero" className="mt-1 block" />
+        <h2 className="mt-3 font-display text-2xl text-bone">בּוֹאוּ נִכָּנֵס!</h2>
         <p className="mt-2 px-1 text-xs leading-relaxed text-bone/60">
           הַהִתְקַדְּמוּת שֶׁלְּךָ בַּמֶּכְשִׁיר הַזֶּה נִשְׁמֶרֶת, וְתְקֻשַּׁר לַחֶשְׁבּוֹן שֶׁלְּךָ.
         </p>

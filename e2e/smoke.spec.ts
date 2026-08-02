@@ -34,24 +34,28 @@ test('app loads and the goo counter is visible', async ({ page }) => {
 
 test('the goo counter is not a tap target — it sits right above the blob', async ({ page }) => {
   // It used to be a ~200x96 button opening the number legend, so a tap that
-  // landed a little high opened a modal instead of scoring. Guard the fix:
-  // the counter must not be clickable, and the legend must live elsewhere.
+  // landed a little high opened a modal instead of scoring. The legend now
+  // lives inside the info panel ("מידע על ההכנסות"), nowhere near the blob at
+  // all — guard the fix: the counter must not be clickable.
   const counter = page.getByRole('status', { name: 'מוֹנֶה גּוּ' });
   await expect(counter).toBeVisible();
   await expect(counter).not.toHaveAttribute('type', 'button');
-  const counterBox = (await counter.boundingBox())!;
 
-  const legend = page.getByRole('button', { name: 'מקרא מספרים' });
-  await expect(legend).toBeVisible();
-
-  // The legend must be clear of the blob's tap area entirely — it now lives in
-  // the top bar, above the counter, so it costs no vertical space on the play
-  // area and cannot catch a stray tap.
   const blobBox = (await page.getByRole('button', { name: 'לחיצה על הבלוב' }).boundingBox())!;
-  const legendBox = (await legend.boundingBox())!;
-  const overlaps = legendBox.y < blobBox.y + blobBox.height && legendBox.y + legendBox.height > blobBox.y;
-  expect(overlaps, 'the legend button overlaps the blob tap area').toBe(false);
-  expect(legendBox.y, 'the legend button should sit above the counter').toBeLessThan(counterBox.y);
+  const counterBox = (await counter.boundingBox())!;
+  const overlaps = counterBox.y < blobBox.y + blobBox.height && counterBox.y + counterBox.height > blobBox.y;
+  expect(overlaps, 'the counter overlaps the blob tap area').toBe(false);
+});
+
+test('the number legend opens from the info panel, not the top bar', async ({ page }) => {
+  // Guards its new home (§ top-bar restructure): the info panel's "what do
+  // these numbers mean" row opens the same legend overlay that used to be a
+  // standalone top-bar button.
+  await expect(page.getByRole('button', { name: 'מקרא מספרים' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'מידע על ההכנסות' }).click();
+  await page.getByRole('button', { name: 'מַה זֶּה K, M, B…?' }).click();
+  await expect(page.getByText('מַקְרָא מִסְפָּרִים')).toBeVisible();
 });
 
 test('tapping the main blob increases the goo value', async ({ page }) => {

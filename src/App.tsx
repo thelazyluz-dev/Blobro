@@ -2,10 +2,8 @@ import { useEffect } from 'react';
 import { AUTH_REQUIRED } from './config';
 import { initAds } from './net/ads';
 import { unlockAudio } from './audio/synth';
-import { AchievementsButton, AchievementsOverlay } from './ui/AchievementsOverlay';
 import { AdOverlay } from './ui/AdBonus';
 import { AuthGate } from './ui/AuthGate';
-import { NumberLegendButton } from './ui/NumberLegendButton';
 import { BottomNav } from './ui/BottomNav';
 import { Confetti } from './ui/Confetti';
 import { EventBanner } from './ui/EventBanner';
@@ -13,14 +11,13 @@ import { FeedbackController } from './ui/FeedbackController';
 import { HatchReveal } from './ui/HatchReveal';
 import { InfoOverlay } from './ui/InfoOverlay';
 import { InstallPrompt } from './ui/InstallPrompt';
-import { LeaderboardButton, LeaderboardOverlay } from './ui/LeaderboardOverlay';
 import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
-import { MuteButton } from './ui/MuteButton';
 import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { OfflineModal } from './ui/OfflineModal';
-import { StatsButton, StatsOverlay } from './ui/StatsOverlay';
+import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
+import { SettingsButton, SettingsOverlay } from './ui/SettingsOverlay';
 import { Toaster } from './ui/Toaster';
 import { UnlockReveal } from './ui/UnlockReveal';
 import { useEventMusic } from './ui/useEventMusic';
@@ -33,6 +30,7 @@ import { UpgradesScreen } from './ui/screens/UpgradesScreen';
 import { useGameEngine } from './ui/useGameEngine';
 import { backgroundById } from './game/cosmetics';
 import { useGame } from './store';
+import { Wordmark } from './ui/Wordmark';
 
 export function App() {
   const loaded = useGameEngine();
@@ -78,7 +76,7 @@ export function App() {
   if (!loaded) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <div className="anim-idle glow-goo font-display text-5xl text-goo">בלורבו</div>
+        <Wordmark size="hero" className="anim-idle" />
         <div className="anim-breathe text-sm text-bone/50">טוען…</div>
       </div>
     );
@@ -88,14 +86,15 @@ export function App() {
     <div className="relative mx-auto flex h-full max-w-md flex-col">
       <div className="bg-aurora" aria-hidden style={{ backgroundImage: bgGradient }} />
       {/* One compact top bar instead of four floating corner buttons — the hero
-          goo counter below it then gets the full width, uncrowded. */}
+          goo counter below it then gets the full width, uncrowded. Settings
+          (account/sound/help/reset) and Progress (stats/achievements/leaders)
+          are the only two entry points; everything else lives inside them. */}
       <header className="relative z-30 flex shrink-0 items-center gap-2 px-3 pt-3">
-        <MuteButton />
-        <StatsButton />
-        <NumberLegendButton />
-        <div className="flex-1" />
-        <LeaderboardButton />
-        <AchievementsButton />
+        <SettingsButton />
+        <div className="flex flex-1 items-center justify-center overflow-hidden">
+          <Wordmark />
+        </div>
+        <ProgressButton />
       </header>
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         {activeTab === 'click' && <ClickScreen />}
@@ -116,10 +115,9 @@ export function App() {
       <MultiHatchResult />
       <MilestoneReveal />
       <UnlockReveal />
-      <AchievementsOverlay />
-      <LeaderboardOverlay />
+      <ProgressOverlay />
       <AdOverlay />
-      <StatsOverlay />
+      <SettingsOverlay />
       <InfoOverlay />
       <NumberLegendOverlay />
       <InstallPrompt />

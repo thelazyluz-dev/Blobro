@@ -79,6 +79,9 @@ import type {
 
 export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades' | 'shop';
 
+// The three tabs inside the "My Progress" panel (ProgressOverlay).
+export type ProgressTab = 'stats' | 'achievements' | 'leaderboard';
+
 export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
 export type ToastTone = 'goo' | 'star' | 'pop';
 export interface Toast {
@@ -121,7 +124,7 @@ interface GameState {
   // --- cloud-save checkpoint sync (PR 4) — session-only, NOT part of
   // SaveState. cloudRev is the last cloud revision this device knows about
   // (the baseRev the next push must send); cloudSynced is a calm UI signal
-  // only ("did the last push succeed"), see StatsOverlay's AccountSection.
+  // only ("did the last push succeed"), see SettingsOverlay's AccountSection.
   cloudRev: number;
   cloudSynced: boolean;
 
@@ -136,7 +139,6 @@ interface GameState {
   loaded: boolean;
   activeTab: Tab;
   nicknameOpen: boolean; // the first-launch / new-game "pick a nickname" prompt
-  leaderboardOpen: boolean;
   hatchResult: HatchOutcome | null;
   multiHatchResult: BatchResult | null;
   offlineReport: OfflineReport | null;
@@ -148,8 +150,9 @@ interface GameState {
   adPurpose: 'boost' | 'offline' | null; // what the current ad rewards on finish
   offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
   toasts: Toast[];
-  achievementsOpen: boolean;
-  statsOpen: boolean;
+  settingsOpen: boolean; // account, sound, help links, start-over — see SettingsOverlay
+  progressOpen: boolean; // one panel, three tabs — see ProgressOverlay
+  progressTab: ProgressTab;
   infoOpen: boolean; // the "what am I earning, and what does each icon mean" panel
   numberLegendOpen: boolean;
   confettiBursts: number; // increments to trigger a celebration
@@ -191,13 +194,13 @@ interface GameState {
   dismissOffline: () => void;
   toggleMute: () => void;
   tick: (dtSeconds: number) => void;
-  setAchievementsOpen: (open: boolean) => void;
-  setStatsOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
+  setProgressOpen: (open: boolean, tab?: ProgressTab) => void;
+  setProgressTab: (tab: ProgressTab) => void;
   setInfoOpen: (open: boolean) => void;
   setNumberLegendOpen: (open: boolean) => void;
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
-  setLeaderboardOpen: (open: boolean) => void;
   setNicknameOpen: (open: boolean) => void;
   addToLeaderboard: (name: string) => void;
   resetClicks: () => void;
@@ -349,7 +352,6 @@ export const useGame = create<GameState>((set, get) => {
     loaded: false,
     activeTab: 'click',
     nicknameOpen: false,
-    leaderboardOpen: false,
     hatchResult: null,
     multiHatchResult: null,
     offlineReport: null,
@@ -360,8 +362,9 @@ export const useGame = create<GameState>((set, get) => {
     adPurpose: null,
     offlineDoubled: false,
     toasts: [],
-    achievementsOpen: false,
-    statsOpen: false,
+    settingsOpen: false,
+    progressOpen: false,
+    progressTab: 'stats',
     infoOpen: false,
     numberLegendOpen: false,
     confettiBursts: 0,
@@ -820,9 +823,13 @@ export const useGame = create<GameState>((set, get) => {
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
     },
 
-    setAchievementsOpen: (open) => set({ achievementsOpen: open }),
+    setSettingsOpen: (open) => set({ settingsOpen: open }),
 
-    setStatsOpen: (open) => set({ statsOpen: open }),
+    // `tab` lets a caller open straight onto e.g. achievements (the button does
+    // this when something's claimable) without a separate tab-switch call.
+    setProgressOpen: (open, tab) => set((s) => ({ progressOpen: open, progressTab: tab ?? s.progressTab })),
+
+    setProgressTab: (tab) => set({ progressTab: tab }),
 
     setInfoOpen: (open) => set({ infoOpen: open }),
 
@@ -860,8 +867,6 @@ export const useGame = create<GameState>((set, get) => {
       });
       get().pushToast({ text: `אספת ${ready.length} הישגים! 🏆`, icon: '🏆', tone: 'star' });
     },
-
-    setLeaderboardOpen: (open) => set({ leaderboardOpen: open }),
 
     setNicknameOpen: (open) => set({ nicknameOpen: open }),
 
@@ -916,9 +921,8 @@ export const useGame = create<GameState>((set, get) => {
         multiHatchResult: null,
         offlineReport: null,
         frenzyUntil: 0,
-        achievementsOpen: false,
-        statsOpen: false,
-        leaderboardOpen: false,
+        settingsOpen: false,
+        progressOpen: false,
         activeTab: 'click',
         nicknameOpen: shouldPromptNickname(),
       });
