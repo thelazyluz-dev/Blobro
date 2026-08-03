@@ -1,8 +1,13 @@
 # BLORBO
 
-A clicker/idle game for children. Web only, no backend, zero data collection.
-Hebrew UI, right-to-left, installable as a web app and fully playable offline.
+A clicker/idle game for children, live at https://bl-or-bo.com. Hebrew UI,
+right-to-left, installable as a web app and playable offline. Google sign-in,
+cloud save and a global leaderboard run on a Cloudflare Worker + D1 (see
+`worker/`); what is collected and why is disclosed in `public/privacy.html`.
 See `PRD.md` for the full spec and `CLAUDE.md` for the engineering constraints.
+
+**Source-visible, not open source** — the code is public to be read and
+learned from; no reuse rights are granted. See `LICENSE`.
 
 ## Run
 
