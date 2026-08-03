@@ -100,15 +100,15 @@ describe('migrate', () => {
     });
 
     it('crystals are capped at what total lifetime goo justifies', () => {
-      // lifetimeGoo 999,999 → sqrt(999999/1e8) < 1 → zero crystals possible.
+      // lifetimeGoo below the first-crystal threshold → zero crystals possible.
       const cheat = migrate({ ...v9Save, prestigeCrystals: 9_999 }, NOW);
       expect(cheat.prestigeCrystals).toBe(0);
-      // 1e10 lifetime justifies 10; a claim of 7 is plausible and kept.
-      const ok = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 7 }, NOW);
-      expect(ok.prestigeCrystals).toBe(7);
-      // ...but a claim of 50 is cut to the justified 10.
+      // 1e10 lifetime justifies 6 on the log curve; a claim of 5 is kept…
+      const ok = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 5 }, NOW);
+      expect(ok.prestigeCrystals).toBe(5);
+      // …and a claim of 50 is cut to the justified 6.
       const cut = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 50 }, NOW);
-      expect(cut.prestigeCrystals).toBe(10);
+      expect(cut.prestigeCrystals).toBe(6);
     });
   });
 

@@ -61,6 +61,7 @@ import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } fro
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { recordManualTap } from './game/cpm';
+import { applyPrestige, canPrestige, crystalsGained } from './game/prestige';
 import {
   bumpQuest,
   claimGift,
@@ -182,6 +183,7 @@ interface GameState {
   offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
   toasts: Toast[];
   dailyOpen: boolean; // the daily gift + quests panel
+  prestigeOpen: boolean; // the roll-confirmation panel (see PrestigeOverlay)
   settingsOpen: boolean; // account, sound, help links, start-over — see SettingsOverlay
   progressOpen: boolean; // one panel, three tabs — see ProgressOverlay
   progressTab: ProgressTab;
@@ -233,6 +235,8 @@ interface GameState {
   setInfoOpen: (open: boolean) => void;
   setNumberLegendOpen: (open: boolean) => void;
   setDailyOpen: (open: boolean) => void;
+  setPrestigeOpen: (open: boolean) => void;
+  prestigeRoll: () => Promise<void>;
   claimDailyGift: () => void;
   claimQuest: (id: QuestId) => void;
   claimAchievement: (id: string) => void;
@@ -448,6 +452,7 @@ export const useGame = create<GameState>((set, get) => {
     offlineDoubled: false,
     toasts: [],
     dailyOpen: false,
+    prestigeOpen: false,
     settingsOpen: false,
     progressOpen: false,
     progressTab: 'stats',
@@ -505,6 +510,7 @@ export const useGame = create<GameState>((set, get) => {
         starBonusFor(save.achievements),
         clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
         backgroundIncomeBonus(save.equippedBackground),
+        save.prestigeCrystals,
       );
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
       // Offline earns creature income PLUS the robot hand's auto-clicks.
@@ -1011,6 +1017,45 @@ export const useGame = create<GameState>((set, get) => {
     setNumberLegendOpen: (open) => set({ numberLegendOpen: open }),
 
     setDailyOpen: (open) => set({ dailyOpen: open }),
+    setPrestigeOpen: (open) => set({ prestigeOpen: open }),
+
+    /**
+     * The prestige roll (game/prestige.ts). Ordered for safety: the
+     * pre-roll save is stashed in the backup slot FIRST, so the existing
+     * restore button is a full undo — a kid who rolled by mistake loses
+     * nothing. Only then does the reset land, and it persists immediately
+     * (local + cloud-dirty) so a crash can't leave half a roll.
+     */
+    prestigeRoll: async () => {
+      const s = get();
+      const now = Date.now();
+      const snap = snapshot(s, now);
+      if (!canPrestige(snap)) return;
+      const gained = crystalsGained(snap);
+
+      await backupLocal(snap);
+      const rolled = applyPrestige(snap, now);
+      set({
+        goo: rolled.goo,
+        characters: rolled.characters,
+        upgrades: { ...rolled.upgrades },
+        eggs: rolled.eggs,
+        totalHatches: rolled.totalHatches,
+        sinceRare: rolled.sinceRare,
+        equippedMain: rolled.equippedMain,
+        prestigeCrystals: rolled.prestigeCrystals,
+        prestigeCount: rolled.prestigeCount,
+        prestigeOpen: false,
+        hatchResult: null,
+        multiHatchResult: null,
+        backupAvailable: { lifetimeGoo: snap.lifetimeGoo, savedAt: now },
+        activeTab: 'click',
+      });
+      await persist(snapshot(get(), now));
+      cloudDirty = true;
+      get().pushToast({ text: `גִּלְגּוּל מֵחָדָשׁ! 💎 +${gained} גְּבִישִׁים לָנֶצַח`, icon: '💎', tone: 'star' });
+      get().triggerConfetti('rainbow');
+    },
 
     // ── Daily gift + quests (v14 — see game/daily.ts for all semantics) ──
 
@@ -1427,6 +1472,7 @@ const modsOf = (s: GameState): Modifiers => {
     starBonusFor(s.achievements),
     clickCosmeticBonus(s.equippedBlob, s.equippedAccessory),
     backgroundIncomeBonus(s.equippedBackground),
+    s.prestigeCrystals,
   );
   // A "lucky hour" event temporarily boosts hatch odds (luck only affects
   // hatching, never costs, so it's safe to fold in here).

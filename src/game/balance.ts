@@ -19,7 +19,13 @@ export const globalMultiplier = 1; // prestige hook — do not remove
 // "roll constantly" optimum, and the migrate() invariant (crystals ≤ what
 // lifetime justifies) is a one-liner.
 export const prestigeCrystalBonus = 0.05; // +5% income AND taps per crystal, forever (owner-set)
-export const prestigeCrystalDivisor = 1e8; // first crystal at 100M lifetime goo
+// LOGARITHMIC crystal curve (recalibrated on real pacing data: the owner's
+// uncle hit billions in an afternoon, the owner hit 1e15 in two days — any
+// polynomial curve explodes under orders-of-magnitude-per-day growth).
+// Crystals per ORDER OF MAGNITUDE of total lifetime goo: steady, never
+// runaway, always a next crystal within reach (~×1.6 growth apart).
+export const prestigeFirstCrystalGoo = 1e9; // first roll ≈ end of a good first day
+export const prestigeCrystalsPerDecade = 5; // +25% per ×10 lifetime growth
 
 // --- Clicking ----------------------------------------------------------------
 // clickPower = (clickBase + fingerBonus(level)) × clickMultiplier × star × globalMultiplier

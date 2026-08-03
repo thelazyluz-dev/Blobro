@@ -24,6 +24,7 @@ import {
   paybackMultMin,
   paybackPivotRate,
   paybackGrowthPerDecade,
+  prestigeCrystalBonus,
   tapProductionShare,
   upgradeConfig,
 } from './balance';
@@ -40,12 +41,14 @@ export function modifiersFrom(
   achievementStarBonus: number,
   clickCosmeticBonus = 0,
   incomeCosmeticBonus = 0,
+  prestigeCrystals = 0,
 ): Modifiers {
   return {
     fingerLevel: upgrades.finger,
     clickMultiplier: (1 + upgradeConfig.power.effectPerLevel * upgrades.power) * (1 + clickCosmeticBonus),
     incomeMultiplier: (1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture) * (1 + incomeCosmeticBonus),
     starMultiplier: 1 + achievementStarBonus,
+    prestigeMultiplier: 1 + Math.max(0, prestigeCrystals) * prestigeCrystalBonus,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
   };
@@ -66,6 +69,7 @@ export function clickPower(m: Modifiers): number {
     (clickBase + fingerBonus(m.fingerLevel)) *
     m.clickMultiplier *
     m.starMultiplier *
+    m.prestigeMultiplier *
     globalMultiplier
   );
 }
@@ -128,6 +132,7 @@ export function creatureContribution(
     ownedCreatureIncome(rarity, held, incomeMult) *
     m.incomeMultiplier *
     m.starMultiplier *
+    m.prestigeMultiplier *
     globalMultiplier
   );
 }
@@ -140,7 +145,7 @@ export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
     const held = owned[def.id];
     if (held) sum += ownedCreatureIncome(def.rarity, held, incomeMultOf(def));
   }
-  return sum * m.incomeMultiplier * m.starMultiplier * globalMultiplier;
+  return sum * m.incomeMultiplier * m.starMultiplier * m.prestigeMultiplier * globalMultiplier;
 }
 
 /**

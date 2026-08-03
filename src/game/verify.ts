@@ -70,6 +70,7 @@ function modsFor(save: SaveState) {
     starBonusFor(save.achievements),
     clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
     backgroundIncomeBonus(save.equippedBackground),
+    save.prestigeCrystals,
   );
 }
 

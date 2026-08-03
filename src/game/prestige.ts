@@ -9,13 +9,13 @@
 // thing prestige is being paid out against.
 
 import { defaultUpgrades } from './upgrades';
-import { prestigeCrystalBonus, prestigeCrystalDivisor } from './balance';
+import { prestigeCrystalBonus, prestigeCrystalsPerDecade, prestigeFirstCrystalGoo } from './balance';
 import type { SaveState } from './types';
 
 /** Total crystals a given lifetime-goo justifies. Monotonic in lifetime. */
 export function crystalsFor(lifetimeGoo: number): number {
-  if (!Number.isFinite(lifetimeGoo) || lifetimeGoo <= 0) return 0;
-  return Math.floor(Math.sqrt(lifetimeGoo / prestigeCrystalDivisor));
+  if (!Number.isFinite(lifetimeGoo) || lifetimeGoo < prestigeFirstCrystalGoo) return 0;
+  return Math.floor(Math.log10(lifetimeGoo / prestigeFirstCrystalGoo) * prestigeCrystalsPerDecade) + 1;
 }
 
 /** The multiplier `crystals` grants (applied to income AND taps). */
@@ -35,8 +35,10 @@ export function canPrestige(save: Pick<SaveState, 'lifetimeGoo' | 'prestigeCryst
 
 /** Lifetime goo still needed before ANOTHER crystal exists (0 = one is waiting). */
 export function gooToNextCrystal(save: Pick<SaveState, 'lifetimeGoo' | 'prestigeCrystals'>): number {
-  const nextCount = crystalsFor(save.lifetimeGoo) + 1;
-  return Math.max(0, nextCount * nextCount * prestigeCrystalDivisor - save.lifetimeGoo);
+  const have = crystalsFor(save.lifetimeGoo);
+  // Invert the curve: crystal n exists from firstGoo × 10^((n-1)/perDecade).
+  const nextAt = prestigeFirstCrystalGoo * Math.pow(10, have / prestigeCrystalsPerDecade);
+  return Math.max(0, nextAt - save.lifetimeGoo);
 }
 
 /**
