@@ -152,11 +152,19 @@ export function AdOverlay() {
             onClick={finish}
             className="btn anim-bonus-pulse mt-5 w-full bg-pop py-3 font-display text-lg text-void"
           >
-            {purpose === 'offline' ? '🎬 קַבֵּל פִּי 2!' : `🎁 קַבֵּל בּוֹנוּס ×${adRewardMult}!`}
+            {/* The claim button names the actual reward — a ×3 label on an
+                egg claim confused the first real player within hours. */}
+            {purpose === 'offline'
+              ? '🎬 קַבֵּל פִּי 2!'
+              : purpose === 'egg'
+                ? '🥚 קַבֵּל אֶת בֵּיצַת הַמַּזָּל!'
+                : `🎁 קַבֵּל בּוֹנוּס ×${adRewardMult}!`}
           </button>
         ) : (
           <div className="mt-5 w-full text-center">
-            <div className="text-sm text-bone/70">הַבּוֹנוּס בְּעוֹד {remaining} שְׁנִיּוֹת…</div>
+            <div className="text-sm text-bone/70">
+              {purpose === 'egg' ? `בֵּיצַת הַמַּזָּל בְּעוֹד ${remaining} שְׁנִיּוֹת…` : `הַבּוֹנוּס בְּעוֹד ${remaining} שְׁנִיּוֹת…`}
+            </div>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full rounded-full bg-goo transition-[width] duration-250 ease-linear"
