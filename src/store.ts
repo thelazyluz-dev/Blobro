@@ -1036,6 +1036,7 @@ export const useGame = create<GameState>((set, get) => {
       });
       await persist(restored);
       cloudDirty = true; // the cloud should learn about this at the next checkpoint
+      pendingRollback = true;
     },
 
     signOut: () => {
@@ -1061,6 +1062,11 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 let cloudDirty = false;
 let lastCloudPushAt = 0;
 let pushInFlight = false;
+// Set by restoreBackup, cleared once the server has been told. A restore is the
+// one legitimate way a player's lifetime goo goes DOWN, and that is the audit's
+// strongest cheat signal — so without this, pressing a button the game itself
+// offers looks identical to editing a save.
+let pendingRollback = false;
 
 /**
  * Push the current save at the last-known cloudRev. Best-effort and silent —
@@ -1092,7 +1098,8 @@ export async function pushCheckpoint(): Promise<void> {
   try {
     const now = Date.now();
     const save = snapshot(s, now);
-    let result = await pushCloudSave(s.cloudRev, save);
+    const rollback = pendingRollback;
+    let result = await pushCloudSave(s.cloudRev, save, rollback);
 
     if (!result.ok && result.conflict) {
       const conflict = result.conflict;
@@ -1103,11 +1110,12 @@ export async function pushCheckpoint(): Promise<void> {
         useGame.setState({ cloudSynced: false });
         return;
       }
-      result = await pushCloudSave(conflict.rev, save);
+      result = await pushCloudSave(conflict.rev, save, rollback);
     }
 
     if (result.ok) {
       cloudDirty = false;
+      if (rollback) pendingRollback = false; // only once the server has heard it
       useGame.setState({ cloudRev: result.rev, cloudSynced: true });
     } else {
       useGame.setState({ cloudSynced: false });

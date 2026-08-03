@@ -71,15 +71,20 @@ export async function fetchCloudSave(): Promise<CloudSave | null> {
  * `keepalive` lets this fetch survive a page/tab teardown — this is the call
  * made from a `pagehide` handler (see store.ts), the one meant to catch a
  * kid closing the tab mid-session.
+ *
+ * `rollback` marks a push that deliberately lowers progress, because the
+ * player restored their other save. Without it the audit records a plain
+ * "lifetime goo went down", which is its strongest cheat signal — so using a
+ * button the game itself offers would look exactly like editing a save.
  */
-export async function pushCloudSave(baseRev: number, save: SaveState): Promise<PushResult> {
+export async function pushCloudSave(baseRev: number, save: SaveState, rollback = false): Promise<PushResult> {
   if (!hasAuthBackend()) return { ok: false, conflict: null };
   try {
     const res = await fetch(`${BASE()}/save`, {
       method: 'PUT',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ baseRev, save }),
+      body: JSON.stringify(rollback ? { baseRev, save, rollback: true } : { baseRev, save }),
       keepalive: true,
     });
     if (res.status === 409) {

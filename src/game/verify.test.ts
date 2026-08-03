@@ -204,3 +204,40 @@ describe('the tap production floor (balance.tapProductionShare)', () => {
     expect(effectiveClickPower(m, -1e9)).toBe(clickPower(m));
   });
 });
+
+describe('rollback annotation', () => {
+  // The game itself offers a "restore my other save" button, which legitimately
+  // lowers lifetimeGoo — the audit's strongest cheat signal. Without a way to
+  // tell the two apart, pressing a button we provided looks exactly like
+  // editing a save, and the collected evidence is polluted.
+  const prev = midGame();
+  const rolledBack = midGame({ lifetimeGoo: 1_000, clicks: 100 });
+
+  it('annotates a claimed rollback ALONGSIDE the decrease, never instead of it', () => {
+    const v = verifySaveDelta(prev, rolledBack, 60, { rollbackClaimed: true });
+    // The decrease is still recorded. Hiding it would let anyone erase the
+    // signal just by asserting the claim.
+    expect(v.flags).toContain('lifetime-goo-decreased');
+    expect(v.flags).toContain('rollback-claimed');
+    expect(v.ok).toBe(false);
+  });
+
+  it('does not annotate when the client says nothing', () => {
+    expect(verifySaveDelta(prev, rolledBack, 60).flags).not.toContain('rollback-claimed');
+  });
+
+  it('does not annotate a claim when nothing actually decreased', () => {
+    // A caller asserting "rollback" on a normal push must not gain a label that
+    // would let it be filtered out of the data later.
+    const grew = midGame({ lifetimeGoo: prev.lifetimeGoo + 1_000, clicks: prev.clicks + 10 });
+    expect(verifySaveDelta(prev, grew, 60, { rollbackClaimed: true }).flags).not.toContain('rollback-claimed');
+  });
+
+  it('leaves every other verdict field untouched', () => {
+    const plain = verifySaveDelta(prev, rolledBack, 60);
+    const claimed = verifySaveDelta(prev, rolledBack, 60, { rollbackClaimed: true });
+    expect(claimed.gooGain).toBe(plain.gooGain);
+    expect(claimed.maxGain).toBe(plain.maxGain);
+    expect(claimed.ratio).toBe(plain.ratio);
+  });
+});

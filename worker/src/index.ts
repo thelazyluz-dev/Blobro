@@ -1027,7 +1027,13 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       // save (e.g. `lastSeen`), which would hand a cheater exactly the
       // number that's supposed to bound them.
       const elapsedSeconds = previousRow ? Math.max(0, (now - previousRow.updated) / 1000) : 0;
-      const verdict = verifySaveDelta(previousSave, sanitized, elapsedSeconds);
+      // The client can SAY a decrease is a deliberate rollback (see the
+      // restore button in StatsOverlay). Passed through as an annotation only —
+      // verifySaveDelta records it next to the decrease, never in place of it,
+      // because it is a claim from the same party the audit is watching.
+      const verdict = verifySaveDelta(previousSave, sanitized, elapsedSeconds, {
+        rollbackClaimed: b.rollback === true,
+      });
       await env.DB.prepare(
         `INSERT INTO save_audit (user_id, rev, created, elapsed_sec, goo_gain, max_gain, ratio, click_gain, flags, ok)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,

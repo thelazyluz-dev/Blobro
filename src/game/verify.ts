@@ -125,7 +125,17 @@ export type PlausibilityFlag =
   /** lifetimeGoo went DOWN — it is monotonic, so this is a rewritten save. */
   | 'lifetime-goo-decreased'
   /** Creatures were owned that no hatch could have produced (count went down then up). */
-  | 'clicks-decreased';
+  | 'clicks-decreased'
+  /**
+   * The client says this decrease is a deliberate rollback (the player used
+   * "restore my other save"). Recorded ALONGSIDE the decrease flag, never
+   * instead of it — this is an unverified claim, not proof, and hiding the
+   * decrease would let anyone erase the signal by asserting it. It exists so
+   * the collected data can separate "a player pressed the button we gave them"
+   * from "unexplained", which otherwise look identical and would poison the
+   * evidence a threshold is eventually chosen from.
+   */
+  | 'rollback-claimed';
 
 export interface PlausibilityVerdict {
   ok: boolean;
@@ -167,6 +177,7 @@ export function verifySaveDelta(
   previous: SaveState | null,
   next: SaveState,
   elapsedSeconds: number,
+  ctx: { rollbackClaimed?: boolean } = {},
 ): PlausibilityVerdict {
   const ceiling = plausibilityCeiling(next, elapsedSeconds);
   const maxClicks = (maxHumanTapsPerSec + autoClicksPerSec(next.upgrades.autoTap)) * ceiling.effectiveSeconds;
@@ -187,6 +198,9 @@ export function verifySaveDelta(
 
   if (clickGain < 0) flags.push('clicks-decreased');
   else if (clickGain > maxClicks) flags.push('click-rate');
+
+  // Annotate, never excuse. The decrease flags stay exactly as they were.
+  if (ctx.rollbackClaimed && (gooGain < 0 || clickGain < 0)) flags.push('rollback-claimed');
 
   return {
     ok: flags.length === 0,
