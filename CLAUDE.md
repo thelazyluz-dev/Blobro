@@ -48,6 +48,10 @@ unverified work. Report failures honestly, with the output.
     right before capturing.
   - For layout claims, **measure `getBoundingClientRect()` overlaps at several
     viewport sizes** rather than eyeballing one screenshot.
+  - **AUTH_REQUIRED means the game does not mount for an anonymous page** — a
+    headless probe against localhost sees the sign-in gate, `window.__game`
+    still exists, and measurements silently return zeros that look like
+    results. Stub `/auth/me` first, exactly like `e2e/helpers.ts` does.
 - **`npm i <pkg>` prunes packages that aren't in package.json.** `playwright-core`
   is installed ad hoc; reinstall with `npm i --no-save playwright-core` if it
   disappears.
