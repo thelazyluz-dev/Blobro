@@ -274,9 +274,14 @@ export const achievementGoals = {
   collection: [4, 8, 12, 16],
   shinies: [1, 3, 6, 10, 16],
   // open-ended, up to 100 trillion lifetime goo (with ~half-step tiers)
-  lifetime: [1e3, 5e3, 2e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7, 1e8, 3e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14],
+  // Extended past 1e14 (owner-approved rebalance): the old top tier fell on
+  // day two of real play, and a deep player then never saw another badge.
+  // With the geometric wealth brake these upper floors span weeks-to-months.
+  lifetime: [1e3, 5e3, 2e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7, 1e8, 3e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e20, 1e22],
   hatches: [10, 25, 50, 90, 150, 250, 400, 650, 1000, 1600, 2500, 4000, 6500, 10000],
-  clicks: [100, 300, 700, 1500, 3000, 5500, 9000, 14000, 22000, 35000, 60000, 100000, 200000, 400000],
+  // Top extended past the highest cosmetic click-gate (600K), so the ladder
+  // always reaches beyond the shop.
+  clicks: [100, 300, 700, 1500, 3000, 5500, 9000, 14000, 22000, 35000, 60000, 100000, 200000, 400000, 700000, 1500000],
   bonuses: [5, 15, 30, 50, 80, 120, 180, 280, 450, 700],
 } as const;
 

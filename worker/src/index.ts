@@ -182,7 +182,10 @@ const DEFAULT_LIMIT = 50;
 // Sane ceilings. Clicks are physical taps; goo is total earned. Anything above
 // these is impossible and hard-rejected (4xx) rather than clamped.
 const MAX_CLICKS = 5_000_000; // ~weeks of nonstop tapping — no human exceeds this
-const MAX_GOO = 1e18; // a quintillion: generous for deep play, blocks absurd junk
+const MAX_GOO = 1e24; // raised with the pacing rebalance: the milestone table
+// itself celebrates 6e23, so a board ceiling at 1e18 would freeze deep players'
+// scores while the game still hands out badges above it. Still absurd-junk
+// protection — the plausibility audit is the real defence.
 
 // Clicks plausibility: at most this many taps per second since first-seen, plus
 // a small grace for taps made in the session before the first submit.
