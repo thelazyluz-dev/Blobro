@@ -2,9 +2,10 @@
 // everyone (including kids), we block obvious profanity/slurs in Hebrew and
 // English. It's intentionally simple — a curated substring blocklist over a
 // normalized form (lowercase, niqqud stripped, common leet-speak folded). This
-// runs on the client where names are entered; a determined person calling the
-// API directly could still bypass it, so server-side enforcement can be added
-// later (with the worker's rate-limiting pass).
+// runs BOTH in the client, where names are entered, and in the Worker on
+// POST /submit — see worker/src/rules.ts. It was client-only at first, which
+// meant anyone posting to the API by hand could put whatever they liked on a
+// board that children read; that gap is closed.
 
 const BLOCKLIST = [
   // English

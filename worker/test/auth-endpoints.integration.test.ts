@@ -194,11 +194,27 @@ describe('credentialed CORS on /auth/* (the trap this PR calls out)', () => {
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
   });
 
-  it('OPTIONS preflight on a leaderboard route is untouched (still wildcard, no credentials header)', async () => {
-    const res = await call('/submit', { method: 'OPTIONS' });
+  it('the PUBLIC leaderboard read still uses wildcard CORS with no credentials', async () => {
+    // /top is the only leaderboard route left that anyone may call. It carries
+    // no cookie and returns no identifiers, so it stays wildcard — the point of
+    // splitting the two CORS stories in the first place.
+    const res = await call('/top', { method: 'OPTIONS' });
     expect(res.status).toBe(204);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBeNull();
+  });
+
+  it('WRITING to the leaderboard now uses credentialed CORS, not the wildcard', async () => {
+    // /submit used to be public and wildcard-CORS'd. It carries a session now,
+    // and `Allow-Origin: *` is invalid together with credentials — so a
+    // wildcard here would mean the browser refused every real submission.
+    const res = await call('/submit', {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://bl-or-bo.com' },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://bl-or-bo.com');
+    expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
   });
 });
 

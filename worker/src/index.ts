@@ -78,7 +78,7 @@ import {
 } from './auth';
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
 // — see worker/src/rules.ts for why this is never reimplemented locally.
-import { CURRENT_VERSION, migrate, verifySaveDelta } from './rules';
+import { CURRENT_VERSION, isCleanNickname, migrate, verifySaveDelta } from './rules';
 
 export interface Env {
   DB: D1Database;
@@ -227,7 +227,11 @@ export default {
     const url = new URL(request.url);
     // /auth/* AND /save are both credentialed (cookie-session) routes and
     // share the same CORS story — see authCorsHeaders.
-    const isCredentialedRoute = url.pathname.startsWith('/auth/') || url.pathname === '/save';
+    const isCredentialedRoute =
+      url.pathname.startsWith('/auth/') ||
+      url.pathname === '/save' ||
+      url.pathname === '/submit' ||
+      url.pathname === '/rank';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -260,101 +264,27 @@ export default {
     }
 
     // ── A player's own rank in a metric ───────────────────────────────────
+    // ── Your own rank in a metric (session required) ──────────────────────
     if (url.pathname === '/rank' && request.method === 'GET') {
-      const col = metricCol(url.searchParams.get('by'));
-      const code = (url.searchParams.get('code') ?? '').trim();
-      if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
-      try {
-        const me = await env.DB.prepare(`SELECT name, ${col} AS v FROM scores WHERE code = ?1`)
-          .bind(code)
-          .first<{ name: string; v: number }>();
-        if (!me) return json({ rank: null });
-        const above = await env.DB.prepare(`SELECT COUNT(*) AS c FROM scores WHERE ${col} > ?1`)
-          .bind(me.v)
-          .first<{ c: number }>();
-        const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
-        return json({ by: col, rank: (above?.c ?? 0) + 1, score: me.v, name: me.name, total: total?.c ?? 1 });
-      } catch {
-        return json({ error: 'db' }, 500);
-      }
+      return handleRank(request, env, metricCol(url.searchParams.get('by')));
     }
 
-    // ── Submit both scores (validated + clamped) ──────────────────────────
+    // ── Submit your leaderboard row (session required) ────────────────────
+    //
+    // This used to accept {code, name, clicks, goo} from anyone at all: the
+    // "code" was a string the client invented, and the scores were simply
+    // whatever the caller typed. Two requests were enough to own the goo board
+    // permanently — the first created the row, and the second lifted the cap
+    // from a million to 1e18 — and nothing checked the nickname server-side, so
+    // a stranger could put any word they liked on a board children read.
+    //
+    // Now: identity comes from the session, and the SCORES ARE NOT ACCEPTED
+    // FROM THE REQUEST AT ALL. They are read from this account's own stored
+    // save, which is the same copy the plausibility audit already examines
+    // (PR 5). That collapses two separately-attackable paths into one, so
+    // hardening the save path hardens the leaderboard for free.
     if (url.pathname === '/submit' && request.method === 'POST') {
-      let body: { code?: unknown; name?: unknown; clicks?: unknown; goo?: unknown };
-      try {
-        body = await request.json();
-      } catch {
-        return json({ error: 'bad-json' }, 400);
-      }
-
-      const code = typeof body.code === 'string' ? body.code.trim() : '';
-      const name = typeof body.name === 'string' ? body.name.trim().slice(0, MAX_NAME_LEN) : '';
-      const rawClicks = typeof body.clicks === 'number' && Number.isFinite(body.clicks) ? Math.floor(body.clicks) : NaN;
-      const rawGoo = typeof body.goo === 'number' && Number.isFinite(body.goo) ? body.goo : NaN;
-
-      if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return json({ error: 'bad-code' }, 400);
-      if (!name) return json({ error: 'bad-name' }, 400);
-      if (!Number.isFinite(rawClicks) || !Number.isFinite(rawGoo)) return json({ error: 'bad-score' }, 400);
-      // Hard-reject the flat-out impossible (a clear 4xx, not a silent clamp).
-      if (rawClicks < 0 || rawClicks > MAX_CLICKS) return json({ error: 'clicks-out-of-range' }, 400);
-      if (rawGoo < 0 || rawGoo > MAX_GOO) return json({ error: 'goo-out-of-range' }, 400);
-
-      try {
-        const now = Date.now();
-        const existing = await env.DB.prepare('SELECT clicks, goo, created FROM scores WHERE code = ?1')
-          .bind(code)
-          .first<{ clicks: number; goo: number; created: number }>();
-
-        // First-seen: keep the original if we have it, else now. Grandfathered
-        // rows (pre-anti-cheat, created = 0) skip the time cap so their existing
-        // legit score isn't clamped; from now on they're tracked.
-        const grandfathered = !!existing && !(existing.created > 0);
-        const created = existing && existing.created > 0 ? existing.created : now;
-        const elapsedSec = Math.max(0, (now - created) / 1000);
-        const clickCap = grandfathered
-          ? MAX_CLICKS
-          : Math.min(MAX_CLICKS, Math.floor(CLICK_RATE_PER_SEC * elapsedSec + CLICK_BASELINE));
-
-        const clicks = clamp(rawClicks, 0, clickCap);
-        // A brand-new identity (no row yet) can't claim big goo in one shot.
-        const gooCap = existing ? MAX_GOO : Math.min(MAX_GOO, GOO_FIRST_CAP);
-        const goo = clamp(rawGoo, 0, gooCap);
-
-        await env.DB.prepare(
-          `INSERT INTO scores (code, name, clicks, goo, created, updated)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?5)
-           ON CONFLICT(code) DO UPDATE SET
-             name    = excluded.name,
-             clicks  = MAX(scores.clicks, excluded.clicks),
-             goo     = MAX(scores.goo, excluded.goo),
-             created = CASE WHEN scores.created > 0 THEN scores.created ELSE excluded.created END,
-             updated = excluded.updated`,
-        )
-          .bind(code, name, clicks, goo, now)
-          .run();
-
-        const row = await env.DB.prepare('SELECT clicks, goo FROM scores WHERE code = ?1')
-          .bind(code)
-          .first<{ clicks: number; goo: number }>();
-        const bestClicks = row?.clicks ?? clicks;
-        const bestGoo = row?.goo ?? goo;
-        const cAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE clicks > ?1')
-          .bind(bestClicks)
-          .first<{ c: number }>();
-        const gAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE goo > ?1')
-          .bind(bestGoo)
-          .first<{ c: number }>();
-        const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
-        return json({
-          ok: true,
-          total: total?.c ?? 1,
-          clicks: { best: bestClicks, rank: (cAbove?.c ?? 0) + 1 },
-          goo: { best: bestGoo, rank: (gAbove?.c ?? 0) + 1 },
-        });
-      } catch {
-        return json({ error: 'db' }, 500);
-      }
+      return handleSubmit(request, env);
     }
 
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
@@ -794,6 +724,131 @@ async function authGoogleCallback(request: Request, env: Env, url: URL): Promise
   } catch {
     return failRedirect('google-error');
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Leaderboard writes (PR 9, pulled forward)
+// ════════════════════════════════════════════════════════════════════════
+//
+// One row per ACCOUNT. The row key is derived from the user id rather than a
+// client-chosen string, so identities can't be invented or flooded, and the
+// scores come from this account's stored save rather than from the request.
+
+/** Row key for an account. UUID minus its hyphens fits the existing scores PK. */
+function leaderboardCodeFor(userId: string): string {
+  return userId.replace(/-/g, '').slice(0, 40);
+}
+
+/** Minimum gap between leaderboard writes for one account. */
+const MIN_SUBMIT_INTERVAL_MS = 10_000;
+
+async function handleSubmit(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const body = await readJsonObject(request);
+  if (!body) return authJson({ error: 'bad-json' }, 400, origin);
+  const name = typeof body.name === 'string' ? body.name.trim().slice(0, MAX_NAME_LEN) : '';
+  if (!name) return authJson({ error: 'bad-name' }, 400, origin);
+  // Enforced HERE, not only in the UI. The leaderboard is read by children.
+  if (!isCleanNickname(name)) return authJson({ error: 'bad-name' }, 400, origin);
+
+  try {
+    const now = Date.now();
+    const code = leaderboardCodeFor(user.id);
+
+    // The scores come from the server's own copy of this account's save. There
+    // is deliberately no path for the request to supply them.
+    const save = await env.DB.prepare('SELECT lifetime_goo, clicks FROM saves WHERE user_id = ?1')
+      .bind(user.id)
+      .first<{ lifetime_goo: number; clicks: number }>();
+    if (!save) return authJson({ error: 'no-save' }, 409, origin);
+
+    const goo = clamp(Number(save.lifetime_goo) || 0, 0, MAX_GOO);
+    const clicks = clamp(Math.floor(Number(save.clicks) || 0), 0, MAX_CLICKS);
+
+    const existing = await env.DB.prepare('SELECT updated FROM scores WHERE code = ?1')
+      .bind(code)
+      .first<{ updated: number }>();
+    if (existing && now - existing.updated < MIN_SUBMIT_INTERVAL_MS) {
+      return authJson({ error: 'too-fast' }, 429, origin);
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO scores (code, name, clicks, goo, created, updated)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+       ON CONFLICT(code) DO UPDATE SET
+         name    = excluded.name,
+         clicks  = MAX(scores.clicks, excluded.clicks),
+         goo     = MAX(scores.goo, excluded.goo),
+         created = CASE WHEN scores.created > 0 THEN scores.created ELSE excluded.created END,
+         updated = excluded.updated`,
+    )
+      .bind(code, name, clicks, goo, now)
+      .run();
+
+    return authJson(await rankPayload(env, code), 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo'): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  try {
+    const code = leaderboardCodeFor(user.id);
+    const me = await env.DB.prepare(`SELECT name, ${col} AS v FROM scores WHERE code = ?1`)
+      .bind(code)
+      .first<{ name: string; v: number }>();
+    if (!me) return authJson({ rank: null }, 200, origin);
+    const above = await env.DB.prepare(`SELECT COUNT(*) AS c FROM scores WHERE ${col} > ?1`)
+      .bind(me.v)
+      .first<{ c: number }>();
+    const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
+    return authJson(
+      { by: col, rank: (above?.c ?? 0) + 1, score: me.v, name: me.name, total: total?.c ?? 1 },
+      200,
+      origin,
+    );
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/** The {total, clicks:{best,rank}, goo:{best,rank}} shape the client expects. */
+async function rankPayload(env: Env, code: string) {
+  const row = await env.DB.prepare('SELECT clicks, goo FROM scores WHERE code = ?1')
+    .bind(code)
+    .first<{ clicks: number; goo: number }>();
+  const bestClicks = row?.clicks ?? 0;
+  const bestGoo = row?.goo ?? 0;
+  const cAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE clicks > ?1')
+    .bind(bestClicks)
+    .first<{ c: number }>();
+  const gAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE goo > ?1')
+    .bind(bestGoo)
+    .first<{ c: number }>();
+  const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
+  return {
+    ok: true,
+    total: total?.c ?? 1,
+    clicks: { best: bestClicks, rank: (cAbove?.c ?? 0) + 1 },
+    goo: { best: bestGoo, rank: (gAbove?.c ?? 0) + 1 },
+  };
 }
 
 // ════════════════════════════════════════════════════════════════════════

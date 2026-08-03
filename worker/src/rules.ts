@@ -69,4 +69,9 @@ export {
 } from '../../src/game/verify';
 export type { PlausibilityFlag, PlausibilityVerdict } from '../../src/game/verify';
 
+// Nickname validation. This was enforced in the UI only, which meant anyone
+// posting to /submit by hand could put whatever they liked on a leaderboard
+// that children read. Same pure function both sides now.
+export { isCleanNickname } from '../../src/game/profanity';
+
 export * as balance from '../../src/game/balance';

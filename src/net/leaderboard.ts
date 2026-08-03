@@ -124,7 +124,15 @@ export function resetPlayerIdentity(): void {
  * for BOTH metrics on success, or null when there's no backend / the request
  * failed (the caller just carries on — nothing breaks).
  */
-export async function submitScore(name: string, clicks: number, goo: number): Promise<SubmitResult | null> {
+/**
+ * Claim/refresh this account's leaderboard row.
+ *
+ * Note what is NOT sent: the scores. The server reads them from this account's
+ * own stored save. They used to come from here, which meant the board could be
+ * written by anyone willing to POST a number — the arguments are kept in the
+ * signature only so existing callers don't have to change, and are ignored.
+ */
+export async function submitScore(name: string, _clicks?: number, _goo?: number): Promise<SubmitResult | null> {
   if (!hasGlobalLeaderboard()) return null;
   const clean = name.trim();
   if (!clean) return null;
@@ -132,8 +140,9 @@ export async function submitScore(name: string, clicks: number, goo: number): Pr
   try {
     const res = await fetch(`${BASE()}/submit`, {
       method: 'POST',
+      credentials: 'include', // the row is keyed to the signed-in account now
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: playerCode(), name: clean, clicks: Math.floor(clicks), goo }),
+      body: JSON.stringify({ name: clean }),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as Partial<SubmitResult> & { ok?: boolean };
@@ -165,7 +174,9 @@ export async function fetchTop(by: Metric, limit = 50): Promise<GlobalEntry[] | 
 export async function fetchRank(by: Metric): Promise<RankInfo | null> {
   if (!hasGlobalLeaderboard()) return null;
   try {
-    const res = await fetch(`${BASE()}/rank?by=${by}&code=${encodeURIComponent(playerCode())}`);
+    // Identified by the session, not by a code in the query string — a code
+    // in a URL is a secret that lands in logs and history.
+    const res = await fetch(`${BASE()}/rank?by=${by}`, { credentials: 'include' });
     if (!res.ok) return null;
     const data = (await res.json()) as { rank?: number | null; score?: number; total?: number; name?: string };
     if (typeof data.rank !== 'number') return null; // not on the table yet
