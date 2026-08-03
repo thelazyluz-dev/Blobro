@@ -159,7 +159,10 @@ describe('GET /rank — session-scoped', () => {
 
 describe('GET /top stays public', () => {
   it('needs no session — anyone can read the board', async () => {
-    expect((await call('/top?by=goo')).status).toBe(200);
+    const res = await call('/top?by=goo');
+    expect(res.status).toBe(200);
+    // Short browser-side cache: reopening the board within 30s costs nothing.
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=30');
   });
 });
 

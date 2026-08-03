@@ -225,10 +225,10 @@ function minSaveIntervalMs(env: Env): number {
   return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_MIN_SAVE_INTERVAL_MS;
 }
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+    headers: { 'Content-Type': 'application/json', ...CORS, ...extraHeaders },
   });
 }
 
@@ -289,7 +289,12 @@ export default {
         )
           .bind(limit)
           .all<{ name: string; score: number }>();
-        return json({ by: col, entries: results ?? [] });
+        // Browser-side caching only (a Worker response is not edge-cached by
+        // default): a device reopening the board within 30s — the classic
+        // "did I pass him yet?" loop — costs zero requests. The board is
+        // identical for everyone and 30s stale is invisible next to the
+        // 10s submit interval.
+        return json({ by: col, entries: results ?? [] }, 200, { 'Cache-Control': 'public, max-age=30' });
       } catch {
         return json({ error: 'db' }, 500);
       }
@@ -459,20 +464,22 @@ async function getUserFromRequest(request: Request, env: Env): Promise<UserRow |
   const tokens = parseCookieValues(request.headers.get('Cookie'), SESSION_COOKIE_NAME).slice(0, 3);
   for (const token of tokens) {
     const tokenHash = await hashSessionToken(token);
-    const session = await env.DB.prepare('SELECT user_id, expires FROM sessions WHERE token_hash = ?1')
+    // Session and user in one query — this runs on every credentialed
+    // request, so it is the single hottest read path in the Worker.
+    const row = await env.DB.prepare(
+      `SELECT s.expires, u.id, u.email, u.password_hash, u.google_sub, u.display_name, u.created, u.last_login
+       FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token_hash = ?1`,
+    )
       .bind(tokenHash)
-      .first<{ user_id: string; expires: number }>();
-    if (!session) continue;
-    if (isSessionExpired(session.expires)) {
+      .first<UserRow & { expires: number }>();
+    if (!row) continue;
+    if (isSessionExpired(row.expires)) {
       await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?1').bind(tokenHash).run();
       continue;
     }
-    const user = await env.DB.prepare(
-      'SELECT id, email, password_hash, google_sub, display_name, created, last_login FROM users WHERE id = ?1',
-    )
-      .bind(session.user_id)
-      .first<UserRow>();
-    if (user) return user;
+    const { expires: _expires, ...user } = row;
+    return user;
   }
   return null;
 }

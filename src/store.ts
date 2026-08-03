@@ -828,9 +828,10 @@ export const useGame = create<GameState>((set, get) => {
       const ad = adMultOf(s, now);
       // Passive = creatures only. The robot hand auto-clicks on the side, each
       // auto-tap worth a manual tap's goo (event/ad multipliers apply like taps).
-      const passive = gooPerSec(s.characters, m) * ev.incomeMult;
-      const robot =
-        effectiveClickPower(m, gooPerSec(s.characters, m)) * autoClicksPerSec(s.upgrades.autoTap) * ev.clickMult;
+      // This runs every animation frame — compute the creature income once.
+      const perSec = gooPerSec(s.characters, m);
+      const passive = perSec * ev.incomeMult;
+      const robot = effectiveClickPower(m, perSec) * autoClicksPerSec(s.upgrades.autoTap) * ev.clickMult;
       const gain = (passive + robot) * ad * dtSeconds;
       if (gain <= 0) return;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
