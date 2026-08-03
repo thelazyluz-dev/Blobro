@@ -74,7 +74,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 14;
+  version: 15;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
@@ -101,6 +101,10 @@ export interface SaveState {
   questProgress: Partial<Record<'taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels', number>>;
   questsClaimed: ('taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels')[];
   questAllClaimed: boolean; // today's finish-all-three bonus collected
+  // v15: the free-egg ad button's recharge time (epoch ms). Persisted because
+  // a session-only cooldown reset on every refresh — the owner caught players
+  // (himself) re-claiming eggs by reloading.
+  adEggReadyAt: number;
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
   // The seeded outcome-RNG stream (crit rolls, hatching — see game/rng.ts).

@@ -3,6 +3,7 @@
 // kids with real progress, so migration must never throw a save away.
 
 import {
+  adEggCooldownMs,
   charIncomeGrowth,
   charIncomeGrowthLegacyAdditive,
   evolveLevels,
@@ -37,7 +38,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 14 as const;
+export const CURRENT_VERSION = 15 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -79,6 +80,7 @@ export function defaultSaveState(now: number): SaveState {
     questProgress: {},
     questsClaimed: [],
     questAllClaimed: false,
+    adEggReadyAt: 0,
     lastSeen: now,
     muted: false,
     rng: { seed: randomSeed(), cursor: 0 },
@@ -275,6 +277,9 @@ export function migrate(raw: unknown, now: number): SaveState {
     questProgress: sanitizeQuestProgress(data.questProgress),
     questsClaimed: sanitizeQuestIds(data.questsClaimed),
     questAllClaimed: Boolean(data.questAllClaimed),
+    // Capped at one full cooldown from now: a corrupted far-future timestamp
+    // must never lock the button forever.
+    adEggReadyAt: Math.min(nonNegInt(data.adEggReadyAt, 0), now + adEggCooldownMs),
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
     rng: sanitizeRng(data.rng),

@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './save';
 import { maxCpm } from './cpm';
+import { adEggCooldownMs } from './balance';
 import { DEFAULT_BLOB } from './cosmetics';
 
 const NOW = 1_700_000_000_000;
@@ -89,6 +90,18 @@ describe('migrate', () => {
     const once = migrate(v9Save, NOW);
     const twice = migrate(once, NOW);
     expect(twice).toEqual(once);
+  });
+
+  describe('v15: the ad-egg cooldown rides the save', () => {
+    it('defaults to 0 for older saves, keeps a valid value', () => {
+      expect(migrate(v9Save, NOW).adEggReadyAt).toBe(0);
+      expect(migrate({ ...v9Save, adEggReadyAt: NOW + 60_000 }, NOW).adEggReadyAt).toBe(NOW + 60_000);
+    });
+
+    it('caps a far-future timestamp — corruption must never lock the button forever', () => {
+      const s = migrate({ ...v9Save, adEggReadyAt: NOW + 999_999_999_999 }, NOW);
+      expect(s.adEggReadyAt).toBeLessThanOrEqual(NOW + adEggCooldownMs);
+    });
   });
 
   describe('v14: the daily loop fields', () => {
