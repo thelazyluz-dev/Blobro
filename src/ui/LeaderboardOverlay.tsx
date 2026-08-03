@@ -32,6 +32,14 @@ import { useGame } from '../store';
 const TOP_N = 10;
 
 const METRIC_LABEL: Record<Metric, string> = { clicks: 'לְחִיצוֹת 👆', goo: 'גּוּ 🟢', cpm: 'לְחִיצוֹת לְדַקָּה ⚡' };
+// One contextual line under the metric toggle: kids can't tell what each board
+// ranks by (goo held now vs. earned ever, a per-minute record vs. a total), so
+// the line names exactly what the SELECTED board measures.
+const METRIC_HELP: Record<Metric, string> = {
+  clicks: 'כַּמָּה לְחִיצוֹת לָחַצְתָּ סַךְ הַכֹּל — אֵי פַּעַם',
+  goo: 'כַּמָּה גּוּ יֵשׁ לְךָ עַכְשָׁיו בַּיָּד (יוֹרֵד כְּשֶׁקּוֹנִים)',
+  cpm: 'שִׂיא הַלְּחִיצוֹת הַיְּדָנִיּוֹת שֶׁלְּךָ בְּדַקָּה אַחַת',
+};
 const fmt = (m: Metric, v: number) => (m === 'goo' ? formatGoo(v) : formatExact(v));
 
 function rankBadgeClass(i: number): string {
@@ -148,6 +156,10 @@ export function LeaderboardContent({ active }: { active: boolean }) {
             </button>
           ))}
         </div>
+      )}
+
+      {global && (
+        <div className="mb-1 text-center text-[11px] leading-relaxed text-bone/45">{METRIC_HELP[metric]}</div>
       )}
 
       <div className="mb-1 mt-2 flex items-center gap-3 px-3 text-[11px] font-bold text-bone/55">
