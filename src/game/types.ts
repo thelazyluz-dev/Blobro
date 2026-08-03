@@ -74,7 +74,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 15;
+  version: 16;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
@@ -105,6 +105,10 @@ export interface SaveState {
   // a session-only cooldown reset on every refresh — the owner caught players
   // (himself) re-claiming eggs by reloading.
   adEggReadyAt: number;
+  // v16: prestige ("גלגול מחדש") — data plumbing only until the mechanic
+  // ships; see game/prestige.ts for the full semantics.
+  prestigeCrystals: number; // 💎 owned; each is a permanent earnings bonus
+  prestigeCount: number; // how many rolls ever (stats/celebrations)
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
   // The seeded outcome-RNG stream (crit rolls, hatching — see game/rng.ts).

@@ -28,6 +28,7 @@ import {
 import { defaultUpgrades } from './upgrades';
 import { maxCpm } from './cpm';
 import { GIFT_CYCLE_DAYS, QUEST_POOL, type QuestId } from './daily';
+import { crystalsFor } from './prestige';
 import { randomSeed, type RngState } from './rng';
 import type {
   CharId,
@@ -38,7 +39,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 15 as const;
+export const CURRENT_VERSION = 16 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -81,6 +82,8 @@ export function defaultSaveState(now: number): SaveState {
     questsClaimed: [],
     questAllClaimed: false,
     adEggReadyAt: 0,
+    prestigeCrystals: 0,
+    prestigeCount: 0,
     lastSeen: now,
     muted: false,
     rng: { seed: randomSeed(), cursor: 0 },
@@ -280,6 +283,11 @@ export function migrate(raw: unknown, now: number): SaveState {
     // Capped at one full cooldown from now: a corrupted far-future timestamp
     // must never lock the button forever.
     adEggReadyAt: Math.min(nonNegInt(data.adEggReadyAt, 0), now + adEggCooldownMs),
+    // v16 invariant: crystals can never exceed what TOTAL lifetime goo
+    // justifies — an edited save claiming 9999 crystals is cut to what its
+    // own history could have earned (see crystalsFor in game/prestige.ts).
+    prestigeCrystals: Math.min(nonNegInt(data.prestigeCrystals, 0), crystalsFor(Math.max(0, num(data.lifetimeGoo, 0)))),
+    prestigeCount: nonNegInt(data.prestigeCount, 0),
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
     rng: sanitizeRng(data.rng),

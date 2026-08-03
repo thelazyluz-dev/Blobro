@@ -175,6 +175,8 @@ interface GameState {
   adRewardUntil: number; // epoch ms; a ×N boost to taps AND income is live until then
   adCooldownUntil: number; // epoch ms; the bonus button recharges after this
   adEggReadyAt: number; // epoch ms; free-egg ad recharge — PERSISTED (v15): a refresh must not reset it
+  prestigeCrystals: number; // v16 — persisted; the mechanic itself lands with the prestige UI
+  prestigeCount: number;
   adOverlayOpen: boolean; // the placeholder ad is currently playing
   adPurpose: 'boost' | 'offline' | 'egg' | null; // what the current ad rewards on finish
   offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
@@ -382,6 +384,8 @@ function snapshot(s: GameState, now: number): SaveState {
     questsClaimed: s.questsClaimed,
     questAllClaimed: s.questAllClaimed,
     adEggReadyAt: s.adEggReadyAt,
+    prestigeCrystals: s.prestigeCrystals,
+    prestigeCount: s.prestigeCount,
     lastSeen: now,
     muted: s.muted,
     rng: s.rng,
@@ -437,6 +441,8 @@ export const useGame = create<GameState>((set, get) => {
     adRewardUntil: 0,
     adCooldownUntil: 0,
     adEggReadyAt: 0,
+    prestigeCrystals: 0,
+    prestigeCount: 0,
     adOverlayOpen: false,
     adPurpose: null,
     offlineDoubled: false,
@@ -490,6 +496,8 @@ export const useGame = create<GameState>((set, get) => {
         // Same monotonic logic for the ad-egg cooldown: the LATER recharge
         // time wins, so neither a refresh nor a stale cloud copy re-arms it.
         save.adEggReadyAt = Math.max(localSave.adEggReadyAt, cloudSave.adEggReadyAt);
+        save.prestigeCrystals = Math.max(localSave.prestigeCrystals, cloudSave.prestigeCrystals);
+        save.prestigeCount = Math.max(localSave.prestigeCount, cloudSave.prestigeCount);
       }
 
       const m = modifiersFrom(
@@ -541,6 +549,8 @@ export const useGame = create<GameState>((set, get) => {
         questsClaimed: save.questsClaimed,
         questAllClaimed: save.questAllClaimed,
         adEggReadyAt: save.adEggReadyAt,
+        prestigeCrystals: save.prestigeCrystals,
+        prestigeCount: save.prestigeCount,
         muted: save.muted,
         rng: save.rng,
         loaded: true,
@@ -1155,6 +1165,8 @@ export const useGame = create<GameState>((set, get) => {
         questsClaimed: [],
         questAllClaimed: false,
         adEggReadyAt: 0,
+        prestigeCrystals: 0,
+        prestigeCount: 0,
         dailyOpen: false,
         rng: fresh.rng,
         hatchResult: null,
@@ -1265,6 +1277,8 @@ export const useGame = create<GameState>((set, get) => {
         questsClaimed: restored.questsClaimed,
         questAllClaimed: restored.questAllClaimed,
         adEggReadyAt: Math.max(get().adEggReadyAt, restored.adEggReadyAt),
+        prestigeCrystals: restored.prestigeCrystals,
+        prestigeCount: restored.prestigeCount,
         muted: restored.muted,
         rng: restored.rng,
         backupAvailable: { lifetimeGoo: current.lifetimeGoo, savedAt: current.lastSeen },

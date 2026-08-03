@@ -12,6 +12,15 @@ import type { Rarity, UpgradeId } from './types';
  */
 export const globalMultiplier = 1; // prestige hook — do not remove
 
+// --- Prestige ("גלגול מחדש") — see game/prestige.ts ------------------------
+// Crystals derive from TOTAL lifetime goo via a square root, which makes the
+// system strategy-proof: total crystals depend only on total goo ever earned,
+// never on how the player splits their rolls — so there is no degenerate
+// "roll constantly" optimum, and the migrate() invariant (crystals ≤ what
+// lifetime justifies) is a one-liner.
+export const prestigeCrystalBonus = 0.05; // +5% income AND taps per crystal, forever (owner-set)
+export const prestigeCrystalDivisor = 1e8; // first crystal at 100M lifetime goo
+
 // --- Clicking ----------------------------------------------------------------
 // clickPower = (clickBase + fingerBonus(level)) × clickMultiplier × star × globalMultiplier
 export const clickBase = 1;

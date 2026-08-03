@@ -92,6 +92,26 @@ describe('migrate', () => {
     expect(twice).toEqual(once);
   });
 
+  describe('v16: prestige crystals — the invariant against edited saves', () => {
+    it('defaults to zero for older saves', () => {
+      const s = migrate(v9Save, NOW);
+      expect(s.prestigeCrystals).toBe(0);
+      expect(s.prestigeCount).toBe(0);
+    });
+
+    it('crystals are capped at what total lifetime goo justifies', () => {
+      // lifetimeGoo 999,999 → sqrt(999999/1e8) < 1 → zero crystals possible.
+      const cheat = migrate({ ...v9Save, prestigeCrystals: 9_999 }, NOW);
+      expect(cheat.prestigeCrystals).toBe(0);
+      // 1e10 lifetime justifies 10; a claim of 7 is plausible and kept.
+      const ok = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 7 }, NOW);
+      expect(ok.prestigeCrystals).toBe(7);
+      // ...but a claim of 50 is cut to the justified 10.
+      const cut = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 50 }, NOW);
+      expect(cut.prestigeCrystals).toBe(10);
+    });
+  });
+
   describe('v15: the ad-egg cooldown rides the save', () => {
     it('defaults to 0 for older saves, keeps a valid value', () => {
       expect(migrate(v9Save, NOW).adEggReadyAt).toBe(0);
