@@ -230,6 +230,11 @@ export const adRewardCooldownMs = 600000; // button recharges 10 min after use
 // anyway: every egg (free or bought) raises the escalating egg-price curve via
 // totalHatches, so farmed free eggs mostly make future eggs pricier.
 export const adEggCooldownMs = 30 * 60 * 1000;
+// The ad egg's own rarity table (owner-set): a real reason to watch. The
+// remaining 85% splits between common/uncommon at their base ratio, so this
+// is "the same egg with the top boosted", not a different game.
+export const adEggLegendaryChance = 0.05; // base: 0.005 — ×10
+export const adEggRareChance = 0.1; // base: 0.045 — ×2.2
 export const adPlaceholderMs = 4000; // how long the dummy ad "plays"
 
 // --- Achievements ------------------------------------------------------------

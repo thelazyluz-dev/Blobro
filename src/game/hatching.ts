@@ -2,6 +2,8 @@
 // can be tested deterministically.
 
 import {
+  adEggLegendaryChance,
+  adEggRareChance,
   luckLegendaryShare,
   luckRareShare,
   pityLegendaryThreshold,
@@ -18,6 +20,7 @@ export interface HatchContext {
   sinceRare: number;
   totalHatches: number;
   luck?: number; // 0..luckCap, shifts odds from common toward rare/legendary
+  premium?: boolean; // the ad egg: its own flat rarity table (premiumRollRarity)
 }
 
 /** Rarity odds after applying luck (mass moves from common to rare+legendary). */
@@ -59,6 +62,29 @@ export function rollRarity(
     acc += chances[rarity];
     if (r < acc) return rarity;
   }
+  return 'common';
+}
+
+/**
+ * The AD EGG's rarity roll (owner-set odds; see adEgg* in balance.ts).
+ *
+ * Deliberately flat: no pity and no luck bias. Pity exists to rescue a bad
+ * streak of NORMAL eggs, and letting the premium roll consume or trigger it
+ * would tangle the two economies — the premium table is already the rescue.
+ * The leftover mass splits between common/uncommon at their base ratio.
+ * Callers still run the outcome through hatch(), so pity COUNTERS keep
+ * moving correctly (a rare+ resets sinceRare like any other hatch).
+ */
+export function premiumRollRarity(u: number): Rarity {
+  const legendary = adEggLegendaryChance;
+  const rare = adEggRareChance;
+  const rest = 1 - legendary - rare;
+  const baseCommon = rarityChances.common;
+  const baseUncommon = rarityChances.uncommon;
+  const uncommon = (rest * baseUncommon) / (baseCommon + baseUncommon);
+  if (u < legendary) return 'legendary';
+  if (u < legendary + rare) return 'rare';
+  if (u < legendary + rare + uncommon) return 'uncommon';
   return 'common';
 }
 
@@ -188,12 +214,14 @@ export function openEggs(input: OpenInput): BatchResult {
 
 export function hatch(rng: () => number, ctx: HatchContext): HatchOutcome {
   const legendaryOwned = isLegendaryOwned(ctx.owned);
-  const rarity = rollRarity(rng, {
-    sinceRare: ctx.sinceRare,
-    totalHatches: ctx.totalHatches,
-    legendaryOwned,
-    luck: ctx.luck,
-  });
+  const rarity = ctx.premium
+    ? premiumRollRarity(rng())
+    : rollRarity(rng, {
+        sinceRare: ctx.sinceRare,
+        totalHatches: ctx.totalHatches,
+        legendaryOwned,
+        luck: ctx.luck,
+      });
   const charId = pickChar(rng, rarity);
 
   const gotRareOrBetter = rarity === 'rare' || rarity === 'legendary';

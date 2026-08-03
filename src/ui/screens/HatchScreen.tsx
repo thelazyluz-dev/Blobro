@@ -174,8 +174,11 @@ export function HatchScreen() {
             adEggReady ? 'bg-pop text-void glow-pop' : 'bg-surface text-bone/35 ring-hairline'
           }`}
         >
-          {adEggReady ? '🎬 סִרְטוֹן = בֵּיצָה בְּמַתָּנָה!' : `🎬 בֵּיצָה נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
+          {adEggReady ? '🎬 סִרְטוֹן = בֵּיצַת מַזָּל!' : `🎬 בֵּיצַת מַזָּל נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
         </button>
+        {adEggReady && (
+          <p className="mt-1 text-xs text-pop">סִכּוּי מֻגְדָּל פִּי 10 לְאַגָּדִי! ✨</p>
+        )}
       </div>
     </div>
   );

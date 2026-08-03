@@ -915,14 +915,36 @@ export const useGame = create<GameState>((set, get) => {
         return;
       }
       if (s.adPurpose === 'egg') {
+        // The ad egg hatches ON THE SPOT with its own boosted rarity table
+        // (owner-set: 5% legendary, 10% rare — see premiumRollRarity). It
+        // can't ride the normal inventory: eggs there are fungible, and a
+        // stored "where did this egg come from" tag would cost a save-version
+        // bump for a distinction only this moment cares about. Instant is
+        // also the better show — video ends, egg cracks.
+        const rng = createRng(s.rng);
+        const outcome = hatch(rng.next, {
+          owned: s.characters,
+          sinceRare: s.sinceRare,
+          totalHatches: s.totalHatches,
+          luck: mods().luck,
+          premium: true,
+        });
+        const existing = s.characters[outcome.charId];
+        const characters: OwnedCharacters = {
+          ...s.characters,
+          [outcome.charId]: existing ? { ...existing, level: outcome.level } : { level: outcome.level },
+        };
         set({
+          ...bumpQuest(questStateOf(s), 'hatches', 1, now),
           adOverlayOpen: false,
           adPurpose: null,
-          eggs: s.eggs + 1,
           adEggReadyAt: now + adEggCooldownMs,
+          characters,
+          totalHatches: outcome.nextTotalHatches,
+          sinceRare: outcome.nextSinceRare,
+          hatchResult: outcome,
+          rng: rng.state(),
         });
-        get().pushToast({ text: 'בֵּיצָה בְּמַתָּנָה! 🥚', icon: '🎬', tone: 'star' });
-        get().triggerConfetti('confetti');
         return;
       }
       // default: the boost button
