@@ -27,6 +27,7 @@ import { autoClicksPerSec } from '../../game/economy';
 import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
 import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
+import { SmoothNumber } from '../SmoothNumber';
 import { BonusButton } from '../AdBonus';
 import { CharacterBody } from '../characters';
 import { AccessoryOverlay, MainBlob } from '../MainBlob';
@@ -435,13 +436,13 @@ export function ClickScreen() {
               frenzyActive ? 'text-hot' : 'text-pop'
             } ${pop ? 'anim-count-pop' : ''}`}
           >
-            {formatGooHero(goo)}
+            <SmoothNumber value={goo} format={formatGooHero} />
           </div>
           <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
         </div>
         {goo >= 1000 && (
           <div className="mt-0.5 text-sm text-bone/60 tabular" dir="ltr">
-            {formatExact(goo)}
+            <SmoothNumber value={goo} format={formatExact} />
           </div>
         )}
       </header>
