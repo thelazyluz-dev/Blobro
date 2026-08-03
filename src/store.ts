@@ -63,6 +63,7 @@ import { recordManualTap } from './game/cpm';
 import {
   bumpQuest,
   claimGift,
+  mergeDailyClaims,
   giftClaimable,
   giftRewardFor,
   nextGiftDay,
@@ -474,6 +475,14 @@ export const useGame = create<GameState>((set, get) => {
 
       const save =
         decision.winner === 'cloud' ? cloudSave! : decision.winner === 'local' ? localSave! : defaultSaveState(now);
+
+      // Whichever copy won, the daily-claim state takes the MOST-CLAIMED of
+      // the two — a cloud copy written by an older deploy (or simply staler)
+      // must never hand today's gift and quests back out (see
+      // mergeDailyClaims in game/daily.ts for the exploit this closes).
+      if (localSave && cloudSave) {
+        Object.assign(save, mergeDailyClaims(localSave, cloudSave));
+      }
 
       const m = modifiersFrom(
         save.upgrades,

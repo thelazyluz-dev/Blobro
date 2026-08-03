@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   GIFT_CYCLE_DAYS,
+  mergeDailyClaims,
   QUEST_POOL,
   bumpQuest,
   claimGift,
@@ -90,5 +91,45 @@ describe('daily quests', () => {
     expect(rolled.questProgress).toEqual({});
     expect(rolled.questsClaimed).toEqual([]);
     expect(rolled.questAllClaimed).toBe(false);
+  });
+});
+
+describe('mergeDailyClaims — the most-claimed picture always wins', () => {
+  const claimed = {
+    lastGiftDay: 20000, giftStreak: 3, questDay: 20000,
+    questProgress: { taps: 500 } as const, questsClaimed: ['taps'] as const, questAllClaimed: false,
+  };
+  const stripped = {
+    // A cloud copy written by an older deploy: migrate() dropped the fields.
+    lastGiftDay: 0, giftStreak: 0, questDay: 0,
+    questProgress: {}, questsClaimed: [] as const, questAllClaimed: false,
+  };
+
+  it('a stale/stripped cloud copy can never hand claims back out', () => {
+    const m1 = mergeDailyClaims(claimed as never, stripped as never);
+    const m2 = mergeDailyClaims(stripped as never, claimed as never); // order must not matter
+    for (const m of [m1, m2]) {
+      expect(m.lastGiftDay).toBe(20000);
+      expect(m.giftStreak).toBe(3);
+      expect(m.questsClaimed).toEqual(['taps']);
+      expect(m.questProgress.taps).toBe(500);
+    }
+  });
+
+  it('same day: progress is per-counter max, claims are the union', () => {
+    const a = { ...claimed, questProgress: { taps: 300, hatches: 1 }, questsClaimed: ['hatches' as const] };
+    const b = { ...claimed, questProgress: { taps: 500 }, questsClaimed: ['taps' as const], questAllClaimed: true };
+    const m = mergeDailyClaims(a as never, b as never);
+    expect(m.questProgress).toEqual({ taps: 500, hatches: 1 });
+    expect([...m.questsClaimed].sort()).toEqual(['hatches', 'taps']);
+    expect(m.questAllClaimed).toBe(true);
+  });
+
+  it('a later quest day wins outright — yesterday cannot leak into today', () => {
+    const today = { ...stripped, questDay: 20001, questProgress: { taps: 5 } };
+    const m = mergeDailyClaims(claimed as never, today as never);
+    expect(m.questDay).toBe(20001);
+    expect(m.questProgress).toEqual({ taps: 5 });
+    expect(m.questsClaimed).toEqual([]);
   });
 });

@@ -141,3 +141,52 @@ export function bumpQuest(state: DailyQuestState, id: QuestId, n: number, now: n
   const s = questStateFor(state, now);
   return { ...s, questProgress: { ...s.questProgress, [id]: (s.questProgress[id] ?? 0) + n } };
 }
+
+// ── Cross-copy reconciliation ───────────────────────────────────────────────
+
+/** The daily fields as they ride inside a SaveState. */
+export interface DailyClaimState extends DailyGiftState, DailyQuestState {}
+
+/**
+ * Merge the daily-claim state of two copies of the same account's save,
+ * always keeping the MOST-CLAIMED picture.
+ *
+ * Why this exists: when the cloud copy wins the load-time merge (or was
+ * written by an older deploy whose migrate() didn't know these fields yet),
+ * adopting it wholesale would rewind lastGiftDay / questsClaimed — and a
+ * rewound claim is both an annoyance ("I already did these!") and an
+ * exploit (claim, kill the app before the push, reload, claim again). Claim
+ * state is monotonic within a day, so "further along wins" is always right:
+ * the later gift claim wins outright, the later quest day wins outright, and
+ * within the same day progress is per-counter max, claims are the union.
+ */
+export function mergeDailyClaims(a: DailyClaimState, b: DailyClaimState): DailyClaimState {
+  const gift =
+    a.lastGiftDay > b.lastGiftDay || (a.lastGiftDay === b.lastGiftDay && a.giftStreak >= b.giftStreak) ? a : b;
+
+  let quests: DailyQuestState;
+  if (a.questDay !== b.questDay) {
+    quests = a.questDay > b.questDay ? a : b;
+  } else {
+    const questProgress: Partial<Record<QuestId, number>> = {};
+    for (const def of QUEST_POOL) {
+      const v = Math.max(a.questProgress[def.id] ?? 0, b.questProgress[def.id] ?? 0);
+      if (v > 0) questProgress[def.id] = v;
+    }
+    quests = {
+      questDay: a.questDay,
+      questProgress,
+      questsClaimed: [...new Set([...a.questsClaimed, ...b.questsClaimed])],
+      questAllClaimed: a.questAllClaimed || b.questAllClaimed,
+    };
+  }
+
+  return {
+    lastGiftDay: gift.lastGiftDay,
+    giftStreak: gift.giftStreak,
+    questDay: quests.questDay,
+    questProgress: quests.questProgress,
+    questsClaimed: quests.questsClaimed,
+    questAllClaimed: quests.questAllClaimed,
+  };
+}

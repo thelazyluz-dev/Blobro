@@ -1,8 +1,11 @@
 // The live event banner (§ user request). An event runs for just 30 seconds
-// once every 10 minutes. To keep the screen uncluttered — and to let events
-// arrive as a surprise — the banner shows ONLY while an event is running
-// (bright, with its effect + a depleting timer); the rest of the time it renders
-// nothing. The event is derived from the wall clock (game/events.ts).
+// once every 10 minutes. To keep the screen uncluttered the banner shows only
+// while an event is running (bright, with its effect + a depleting timer) —
+// plus, in the LAST TWO MINUTES before one, a slim dimmed teaser with a
+// countdown. Anticipation is the cheap half of an event's value: a kid who
+// sees "double income in 1:32" stays for it, where a 30-second surprise in a
+// 10-minute window used to land on an empty room. The rest of the cycle
+// still renders nothing. Derived from the wall clock (game/events.ts).
 
 import { useEffect, useState } from 'react';
 import { eventActiveMs, eventStateAt } from '../game/events';
@@ -21,9 +24,27 @@ export function EventBanner() {
     return () => window.clearInterval(t);
   }, []);
 
-  const { active, event, msLeft } = eventStateAt(now);
+  const { active, event, next, msLeft } = eventStateAt(now);
 
-  // Nothing on screen between events — it appears (as a surprise) only while one runs.
+  // The countdown teaser: only inside the final stretch before an event, so
+  // the screen stays clean for most of the cycle.
+  const teaserMs = 2 * 60 * 1000;
+  if (!active && msLeft <= teaserMs) {
+    return (
+      <div
+        className="relative z-10 mx-3 mb-1 flex items-center gap-2 rounded-full px-3 py-1"
+        style={{ background: 'rgba(0,0,0,0.35)', boxShadow: `inset 0 0 0 1px ${next.color}55` }}
+      >
+        <span className="text-base" aria-hidden>{next.emoji}</span>
+        <span className="min-w-0 flex-1 truncate text-[12px] font-bold" style={{ color: next.color }}>
+          {next.nameHe} <span className="font-normal text-bone/70">מַגִּיעַ בְּקָרוֹב!</span>
+        </span>
+        <span className="shrink-0 font-display text-sm tabular text-bone/90">⏰ {mmss(msLeft)}</span>
+      </div>
+    );
+  }
+
+  // Nothing on screen through the rest of the gap between events.
   if (!active) return null;
 
   const frac = Math.max(0, Math.min(1, msLeft / eventActiveMs));
