@@ -26,6 +26,7 @@ import {
 } from './cosmetics';
 import { defaultUpgrades } from './upgrades';
 import { maxCpm } from './cpm';
+import { GIFT_CYCLE_DAYS, QUEST_POOL, type QuestId } from './daily';
 import { randomSeed, type RngState } from './rng';
 import type {
   CharId,
@@ -36,7 +37,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 13 as const;
+export const CURRENT_VERSION = 14 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -72,6 +73,12 @@ export function defaultSaveState(now: number): SaveState {
     equippedSound: DEFAULT_SOUND,
     equippedMain: null,
     milestonesShown: [],
+    lastGiftDay: 0,
+    giftStreak: 0,
+    questDay: 0,
+    questProgress: {},
+    questsClaimed: [],
+    questAllClaimed: false,
     lastSeen: now,
     muted: false,
     rng: { seed: randomSeed(), cursor: 0 },
@@ -163,6 +170,27 @@ function sanitizeRng(raw: unknown): RngState {
   return { seed: randomSeed(), cursor: 0 };
 }
 
+/** v14 daily quests: keep only counters for real quest ids, capped sanely. */
+function sanitizeQuestProgress(raw: unknown): Partial<Record<QuestId, number>> {
+  const out: Partial<Record<QuestId, number>> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const def of QUEST_POOL) {
+    const v = (raw as Record<string, unknown>)[def.id];
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+      // Progress above the target carries no meaning — cap it so a corrupted
+      // counter can't grow without bound inside the save.
+      out[def.id] = Math.min(Math.floor(v), def.target);
+    }
+  }
+  return out;
+}
+
+function sanitizeQuestIds(raw: unknown): QuestId[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set<string>(QUEST_POOL.map((q) => q.id));
+  return [...new Set(raw.filter((id): id is QuestId => typeof id === 'string' && valid.has(id)))];
+}
+
 /** Keep only real cosmetic ids; always include the free defaults. */
 function sanitizeCosmetics(raw: unknown): string[] {
   const out = new Set<string>([DEFAULT_BLOB, DEFAULT_BACKGROUND, DEFAULT_ACCESSORY, DEFAULT_SOUND]);
@@ -240,6 +268,13 @@ export function migrate(raw: unknown, now: number): SaveState {
     equippedSound,
     equippedMain,
     milestonesShown,
+    // v14 daily loop — plain sanitation; all real semantics live in daily.ts.
+    lastGiftDay: nonNegInt(data.lastGiftDay, 0),
+    giftStreak: Math.min(nonNegInt(data.giftStreak, 0), GIFT_CYCLE_DAYS),
+    questDay: nonNegInt(data.questDay, 0),
+    questProgress: sanitizeQuestProgress(data.questProgress),
+    questsClaimed: sanitizeQuestIds(data.questsClaimed),
+    questAllClaimed: Boolean(data.questAllClaimed),
     lastSeen: num(data.lastSeen, now),
     muted: Boolean(data.muted),
     rng: sanitizeRng(data.rng),

@@ -16,6 +16,7 @@ import { MultiHatchResult } from './ui/MultiHatchResult';
 import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { OfflineModal } from './ui/OfflineModal';
+import { DailyButton, DailyOverlay } from './ui/DailyOverlay';
 import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
 import { SettingsButton, SettingsOverlay } from './ui/SettingsOverlay';
 import { Toaster } from './ui/Toaster';
@@ -91,6 +92,7 @@ export function App() {
           are the only two entry points; everything else lives inside them. */}
       <header className="relative z-30 flex shrink-0 items-center gap-2 px-3 pt-3">
         <SettingsButton />
+        <DailyButton />
         <div className="flex flex-1 items-center justify-center overflow-hidden">
           <Wordmark />
         </div>
@@ -116,6 +118,7 @@ export function App() {
       <MilestoneReveal />
       <UnlockReveal />
       <ProgressOverlay />
+      <DailyOverlay />
       <AdOverlay />
       <SettingsOverlay />
       <InfoOverlay />

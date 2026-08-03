@@ -261,3 +261,16 @@ export const leaderboardNameMaxLen = 12;
 
 // --- Persistence -------------------------------------------------------------
 export const saveIntervalMs = 5000;
+
+// --- Daily gift + daily quests (see game/daily.ts) ---------------------------
+// Rewards are SECONDS OF PASSIVE INCOME, not flat goo — a flat number is
+// generous on day one and insulting a week later, while income-seconds keep
+// the same felt value at every depth. Floors keep day one from paying pennies.
+// Ceilings were checked against the plausibility audit: the largest single
+// grant (160s) sits well inside the smallest window's ceiling.
+export const dailyGiftIncomeSeconds = [40, 60, 80, 100, 130, 160] as const; // days 1–6; day 7 is an egg
+export const dailyGiftMinGoo = 30; // floor per gift-day, times the day number
+export const dailyQuestIncomeSeconds = 60; // reward per completed quest
+export const dailyQuestMinGoo = 40;
+export const dailyQuestAllBonusSeconds = 150; // extra for finishing all three
+export const dailyQuestAllBonusMinGoo = 100;

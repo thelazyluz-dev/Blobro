@@ -74,7 +74,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 13;
+  version: 14;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
@@ -94,6 +94,13 @@ export interface SaveState {
   equippedSound: string; // currently-selected combo-melody sound pack id
   equippedMain: CharId | null; // creature shown on the main screen (null = classic green blob)
   milestonesShown: number[]; // goo thresholds whose fact has already been celebrated (once each)
+  // v14: the come-back-tomorrow loop (see game/daily.ts for all semantics).
+  lastGiftDay: number; // UTC dayKey of the last claimed daily gift (0 = never)
+  giftStreak: number; // cycle position (1..7) of that claim (0 = never)
+  questDay: number; // UTC dayKey this quest progress belongs to
+  questProgress: Partial<Record<'taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels', number>>;
+  questsClaimed: ('taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels')[];
+  questAllClaimed: boolean; // today's finish-all-three bonus collected
   lastSeen: number; // epoch ms — for offline calculation
   muted: boolean;
   // The seeded outcome-RNG stream (crit rolls, hatching — see game/rng.ts).

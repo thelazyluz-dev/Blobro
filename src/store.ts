@@ -60,6 +60,20 @@ import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } fro
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { recordManualTap } from './game/cpm';
+import {
+  bumpQuest,
+  claimGift,
+  giftClaimable,
+  giftRewardFor,
+  nextGiftDay,
+  questAllBonus,
+  questComplete,
+  questReward,
+  questStateFor,
+  questsForDay,
+  type DailyQuestState,
+  type QuestId,
+} from './game/daily';
 import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
@@ -113,6 +127,13 @@ interface GameState {
   equippedSound: string;
   equippedMain: CharId | null; // creature shown on the main screen (null = classic blob)
   milestonesShown: number[]; // goo thresholds already celebrated (each fact shows once)
+  // v14 daily loop (see game/daily.ts) — persisted, mirrors SaveState.
+  lastGiftDay: number;
+  giftStreak: number;
+  questDay: number;
+  questProgress: Partial<Record<QuestId, number>>;
+  questsClaimed: QuestId[];
+  questAllClaimed: boolean;
   muted: boolean;
   rng: RngState; // seeded stream driving crit rolls + hatching (see game/rng.ts)
 
@@ -155,6 +176,7 @@ interface GameState {
   adPurpose: 'boost' | 'offline' | null; // what the current ad rewards on finish
   offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
   toasts: Toast[];
+  dailyOpen: boolean; // the daily gift + quests panel
   settingsOpen: boolean; // account, sound, help links, start-over — see SettingsOverlay
   progressOpen: boolean; // one panel, three tabs — see ProgressOverlay
   progressTab: ProgressTab;
@@ -204,6 +226,9 @@ interface GameState {
   setProgressTab: (tab: ProgressTab) => void;
   setInfoOpen: (open: boolean) => void;
   setNumberLegendOpen: (open: boolean) => void;
+  setDailyOpen: (open: boolean) => void;
+  claimDailyGift: () => void;
+  claimQuest: (id: QuestId) => void;
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
   setNicknameOpen: (open: boolean) => void;
@@ -309,6 +334,21 @@ function achContextOf(s: {
   };
 }
 
+/** The daily-quest slice of the store, in the shape game/daily.ts speaks. */
+function questStateOf(s: {
+  questDay: number;
+  questProgress: Partial<Record<QuestId, number>>;
+  questsClaimed: QuestId[];
+  questAllClaimed: boolean;
+}): DailyQuestState {
+  return {
+    questDay: s.questDay,
+    questProgress: s.questProgress,
+    questsClaimed: s.questsClaimed,
+    questAllClaimed: s.questAllClaimed,
+  };
+}
+
 function snapshot(s: GameState, now: number): SaveState {
   return {
     version: CURRENT_VERSION,
@@ -331,6 +371,12 @@ function snapshot(s: GameState, now: number): SaveState {
     equippedSound: s.equippedSound,
     equippedMain: s.equippedMain,
     milestonesShown: s.milestonesShown,
+    lastGiftDay: s.lastGiftDay,
+    giftStreak: s.giftStreak,
+    questDay: s.questDay,
+    questProgress: s.questProgress,
+    questsClaimed: s.questsClaimed,
+    questAllClaimed: s.questAllClaimed,
     lastSeen: now,
     muted: s.muted,
     rng: s.rng,
@@ -361,6 +407,12 @@ export const useGame = create<GameState>((set, get) => {
     equippedSound: DEFAULT_SOUND,
     equippedMain: null,
     milestonesShown: [],
+    lastGiftDay: 0,
+    giftStreak: 0,
+    questDay: 0,
+    questProgress: {},
+    questsClaimed: [],
+    questAllClaimed: false,
     muted: false,
     rng: { seed: 0, cursor: 0 }, // placeholder — loadGame() overwrites with the saved stream
 
@@ -383,6 +435,7 @@ export const useGame = create<GameState>((set, get) => {
     adPurpose: null,
     offlineDoubled: false,
     toasts: [],
+    dailyOpen: false,
     settingsOpen: false,
     progressOpen: false,
     progressTab: 'stats',
@@ -464,6 +517,12 @@ export const useGame = create<GameState>((set, get) => {
         equippedSound: save.equippedSound,
         equippedMain: save.equippedMain,
         milestonesShown: save.milestonesShown,
+        lastGiftDay: save.lastGiftDay,
+        giftStreak: save.giftStreak,
+        questDay: save.questDay,
+        questProgress: save.questProgress,
+        questsClaimed: save.questsClaimed,
+        questAllClaimed: save.questAllClaimed,
         muted: save.muted,
         rng: save.rng,
         loaded: true,
@@ -515,12 +574,14 @@ export const useGame = create<GameState>((set, get) => {
       // The taps-per-minute record counts MANUAL taps only — this action is
       // the one place a finger reaches the store (robot taps accrue in tick).
       const tapped = recordManualTap(s.tapTimes, Date.now());
+      const quests = bumpQuest(questStateOf(s), 'taps', 1, Date.now());
       set({
         goo: s.goo + gain,
         lifetimeGoo: s.lifetimeGoo + gain,
         clicks: s.clicks + 1,
         tapTimes: tapped.recent,
         bestCpm: Math.max(s.bestCpm, tapped.cpm),
+        ...quests,
         rng: rng.state(),
       });
       return { gain, frenzy, crit };
@@ -530,7 +591,11 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const cost = upgradeCost(id, s.upgrades[id]);
       if (s.goo < cost) return;
-      set({ goo: s.goo - cost, upgrades: { ...s.upgrades, [id]: s.upgrades[id] + 1 } });
+      set({
+        goo: s.goo - cost,
+        upgrades: { ...s.upgrades, [id]: s.upgrades[id] + 1 },
+        ...bumpQuest(questStateOf(s), 'upgrades', 1, Date.now()),
+      });
     },
 
     // Buy ONE egg into inventory. The price climbs with every egg ever acquired
@@ -576,6 +641,7 @@ export const useGame = create<GameState>((set, get) => {
       };
 
       set({
+        ...bumpQuest(questStateOf(s), 'hatches', 1, Date.now()),
         eggs: s.eggs - 1,
         lifetimeGoo: s.lifetimeGoo + outcome.gooReward,
         characters,
@@ -602,6 +668,7 @@ export const useGame = create<GameState>((set, get) => {
       if (result.count === 0) return;
 
       set({
+        ...bumpQuest(questStateOf(s), 'hatches', result.count, Date.now()),
         eggs: s.eggs - result.count,
         lifetimeGoo: s.lifetimeGoo + result.gooFromDupes,
         characters: result.owned,
@@ -643,6 +710,7 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: s.goo - cost,
         characters: { ...s.characters, [id]: { ...held, level: held.level + 1 } },
+        ...bumpQuest(questStateOf(s), 'levels', 1, Date.now()),
       });
     },
 
@@ -662,6 +730,7 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },
+        ...bumpQuest(questStateOf(s), 'levels', n, Date.now()),
       });
     },
 
@@ -699,7 +768,12 @@ export const useGame = create<GameState>((set, get) => {
       }
       if (bought === 0) return; // nothing affordable — don't lock
       const gained = gooPerSec(chars, m) - rate; // extra goo/sec from this batch
-      set({ goo, characters: chars, upgradeAllReadyAt: now + upgradeAllCooldownMs });
+      set({
+        goo,
+        characters: chars,
+        upgradeAllReadyAt: now + upgradeAllCooldownMs,
+        ...bumpQuest(questStateOf(s), 'levels', bought, now),
+      });
       get().pushToast({
         text: `⬆️ ${bought} רָמוֹת בְּ־${upgraded.size} יְצוּרִים · +${formatGoo(gained)} גּוּ/שנייה`,
         icon: '⬆️',
@@ -779,6 +853,7 @@ export const useGame = create<GameState>((set, get) => {
         lifetimeGoo: s.lifetimeGoo + reward,
         bonusesCollected: s.bonusesCollected + 1,
         frenzyUntil: Date.now() + frenzyDurationMs,
+        ...bumpQuest(questStateOf(s), 'bonuses', 1, Date.now()),
       });
       get().pushToast({ text: `בּוֹנוּס! +${Math.round(reward)}`, icon: '⭐', tone: 'pop' });
       return reward;
@@ -868,6 +943,71 @@ export const useGame = create<GameState>((set, get) => {
 
     setNumberLegendOpen: (open) => set({ numberLegendOpen: open }),
 
+    setDailyOpen: (open) => set({ dailyOpen: open }),
+
+    // ── Daily gift + quests (v14 — see game/daily.ts for all semantics) ──
+
+    claimDailyGift: () => {
+      const s = get();
+      const now = Date.now();
+      const gift = { lastGiftDay: s.lastGiftDay, giftStreak: s.giftStreak };
+      if (!giftClaimable(gift, now)) return;
+      const cycleDay = nextGiftDay(gift, now);
+      const reward = giftRewardFor(cycleDay);
+      const after = claimGift(gift, now);
+
+      if (reward.kind === 'egg') {
+        set({ eggs: s.eggs + 1, lastGiftDay: after.lastGiftDay, giftStreak: after.giftStreak });
+        get().pushToast({ text: 'יוֹם 7 — בֵּיצָה בְּמַתָּנָה! 🥚', icon: '🎁', tone: 'star' });
+        get().triggerConfetti('rainbow');
+      } else {
+        const perSec = gooPerSec(s.characters, mods());
+        const amount = Math.max(Math.round(perSec * reward.incomeSeconds), reward.minGoo);
+        set({
+          goo: s.goo + amount,
+          lifetimeGoo: s.lifetimeGoo + amount,
+          lastGiftDay: after.lastGiftDay,
+          giftStreak: after.giftStreak,
+        });
+        get().pushToast({ text: `מַתָּנָה יוֹמִית — יוֹם ${cycleDay}: +${formatGoo(amount)} גּוּ!`, icon: '🎁', tone: 'goo' });
+        get().triggerConfetti('confetti');
+      }
+    },
+
+    claimQuest: (id) => {
+      const s = get();
+      const now = Date.now();
+      const q = questStateFor(questStateOf(s), now);
+      const def = questsForDay(q.questDay).find((d) => d.id === id);
+      if (!def) return; // not one of today's quests
+      if (q.questsClaimed.includes(id) || !questComplete(q, def)) return;
+
+      const perSec = gooPerSec(s.characters, mods());
+      let amount = Math.max(Math.round(perSec * questReward.incomeSeconds), questReward.minGoo);
+      const claimed = [...q.questsClaimed, id];
+
+      // Collecting the third quest also pays the finish-all bonus, once.
+      const allDone = claimed.length >= questsForDay(q.questDay).length && !q.questAllClaimed;
+      if (allDone) {
+        amount += Math.max(Math.round(perSec * questAllBonus.incomeSeconds), questAllBonus.minGoo);
+      }
+
+      set({
+        goo: s.goo + amount,
+        lifetimeGoo: s.lifetimeGoo + amount,
+        questDay: q.questDay,
+        questProgress: q.questProgress,
+        questsClaimed: claimed,
+        questAllClaimed: q.questAllClaimed || allDone,
+      });
+      get().pushToast({
+        text: allDone ? `כָּל הַמְּשִׂימוֹת הוּשְׁלְמוּ! +${formatGoo(amount)} גּוּ 🌟` : `מְשִׂימָה הוּשְׁלְמָה! +${formatGoo(amount)} גּוּ`,
+        icon: def.icon,
+        tone: allDone ? 'star' : 'goo',
+      });
+      if (allDone) get().triggerConfetti('stars');
+    },
+
     // Achievements are collected by hand: the player opens the trophy panel and
     // taps each finished badge to claim its permanent income star + goo grant.
     claimAchievement: (id) => {
@@ -951,6 +1091,13 @@ export const useGame = create<GameState>((set, get) => {
         equippedSound: fresh.equippedSound,
         equippedMain: fresh.equippedMain,
         milestonesShown: [],
+        lastGiftDay: 0,
+        giftStreak: 0,
+        questDay: 0,
+        questProgress: {},
+        questsClaimed: [],
+        questAllClaimed: false,
+        dailyOpen: false,
         rng: fresh.rng,
         hatchResult: null,
         multiHatchResult: null,
@@ -1053,6 +1200,12 @@ export const useGame = create<GameState>((set, get) => {
         equippedSound: restored.equippedSound,
         equippedMain: restored.equippedMain,
         milestonesShown: restored.milestonesShown,
+        lastGiftDay: restored.lastGiftDay,
+        giftStreak: restored.giftStreak,
+        questDay: restored.questDay,
+        questProgress: restored.questProgress,
+        questsClaimed: restored.questsClaimed,
+        questAllClaimed: restored.questAllClaimed,
         muted: restored.muted,
         rng: restored.rng,
         backupAvailable: { lifetimeGoo: current.lifetimeGoo, savedAt: current.lastSeen },

@@ -158,3 +158,23 @@ test('the number legend is visible the moment it is opened', async ({ page }) =>
   // close buttons and no idea which one goes back.
   await expect(page.locator('[role="dialog"]')).toHaveCount(1);
 });
+
+test('the daily gift is waiting on a fresh day, and claiming it pays out', async ({ page }) => {
+  // The come-back-tomorrow loop (v14): a fresh save has never claimed, so the
+  // top-bar gift button must carry a waiting badge, the panel must open, and
+  // one tap must grant the day-1 gift and flip the button to "see you
+  // tomorrow".
+  // The waiting badge makes the button breathe, and an animating element is
+  // never "stable" enough to click — the same trap the tripwires doc records.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const daily = page.getByRole('button', { name: 'מתנה יומית ומשימות' });
+  await expect(daily).toContainText('1'); // something is waiting
+  await daily.click();
+
+  await expect(page.getByText('מַתָּנָה יוֹמִית')).toBeVisible();
+  await page.getByRole('button', { name: /לָקַחַת אֶת הַמַּתָּנָה/ }).click();
+
+  // Claimed: the CTA flips and the quests list is on screen.
+  await expect(page.getByRole('button', { name: /נִתְרָאֶה מָחָר/ })).toBeVisible();
+  await expect(page.getByText('הַמְּשִׂימוֹת שֶׁל הַיּוֹם')).toBeVisible();
+});

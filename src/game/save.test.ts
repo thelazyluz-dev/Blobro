@@ -91,6 +91,27 @@ describe('migrate', () => {
     expect(twice).toEqual(once);
   });
 
+  describe('v14: the daily loop fields', () => {
+    it('a pre-v14 save gets clean daily defaults', () => {
+      const s = migrate(v9Save, NOW);
+      expect(s.lastGiftDay).toBe(0);
+      expect(s.giftStreak).toBe(0);
+      expect(s.questDay).toBe(0);
+      expect(s.questProgress).toEqual({});
+      expect(s.questsClaimed).toEqual([]);
+      expect(s.questAllClaimed).toBe(false);
+    });
+
+    it('quest progress keeps only real quest ids, capped at their targets', () => {
+      const s = migrate(
+        { ...v9Save, questProgress: { taps: 9_999, fake: 5, hatches: -3 }, questsClaimed: ['taps', 'fake', 'taps'] },
+        NOW,
+      );
+      expect(s.questProgress).toEqual({ taps: 300 }); // capped at the taps target
+      expect(s.questsClaimed).toEqual(['taps']); // deduped, unknown ids dropped
+    });
+  });
+
   describe('v13: taps-per-minute record + the goo ≤ lifetime invariant', () => {
     it('a pre-v13 save gets bestCpm 0, everything else untouched', () => {
       const s = migrate(v9Save, NOW);
