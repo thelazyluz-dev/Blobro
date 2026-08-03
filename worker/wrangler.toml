@@ -23,3 +23,10 @@ database_id = "4a7a92f4-c1ff-4618-a026-bc9eb67eb3c2"
 GOOGLE_CLIENT_ID = "873468822731-meo7kg4of4dn7qrephgtmhnq0n0n43s8.apps.googleusercontent.com"
 APP_ORIGIN = "https://bl-or-bo.com"
 SESSION_TTL_DAYS = "30"
+
+# Nightly housekeeping (see the `scheduled` handler in src/index.ts): sweeps
+# expired sessions and audit rows past their retention window. Both tables
+# otherwise grow without bound, and the project's first constraint is that it
+# must not cost money. 03:00 UTC — off-peak for an Israeli audience.
+[triggers]
+crons = ["0 3 * * *"]

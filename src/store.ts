@@ -229,6 +229,19 @@ const CLOUD_LOAD_TIMEOUT_MS = 3000;
 // Owner decision (CLAUDE.md): "prefer checkpoint-based syncing over per-tick
 // requests" — a push at most this often while the save is dirty.
 const CLOUD_PUSH_MIN_INTERVAL_MS = 60_000;
+// The same idea applied to the exit path (visibilitychange/pagehide), which
+// had no throttle at all. Hiding the page is not a rare event on a phone: every
+// app switch, every screen lock, every notification pull-down fires it, and each
+// one was sending a full PUT /save — three D1 operations apiece. A child
+// flipping between apps could put the whole project through its free-tier
+// write budget on their own.
+//
+// Skipping one costs nothing real. The LOCAL save is authoritative and is
+// written independently (see useGameEngine); the cloud copy is a mirror, so a
+// suppressed push only means the mirror is up to 20s stale, and the next
+// checkpoint closes that. The only scenario that loses anything is the device
+// dying inside that window, which also loses the same 20s locally.
+const CLOUD_EXIT_PUSH_MIN_INTERVAL_MS = 20_000;
 
 /**
  * Race `p` against a timer. On timeout, `fallback` is returned and `p` is
@@ -1129,13 +1142,18 @@ if (typeof document !== 'undefined') {
     void pushCheckpoint();
   }, 10_000);
 
-  // The checkpoint that actually catches a kid closing the tab: push
-  // unconditionally (not gated on cloudDirty) the moment the page is hidden
-  // or torn down, so nothing from the last few seconds of play is lost.
+  // The checkpoint that catches a kid closing the tab. Throttled and gated on
+  // dirtiness — see CLOUD_EXIT_PUSH_MIN_INTERVAL_MS for why pushing on every
+  // hide was a real cost problem rather than a theoretical one.
+  const exitPush = () => {
+    if (!cloudDirty) return;
+    if (Date.now() - lastCloudPushAt < CLOUD_EXIT_PUSH_MIN_INTERVAL_MS) return;
+    void pushCheckpoint();
+  };
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') void pushCheckpoint();
+    if (document.visibilityState === 'hidden') exitPush();
   });
-  window.addEventListener('pagehide', () => void pushCheckpoint());
+  window.addEventListener('pagehide', exitPush);
 }
 
 // The ability granted by the equipped main creature (only if it's owned).

@@ -10,6 +10,11 @@ import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:
 import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
 
+// Most tests here write back-to-back to exercise revisions and conflicts,
+// which the production write rate-limit would suppress. Off by default; the
+// block at the bottom turns it back on to test the guard itself.
+(env as { MIN_SAVE_INTERVAL_MS?: string }).MIN_SAVE_INTERVAL_MS = '0';
+
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const request = new Request(`http://worker.example${path}`, init);
   const ctx = createExecutionContext();
@@ -275,5 +280,54 @@ describe('PUT /save', () => {
     });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'bad-body' });
+  });
+});
+
+describe('PUT /save — write rate limit', () => {
+  // Nothing bounded /save before this: an account is free to create, so a
+  // signed-in caller could loop PUTs and burn the D1 write budget three
+  // operations at a time. The project's first constraint is that it must not
+  // cost money.
+  const withLimit = async <T>(ms: string, fn: () => Promise<T>): Promise<T> => {
+    const e = env as { MIN_SAVE_INTERVAL_MS?: string };
+    const prev = e.MIN_SAVE_INTERVAL_MS;
+    e.MIN_SAVE_INTERVAL_MS = ms;
+    try {
+      return await fn();
+    } finally {
+      e.MIN_SAVE_INTERVAL_MS = prev;
+    }
+  };
+
+  it('rejects a second write inside the window with 429, not a silent 200', async () => {
+    await withLimit('60000', async () => {
+      const cookie = await signUp();
+      expect((await putSave(cookie, 0, sampleSave())).status).toBe(200);
+
+      const res = await putSave(cookie, 1, sampleSave({ lifetimeGoo: 999 }));
+      // 200 here would be a lie with teeth: a second device would clear its
+      // dirty flag believing the save landed, and stop retrying.
+      expect(res.status).toBe(429);
+      expect((await res.json() as { error: string }).error).toBe('too-fast');
+    });
+  });
+
+  it('does not write anything when it rejects', async () => {
+    await withLimit('60000', async () => {
+      const cookie = await signUp();
+      await putSave(cookie, 0, sampleSave({ lifetimeGoo: 111 }));
+      await putSave(cookie, 1, sampleSave({ lifetimeGoo: 999 }));
+
+      const body = (await (await getSave(cookie)).json()) as { rev: number; save: { lifetimeGoo: number } };
+      expect(body.rev).toBe(1);
+      expect(body.save.lifetimeGoo).toBe(111); // the suppressed value never landed
+    });
+  });
+
+  it('lets the first write of a brand-new account through', async () => {
+    await withLimit('60000', async () => {
+      const cookie = await signUp();
+      expect((await putSave(cookie, 0, sampleSave())).status).toBe(200);
+    });
   });
 });

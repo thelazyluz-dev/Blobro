@@ -10,6 +10,13 @@ import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:
 import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
 
+// These tests write repeatedly in quick succession on purpose. Production
+// rate-limits one account to a write every few seconds (see
+// DEFAULT_MIN_SAVE_INTERVAL_MS in src/index.ts); that guard has its own tests
+// in save-endpoints.integration.test.ts, and here it would only obscure what
+// is being checked.
+(env as { MIN_SAVE_INTERVAL_MS?: string }).MIN_SAVE_INTERVAL_MS = '0';
+
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const request = new Request(`http://worker.example${path}`, init);
   const ctx = createExecutionContext();

@@ -89,6 +89,7 @@ export interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   APP_ORIGIN?: string; // default 'https://bl-or-bo.com'
   SESSION_TTL_DAYS?: string; // default 30 (see DEFAULT_SESSION_TTL_DAYS)
+  MIN_SAVE_INTERVAL_MS?: string; // default 5000 — see DEFAULT_MIN_SAVE_INTERVAL_MS
 }
 
 const CORS: Record<string, string> = {
@@ -105,12 +106,32 @@ const CORS: Record<string, string> = {
 // story: reflect the request's Origin only if it's in this allowlist, never
 // a wildcard. The leaderboard routes above are untouched — they stay
 // public/uncredentialed.
-const AUTH_ALLOWED_ORIGINS = [
-  'https://bl-or-bo.com',
+const PROD_ORIGIN = 'https://bl-or-bo.com';
+const DEV_ORIGINS = [
   'http://localhost:5173', // vite dev
   'http://127.0.0.1:5173',
   'http://localhost:4173', // vite preview
 ];
+
+/**
+ * Origins allowed to make credentialed requests.
+ *
+ * The dev origins used to ship to production too. SameSite=Lax already stops
+ * the session cookie riding a cross-site request, so it was not exploitable —
+ * but that left one control doing all the work, and a production allowlist
+ * naming localhost is the kind of thing that is only ever one refactor away
+ * from mattering. Production now allows exactly one origin.
+ */
+// APP_ORIGIN is a deploy-time var, identical for every request an isolate ever
+// serves, so this is resolved once at the top of fetch() rather than threaded
+// through the ~40 call sites of authJson below. Defaults to the production
+// origin, so a misconfigured deploy fails CLOSED (locked down), not open.
+let allowedOrigins: string[] = [PROD_ORIGIN];
+
+function resolveAllowedOrigins(env: Env): void {
+  const app = (env.APP_ORIGIN ?? PROD_ORIGIN).trim();
+  allowedOrigins = app === PROD_ORIGIN ? [PROD_ORIGIN] : [app, PROD_ORIGIN, ...DEV_ORIGINS];
+}
 
 function authCorsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
@@ -119,7 +140,7 @@ function authCorsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Credentials': 'true',
     Vary: 'Origin',
   };
-  if (origin && AUTH_ALLOWED_ORIGINS.includes(origin)) {
+  if (origin && allowedOrigins.includes(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
   }
   return headers;
@@ -160,6 +181,33 @@ const GOO_FIRST_CAP = 1_000_000;
 // text, in bytes, BEFORE any JSON parsing.
 const MAX_SAVE_BYTES = 65_536;
 
+// Minimum gap between accepted writes for one account. The client checkpoints
+// once a minute, so this never touches honest play — it exists because nothing
+// else bounded /save at all: a signed-in caller (and an account is free) could
+// loop PUTs and burn the D1 write budget, each request costing three
+// operations. The project's first constraint is that it must not cost money.
+//
+// A suppressed write answers 429, NOT 200. Answering 200 was the first thing I
+// tried and it is a lie with teeth: two devices playing at once collide inside
+// this window, and the loser would be told its save reached the cloud when it
+// did not — it clears its dirty flag and stops trying. 429 is what the client
+// already handles correctly (best-effort, stay dirty, retry at the next
+// checkpoint, never surfaced to the player), so the save lands a minute later
+// instead of silently never.
+const DEFAULT_MIN_SAVE_INTERVAL_MS = 5_000;
+
+// Clean audit rows older than this. The table is tuning data for choosing an
+// enforcement threshold (PR 6), not history — a month is far more than enough
+// to characterise normal play.
+const AUDIT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+// Cap on rows removed per nightly run, so housekeeping stays a short query.
+const SWEEP_BATCH = 5_000;
+
+function minSaveIntervalMs(env: Env): number {
+  const raw = Number(env.MIN_SAVE_INTERVAL_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_MIN_SAVE_INTERVAL_MS;
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -175,6 +223,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    resolveAllowedOrigins(env);
     const url = new URL(request.url);
     // /auth/* AND /save are both credentialed (cookie-session) routes and
     // share the same CORS story — see authCorsHeaders.
@@ -319,6 +368,43 @@ export default {
     }
 
     return json({ error: 'not-found' }, 404);
+  },
+
+  /**
+   * Nightly housekeeping (see [triggers] in wrangler.toml).
+   *
+   * Two tables grew without any bound. Sessions were only ever deleted when
+   * someone tried to reuse an expired one, so a player who simply stops
+   * playing leaves a row behind forever. save_audit gains a row per cloud
+   * save — around 1,400 a day per active player — and its whole purpose is
+   * statistical, so a row from months ago is dead weight.
+   *
+   * Both sweeps are bounded by LIMIT so one night's work can never turn into
+   * a long-running query, and failures are swallowed: housekeeping must never
+   * be the reason the API is unavailable.
+   */
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    const now = Date.now();
+    try {
+      await env.DB.prepare(
+        'DELETE FROM sessions WHERE token_hash IN (SELECT token_hash FROM sessions WHERE expires < ?1 LIMIT ?2)',
+      )
+        .bind(now, SWEEP_BATCH)
+        .run();
+    } catch (err) {
+      console.error('session sweep failed', err);
+    }
+    try {
+      // Flagged rows (ok = 0) are kept indefinitely — they are the rare ones,
+      // and they are the entire reason the table exists.
+      await env.DB.prepare(
+        'DELETE FROM save_audit WHERE id IN (SELECT id FROM save_audit WHERE ok = 1 AND created < ?1 LIMIT ?2)',
+      )
+        .bind(now - AUDIT_RETENTION_MS, SWEEP_BATCH)
+        .run();
+    } catch (err) {
+      console.error('audit sweep failed', err);
+    }
   },
 };
 
@@ -783,7 +869,17 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
   }
   if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
 
-  // Size cap BEFORE any parsing — a save is a few KB, this just blocks abuse.
+  // Reject from the header first, before a byte is buffered. request.text()
+  // materialises the WHOLE body in Worker memory, and a Worker has 128MB — so
+  // checking the length only after reading it means a large upload can exhaust
+  // memory on the way to being rejected.
+  const declaredLength = Number(request.headers.get('Content-Length'));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_SAVE_BYTES) {
+    return authJson({ error: 'too-large' }, 413, origin);
+  }
+
+  // Still check the real size: Content-Length is client-supplied and may be
+  // absent (chunked) or a lie.
   const text = await request.text();
   if (new TextEncoder().encode(text).length > MAX_SAVE_BYTES) {
     return authJson({ error: 'too-large' }, 413, origin);
@@ -819,6 +915,10 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
     const previousRow = await env.DB.prepare('SELECT rev, payload, updated FROM saves WHERE user_id = ?1')
       .bind(user.id)
       .first<SaveRow>();
+
+    if (previousRow && now - previousRow.updated < minSaveIntervalMs(env)) {
+      return authJson({ error: 'too-fast', rev: previousRow.rev, updated: previousRow.updated }, 429, origin);
+    }
 
     // A single guarded UPSERT:
     //  - No row yet: the SELECT source only yields a row when baseRev is 0

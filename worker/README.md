@@ -381,3 +381,29 @@ tap-count jump recording `click-rate`, `ratio` separating honest play from
 gross fabrication, two accounts' audit rows never cross-contaminating, and
 that a missing `save_audit` table (the "schema not re-applied yet" window)
 cannot break a save.
+
+---
+
+## Housekeeping, limits and cost controls
+
+The project's first constraint is that it must not cost money, and for a while
+nothing enforced that on the write path. These are the guards:
+
+| Guard | Where | Why |
+|---|---|---|
+| `MIN_SAVE_INTERVAL_MS` (default 5000) | `src/index.ts` | Nothing bounded `PUT /save` at all. An account is free to create, so a signed-in caller could loop writes and burn the D1 budget three operations at a time. Honest play checkpoints once a minute, so this never touches it. |
+| `Content-Length` pre-check | `src/index.ts` `savePut` | `request.text()` buffers the whole body, and a Worker has 128MB. Oversized uploads are now refused from the header, before a byte is read. |
+| Nightly sweep | `scheduled` handler + `[triggers]` in `wrangler.toml` | `sessions` and `save_audit` both grew without bound. Runs 03:00 UTC, batched, failures swallowed. |
+| Production CORS | `allowedOrigins()` | The dev origins used to ship to production. Not exploitable (SameSite=Lax), but a production allowlist naming localhost is one refactor away from mattering. |
+
+A suppressed write returns **429**, never 200. Answering 200 would tell a
+second device its save reached the cloud when it did not — it would clear its
+dirty flag and stop retrying. 429 is what the client already handles: stay
+dirty, retry at the next checkpoint, never surface anything to the player.
+
+**Retention:** audit rows with `ok = 1` are deleted after 30 days. Flagged rows
+(`ok = 0`) are kept indefinitely — they are rare, and they are the entire
+reason the table exists.
+
+Deploying this needs no schema change, just `npx wrangler deploy`. The cron
+trigger is registered from `wrangler.toml` on that same deploy.
