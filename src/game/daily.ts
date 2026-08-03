@@ -80,13 +80,21 @@ export interface QuestDef {
   target: number;
 }
 
-/** The full pool. Three of these are live on any given day. */
+/**
+ * The full pool. Three of these are live on any given day.
+ *
+ * Targets are sized for a real play session, not a drive-by: the golden bonus
+ * spawns every 42–88s, so five of them is ~5 minutes of active play; 500 taps
+ * is a proper tapping stretch; four eggs cost real (escalating) goo. Owner
+ * feedback after the first cut: quests a player finishes in a minute don't
+ * feel like quests.
+ */
 export const QUEST_POOL: QuestDef[] = [
-  { id: 'taps', nameHe: 'לִלְחֹץ 300 פְּעָמִים', icon: '👆', target: 300 },
-  { id: 'hatches', nameHe: 'לִבְקֹעַ 2 בֵּיצִים', icon: '🥚', target: 2 },
-  { id: 'bonuses', nameHe: 'לֶאֱסֹף 3 בּוֹנוּסִים', icon: '🎁', target: 3 },
-  { id: 'upgrades', nameHe: 'לִקְנוֹת 5 שִׁדְרוּגִים', icon: '⬆️', target: 5 },
-  { id: 'levels', nameHe: 'לְאַמֵּן יְצוּרִים 10 רָמוֹת', icon: '🐾', target: 10 },
+  { id: 'taps', nameHe: 'לִלְחֹץ 500 פְּעָמִים', icon: '👆', target: 500 },
+  { id: 'hatches', nameHe: 'לִבְקֹעַ 4 בֵּיצִים', icon: '🥚', target: 4 },
+  { id: 'bonuses', nameHe: 'לֶאֱסֹף 5 בּוֹנוּסִים', icon: '🎁', target: 5 },
+  { id: 'upgrades', nameHe: 'לִקְנוֹת 12 שִׁדְרוּגִים', icon: '⬆️', target: 12 },
+  { id: 'levels', nameHe: 'לְאַמֵּן יְצוּרִים 40 רָמוֹת', icon: '🐾', target: 40 },
 ];
 
 /** Today's three quests — a deterministic rotation, identical for everyone. */

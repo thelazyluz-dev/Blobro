@@ -107,7 +107,7 @@ describe('migrate', () => {
         { ...v9Save, questProgress: { taps: 9_999, fake: 5, hatches: -3 }, questsClaimed: ['taps', 'fake', 'taps'] },
         NOW,
       );
-      expect(s.questProgress).toEqual({ taps: 300 }); // capped at the taps target
+      expect(s.questProgress).toEqual({ taps: 500 }); // capped at the taps target
       expect(s.questsClaimed).toEqual(['taps']); // deduped, unknown ids dropped
     });
   });

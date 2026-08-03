@@ -9,8 +9,10 @@ import {
   giftClaimable,
   giftRewardFor,
   nextGiftDay,
+  questAllBonus,
   questComplete,
   questProgressOf,
+  questReward,
   questStateFor,
   questsForDay,
 } from '../game/daily';
@@ -74,8 +76,11 @@ export function DailyOverlay() {
   const m = useGame(selectMods);
   const { giftReady, cycleDay, quests, defs } = useDailyState();
 
-  // Preview of what today's gift pays, in the player's own numbers.
+  // Previews in the player's own numbers — a quest without a visible prize
+  // is a chore. All three amounts scale with income exactly like the payout.
   const perSec = useMemo(() => gooPerSec(characters, m), [characters, m]);
+  const questPays = Math.max(Math.round(perSec * questReward.incomeSeconds), questReward.minGoo);
+  const allBonusPays = Math.max(Math.round(perSec * questAllBonus.incomeSeconds), questAllBonus.minGoo);
   const reward = giftRewardFor(cycleDay);
   const giftLabel =
     reward.kind === 'egg' ? 'בֵּיצָה! 🥚' : `+${formatGoo(Math.max(Math.round(perSec * reward.incomeSeconds), reward.minGoo))} גּוּ`;
@@ -143,19 +148,24 @@ export function DailyOverlay() {
                 <div key={def.id} className="rounded-xl bg-black/30 p-3 ring-1 ring-hairline">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{def.icon}</span>
-                    <span className="flex-1 text-sm font-bold text-bone">{def.nameHe}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold text-bone">{def.nameHe}</span>
+                      {!claimed && (
+                        <span className="block text-xs text-goo">פְּרָס: +{formatGoo(questPays)} גּוּ</span>
+                      )}
+                    </span>
                     {claimed ? (
                       <span className="text-xs font-bold text-goo">✓ נֶאֱסַף</span>
                     ) : done ? (
                       <button
                         type="button"
                         onClick={() => claimQuest(def.id)}
-                        className="h-9 rounded-full bg-goo px-4 text-sm font-bold text-void active:scale-95"
+                        className="h-9 shrink-0 rounded-full bg-goo px-4 text-sm font-bold text-void active:scale-95"
                       >
-                        לָקַחַת!
+                        לָקַחַת +{formatGoo(questPays)}
                       </button>
                     ) : (
-                      <span className="text-xs text-bone/60 tabular" dir="ltr">
+                      <span className="shrink-0 text-xs text-bone/60 tabular" dir="ltr">
                         {progress}/{def.target}
                       </span>
                     )}
@@ -172,8 +182,8 @@ export function DailyOverlay() {
               );
             })}
           </div>
-          <div className="mt-2 text-center text-xs text-bone/50">
-            מַשְׁלִימִים אֶת שְׁלָשְׁתָּן — מְקַבְּלִים בּוֹנוּס עֲנָק! 🌟
+          <div className="mt-2 text-center text-xs text-bone/60">
+            מַשְׁלִימִים אֶת שְׁלָשְׁתָּן — עוֹד +{formatGoo(allBonusPays)} גּוּ בּוֹנוּס! 🌟
           </div>
         </div>
 

@@ -77,10 +77,11 @@ describe('daily quests', () => {
   });
 
   it('bumping accumulates and rolls over to a fresh day automatically', () => {
-    let s = freshQuestState(dayKey(T0));
-    s = bumpQuest(s, 'taps', 200, T0);
-    s = bumpQuest(s, 'taps', 150, T0);
     const taps = QUEST_POOL.find((q) => q.id === 'taps')!;
+    let s = freshQuestState(dayKey(T0));
+    s = bumpQuest(s, 'taps', taps.target - 100, T0);
+    expect(questComplete(s, taps)).toBe(false); // still 100 short
+    s = bumpQuest(s, 'taps', 100, T0);
     expect(questComplete(s, taps)).toBe(true);
 
     // The next day: everything resets, including claims.
