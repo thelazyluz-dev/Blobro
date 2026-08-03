@@ -16,13 +16,22 @@ CREATE TABLE IF NOT EXISTS scores (
   code    TEXT PRIMARY KEY,           -- secret per-device recovery code (never returned)
   name    TEXT NOT NULL,              -- chosen nickname (not a real name)
   clicks  INTEGER NOT NULL DEFAULT 0, -- best physical-tap count
-  goo     REAL    NOT NULL DEFAULT 0, -- best total goo earned
+  goo     REAL    NOT NULL DEFAULT 0, -- goo held right now (may go DOWN — spending is a trade-off)
+  cpm     INTEGER NOT NULL DEFAULT 0, -- record manual taps in a rolling minute (ratchets up)
   created INTEGER NOT NULL DEFAULT 0, -- first-seen, ms since epoch (never updated)
   updated INTEGER NOT NULL DEFAULT 0  -- last update, ms since epoch
 );
+-- NOTE: `cpm` was added after the table already existed in production.
+-- CREATE TABLE IF NOT EXISTS cannot add a column to an existing table, and
+-- SQLite has no "ADD COLUMN IF NOT EXISTS" — the deploy workflow's
+-- apply_schema step runs the ALTER separately and tolerates "duplicate
+-- column", so re-running this file stays safe. Fresh databases (and the
+-- test harness, which applies this file to an empty D1) get it from the
+-- CREATE above.
 
 CREATE INDEX IF NOT EXISTS idx_scores_clicks ON scores (clicks DESC);
 CREATE INDEX IF NOT EXISTS idx_scores_goo ON scores (goo DESC);
+CREATE INDEX IF NOT EXISTS idx_scores_cpm ON scores (cpm DESC);
 
 -- ────────────────────────────────────────────────────────────────────────
 -- PR 3a: accounts + sessions (identity only — no game data lives here yet).

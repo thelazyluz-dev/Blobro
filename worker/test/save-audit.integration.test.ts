@@ -267,14 +267,14 @@ describe('save auditing (PR 5, shadow mode)', () => {
 
   it('an auditing failure cannot break a save — simulates the owner not having re-run schema.sql yet', async () => {
     const { cookie } = await signUp();
-    await putSave(cookie, 0, sampleSave({ lifetimeGoo: 10, clicks: 1 })); // rev -> 1, audit row too
+    await putSave(cookie, 0, sampleSave({ goo: 10, lifetimeGoo: 10, clicks: 1 })); // rev -> 1, audit row too
 
     // Simulate the deploy window where the Worker code is live but the owner
     // hasn't re-applied schema.sql, so save_audit doesn't exist.
     await env.DB.prepare('DROP TABLE save_audit').run();
 
     try {
-      const res = await putSave(cookie, 1, sampleSave({ lifetimeGoo: 20, clicks: 2 }));
+      const res = await putSave(cookie, 1, sampleSave({ goo: 20, lifetimeGoo: 20, clicks: 2 }));
       expect(res.status).toBe(200);
       const body = (await res.json()) as { rev: number };
       expect(body.rev).toBe(2);

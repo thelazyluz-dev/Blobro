@@ -223,6 +223,7 @@ describe('PUT /save', () => {
       cookie,
       0,
       sampleSave({
+        goo: 0, // held ≤ lifetime — without this the v13 invariant RAISES lifetime instead
         lifetimeGoo: -1,
         clicks: Number.NaN,
         characters: { 'not-a-real-creature-id': { level: 5 } },
@@ -245,7 +246,7 @@ describe('PUT /save', () => {
     // are what a later PR re-simulates against, so drift here would be silent.
     expect(row!.lifetimeGoo).toBe(0);
     expect(row!.clicks).toBe(0);
-    expect(row!.version).toBe(12);
+    expect(row!.version).toBe(13); // CURRENT_VERSION after the v13 (bestCpm) bump
   });
 
   it('one user cannot read or overwrite another user\'s save', async () => {

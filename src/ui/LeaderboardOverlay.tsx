@@ -31,7 +31,7 @@ import { useGame } from '../store';
 
 const TOP_N = 10;
 
-const METRIC_LABEL: Record<Metric, string> = { clicks: 'לְחִיצוֹת 👆', goo: 'גּוּ 🟢' };
+const METRIC_LABEL: Record<Metric, string> = { clicks: 'לְחִיצוֹת 👆', goo: 'גּוּ 🟢', cpm: 'לְחִיצוֹת לְדַקָּה ⚡' };
 const fmt = (m: Metric, v: number) => (m === 'goo' ? formatGoo(v) : formatExact(v));
 
 function rankBadgeClass(i: number): string {
@@ -46,7 +46,8 @@ function rankBadgeClass(i: number): string {
 
 export function LeaderboardContent({ active }: { active: boolean }) {
   const clicks = useGame((s) => s.clicks);
-  const lifetimeGoo = useGame((s) => s.lifetimeGoo);
+  const goo = useGame((s) => s.goo);
+  const bestCpm = useGame((s) => s.bestCpm);
   const leaderboard = useGame((s) => s.leaderboard);
 
   const global = hasGlobalLeaderboard();
@@ -67,7 +68,7 @@ export function LeaderboardContent({ active }: { active: boolean }) {
     let alive = true;
     (async () => {
       const s = useGame.getState();
-      const res = await submitScore(savedName, s.clicks, s.lifetimeGoo);
+      const res = await submitScore(savedName, s.clicks, s.goo);
       if (alive && res) setMyRanks(res);
     })();
     return () => {
@@ -101,8 +102,12 @@ export function LeaderboardContent({ active }: { active: boolean }) {
   }, [leaderboard, clicks]);
 
   const myRank = myRanks ? myRanks[metric] : null;
-  const liveValue = metric === 'goo' ? lifetimeGoo : clicks;
-  const myValue = Math.max(myRank?.best ?? 0, liveValue);
+  // clicks and cpm are records — the freshest of server/live wins. goo is the
+  // CURRENT balance (owner decision: the board shows what you hold, so
+  // spending is a real trade-off), and the live number is always the truth —
+  // the server's copy is just an older snapshot of the same thing.
+  const myValue =
+    metric === 'goo' ? goo : metric === 'cpm' ? Math.max(myRank?.best ?? 0, bestCpm) : Math.max(myRank?.best ?? 0, clicks);
 
   const join = async () => {
     const clean = joinName.trim();
@@ -113,7 +118,7 @@ export function LeaderboardContent({ active }: { active: boolean }) {
     }
     setJoining(true);
     const s = useGame.getState();
-    const res = await submitScore(clean, s.clicks, s.lifetimeGoo);
+    const res = await submitScore(clean, s.clicks, s.goo);
     markNicknameAsked();
     if (res) setMyRanks(res);
     const top = await fetchTop(metric, TOP_N);
@@ -127,10 +132,10 @@ export function LeaderboardContent({ active }: { active: boolean }) {
         {global ? '🌍 טַבְלָה עוֹלָמִית — כֻּלָּם רוֹאִים' : 'נשמר במכשיר בלבד'}
       </div>
 
-      {/* Metric toggle: physical taps vs total goo. */}
+      {/* Metric toggle: taps, held goo, and the taps-per-minute record. */}
       {global && (
         <div className="mb-3 mt-2 flex gap-1 rounded-full bg-black/30 p-1 ring-1 ring-hairline">
-          {(['clicks', 'goo'] as Metric[]).map((m) => (
+          {(['clicks', 'goo', 'cpm'] as Metric[]).map((m) => (
             <button
               key={m}
               type="button"
@@ -139,7 +144,7 @@ export function LeaderboardContent({ active }: { active: boolean }) {
                 metric === m ? 'bg-cy text-void' : 'text-bone/60'
               }`}
             >
-              {m === 'clicks' ? '👆 לְחִיצוֹת' : '🟢 גּוּ'}
+              {m === 'clicks' ? '👆 לְחִיצוֹת' : m === 'goo' ? '🟢 גּוּ' : '⚡ לְדַקָּה'}
             </button>
           ))}
         </div>

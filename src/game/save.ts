@@ -25,6 +25,7 @@ import {
   soundById,
 } from './cosmetics';
 import { defaultUpgrades } from './upgrades';
+import { maxCpm } from './cpm';
 import { randomSeed, type RngState } from './rng';
 import type {
   CharId,
@@ -35,7 +36,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 12 as const;
+export const CURRENT_VERSION = 13 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -54,6 +55,7 @@ export function defaultSaveState(now: number): SaveState {
     version: CURRENT_VERSION,
     goo: 0,
     lifetimeGoo: 0,
+    bestCpm: 0,
     upgrades: { ...defaultUpgrades },
     characters: {},
     eggs: 0,
@@ -211,7 +213,17 @@ export function migrate(raw: unknown, now: number): SaveState {
   return {
     version: CURRENT_VERSION,
     goo: Math.max(0, num(data.goo, 0)),
-    lifetimeGoo: Math.max(0, num(data.lifetimeGoo, 0)),
+    // Held goo can never exceed lifetime goo — lifetime is everything ever
+    // earned and spending only moves goo down. The invariant is enforced
+    // (v13) by RAISING lifetime to at least the held amount, never by cutting
+    // the held amount: a legit save is only ever corrected in the player's
+    // favour, while an edited save carrying goo=1e17 next to a tiny lifetime
+    // now shows that 1e17 as a lifetime JUMP — exactly the delta the
+    // plausibility audit measures and the leaderboard bars on.
+    lifetimeGoo: Math.max(0, num(data.lifetimeGoo, 0), num(data.goo, 0)),
+    // v13: taps-per-minute record. Clamped to the physical ceiling — a value
+    // above what a human can produce in a minute is an edited save.
+    bestCpm: Math.min(nonNegInt(data.bestCpm, 0), maxCpm),
     upgrades: sanitizeUpgrades(data.upgrades, data.fingerLevel),
     characters: sanitizeCharacters(data.characters, remapLegacy),
     eggs: nonNegInt(data.eggs, 0),

@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './save';
+import { maxCpm } from './cpm';
 import { DEFAULT_BLOB } from './cosmetics';
 
 const NOW = 1_700_000_000_000;
@@ -88,6 +89,29 @@ describe('migrate', () => {
     const once = migrate(v9Save, NOW);
     const twice = migrate(once, NOW);
     expect(twice).toEqual(once);
+  });
+
+  describe('v13: taps-per-minute record + the goo ≤ lifetime invariant', () => {
+    it('a pre-v13 save gets bestCpm 0, everything else untouched', () => {
+      const s = migrate(v9Save, NOW);
+      expect(s.bestCpm).toBe(0);
+      expect(s.goo).toBe(123456);
+    });
+
+    it('an impossible bestCpm is clamped to the physical ceiling', () => {
+      expect(migrate({ ...v9Save, bestCpm: 999_999 }, NOW).bestCpm).toBe(maxCpm);
+      expect(migrate({ ...v9Save, bestCpm: -5 }, NOW).bestCpm).toBe(0);
+      expect(migrate({ ...v9Save, bestCpm: 480 }, NOW).bestCpm).toBe(480);
+    });
+
+    it('held goo above lifetime RAISES lifetime — the player is never cut down', () => {
+      // The board ranks by held goo, so an edited save could otherwise carry a
+      // fortune next to a tiny, audit-clean lifetime. Raising lifetime turns
+      // that fortune into a lifetime jump — the delta the audit measures.
+      const s = migrate({ ...v9Save, goo: 5_000_000, lifetimeGoo: 10 }, NOW);
+      expect(s.goo).toBe(5_000_000); // progress kept in full
+      expect(s.lifetimeGoo).toBe(5_000_000); // invariant restored upward
+    });
   });
 
   it('a fresh save is already current', () => {

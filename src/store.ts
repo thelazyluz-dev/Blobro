@@ -59,6 +59,7 @@ import { currentEvent } from './game/events';
 import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
+import { recordManualTap } from './game/cpm';
 import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
@@ -95,6 +96,7 @@ interface GameState {
   // --- persistent (mirror of SaveState) ---
   goo: number;
   lifetimeGoo: number;
+  bestCpm: number; // record MANUAL taps in a rolling minute (see game/cpm.ts)
   upgrades: Upgrades;
   characters: OwnedCharacters;
   eggs: number;
@@ -143,6 +145,9 @@ interface GameState {
   multiHatchResult: BatchResult | null;
   offlineReport: OfflineReport | null;
   frenzyUntil: number; // epoch ms; a click frenzy is active until then
+  // Manual-tap timestamps inside the last minute (transient — never saved);
+  // feeds the bestCpm record via game/cpm.ts.
+  tapTimes: number[];
   // Rewarded "watch to boost" mechanic (session-only, never persisted).
   adRewardUntil: number; // epoch ms; a ×N boost to taps AND income is live until then
   adCooldownUntil: number; // epoch ms; the bonus button recharges after this
@@ -309,6 +314,7 @@ function snapshot(s: GameState, now: number): SaveState {
     version: CURRENT_VERSION,
     goo: s.goo,
     lifetimeGoo: s.lifetimeGoo,
+    bestCpm: s.bestCpm,
     upgrades: s.upgrades,
     characters: s.characters,
     eggs: s.eggs,
@@ -337,6 +343,8 @@ export const useGame = create<GameState>((set, get) => {
   return {
     goo: 0,
     lifetimeGoo: 0,
+    bestCpm: 0,
+    tapTimes: [],
     upgrades: { finger: 0, power: 0, autoTap: 0, nurture: 0, crit: 0, luck: 0 },
     characters: {},
     eggs: 0,
@@ -439,6 +447,7 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: save.goo + (report?.goo ?? 0),
         lifetimeGoo: save.lifetimeGoo + (report?.goo ?? 0),
+        bestCpm: save.bestCpm,
         upgrades: save.upgrades,
         characters,
         eggs: save.eggs,
@@ -503,7 +512,17 @@ export const useGame = create<GameState>((set, get) => {
       if (frenzy) gain *= frenzyMultiplier;
       gain *= currentEvent(Date.now()).clickMult;
       gain *= adMultOf(s, Date.now());
-      set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain, clicks: s.clicks + 1, rng: rng.state() });
+      // The taps-per-minute record counts MANUAL taps only — this action is
+      // the one place a finger reaches the store (robot taps accrue in tick).
+      const tapped = recordManualTap(s.tapTimes, Date.now());
+      set({
+        goo: s.goo + gain,
+        lifetimeGoo: s.lifetimeGoo + gain,
+        clicks: s.clicks + 1,
+        tapTimes: tapped.recent,
+        bestCpm: Math.max(s.bestCpm, tapped.cpm),
+        rng: rng.state(),
+      });
       return { gain, frenzy, crit };
     },
 
@@ -912,6 +931,8 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: fresh.goo,
         lifetimeGoo: fresh.lifetimeGoo,
+        bestCpm: 0,
+        tapTimes: [],
         upgrades: { ...fresh.upgrades },
         characters: {},
         eggs: 0,
@@ -1015,6 +1036,7 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: restored.goo,
         lifetimeGoo: restored.lifetimeGoo,
+        bestCpm: restored.bestCpm,
         upgrades: restored.upgrades,
         characters: restored.characters,
         eggs: restored.eggs,

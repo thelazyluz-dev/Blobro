@@ -82,14 +82,14 @@ describe('POST /submit — authentication', () => {
 describe('POST /submit — the scores come from the server, never the request', () => {
   it('ignores clicks and goo in the body entirely', async () => {
     const cookie = await signUp();
-    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    await putSave(cookie, 0, save({ goo: 4_200, lifetimeGoo: 5_000, clicks: 300 }));
 
     // The old attack: claim an enormous score. The fields are simply not read.
     const res = await submit(cookie, { name: 'רן', clicks: 4_999_999, goo: 1e18 });
     expect(res.status).toBe(200);
 
     const body = (await res.json()) as { clicks: { best: number }; goo: { best: number } };
-    expect(body.goo.best).toBe(5_000); // the save's value, not the request's
+    expect(body.goo.best).toBe(4_200); // the save's HELD goo — not lifetime, not the request's number
     expect(body.clicks.best).toBe(300);
   });
 
@@ -97,7 +97,7 @@ describe('POST /submit — the scores come from the server, never the request', 
     // This was the whole exploit: the first write created the row, and the
     // second lifted the goo cap from a million to 1e18.
     const cookie = await signUp();
-    await putSave(cookie, 0, save({ lifetimeGoo: 1_234 }));
+    await putSave(cookie, 0, save({ goo: 1_234, lifetimeGoo: 1_234 }));
     await submit(cookie, { name: 'רן' });
 
     (env as { MIN_SUBMIT?: string }).MIN_SUBMIT = undefined;
@@ -147,7 +147,7 @@ describe('GET /rank — session-scoped', () => {
 
   it('returns this account row, with no code in the URL', async () => {
     const cookie = await signUp();
-    await putSave(cookie, 0, save({ lifetimeGoo: 9_876 }));
+    await putSave(cookie, 0, save({ goo: 9_876, lifetimeGoo: 9_876 }));
     await submit(cookie, { name: 'רן' });
 
     const res = await call('/rank?by=goo', { headers: { Cookie: cookie } });
@@ -235,5 +235,60 @@ describe('POST /submit — flagged accounts are not published', () => {
     const cookie = await signUp();
     await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
     expect((await submit(cookie, { name: 'רן' })).status).toBe(200);
+  });
+});
+
+// ── The taps-per-minute board + held-goo semantics ──────────────────────────
+
+describe('the cpm board and the held-goo board', () => {
+  it('bestCpm flows from the save to the board and /top?by=cpm ranks by it', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ bestCpm: 412 }));
+    const res = await submit(cookie, { name: 'רן' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { cpm: { best: number; rank: number } };
+    expect(body.cpm.best).toBe(412);
+    expect(body.cpm.rank).toBeGreaterThan(0);
+
+    const top = await call('/top?by=cpm');
+    expect(top.status).toBe(200);
+    const list = (await top.json()) as { by: string; entries: { score: number }[] };
+    expect(list.by).toBe('cpm');
+    expect(list.entries.some((e) => e.score === 412)).toBe(true);
+  });
+
+  it('an impossible bestCpm in the save is clamped to the physical ceiling, not published', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ bestCpm: 99_999 }));
+    const res = await submit(cookie, { name: 'רן' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { cpm: { best: number } };
+    expect(body.cpm.best).toBe(1_500); // maxHumanTapsPerSec * 60 — see game/cpm.ts
+  });
+
+  it('the goo board tracks the CURRENT balance — it goes DOWN after spending', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ goo: 4_000, lifetimeGoo: 5_000 }));
+    const first = await submit(cookie, { name: 'רן' });
+    expect(((await first.json()) as { goo: { best: number } }).goo.best).toBe(4_000);
+
+    // The player spends: held goo drops, lifetime doesn't. Push the updated
+    // save, age the scores row past the submit rate-limit, resubmit.
+    await putSave(cookie, 1, save({ goo: 700, lifetimeGoo: 5_000 }));
+    await env.DB.prepare('UPDATE scores SET updated = updated - 20000').run();
+    const second = await submit(cookie, { name: 'רן' });
+    expect(second.status).toBe(200);
+    const body = (await second.json()) as { goo: { best: number }; clicks: { best: number } };
+    expect(body.goo.best).toBe(700); // down — the board shows what you hold
+    expect(body.clicks.best).toBe(300); // records still never move backwards
+  });
+
+  it('held goo can never exceed lifetime — the edited-save shortcut onto the board is closed', async () => {
+    const cookie = await signUp();
+    // The attack: a fortune in `goo` next to a small, audit-clean lifetime.
+    // migrate() raises lifetime to match, which makes the fortune a lifetime
+    // JUMP — and on a first save that trips the first-save cap.
+    await putSave(cookie, 0, save({ goo: 1e15, lifetimeGoo: 50 }));
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(403);
   });
 });

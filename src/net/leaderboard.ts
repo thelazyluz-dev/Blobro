@@ -10,7 +10,7 @@
 
 import { LEADERBOARD_API } from '../config';
 
-export type Metric = 'clicks' | 'goo';
+export type Metric = 'clicks' | 'goo' | 'cpm';
 
 export interface GlobalEntry {
   name: string;
@@ -25,7 +25,8 @@ export interface MetricRank {
 export interface SubmitResult {
   total: number; // how many players are on the table
   clicks: MetricRank;
-  goo: MetricRank;
+  goo: MetricRank; // goo HELD right now, not lifetime — the board shows current wealth
+  cpm: MetricRank; // record manual taps in a rolling minute
 }
 
 export interface RankInfo {
@@ -147,7 +148,9 @@ export async function submitScore(name: string, _clicks?: number, _goo?: number)
     if (!res.ok) return null;
     const data = (await res.json()) as Partial<SubmitResult> & { ok?: boolean };
     if (!data.clicks || !data.goo) return null;
-    return { total: data.total ?? 0, clicks: data.clicks, goo: data.goo };
+    // A server deployed before the cpm board answers without the field —
+    // degrade to rank 0 rather than failing the whole submit.
+    return { total: data.total ?? 0, clicks: data.clicks, goo: data.goo, cpm: data.cpm ?? { best: 0, rank: 0 } };
   } catch {
     return null;
   }

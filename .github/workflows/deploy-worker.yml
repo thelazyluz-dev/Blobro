@@ -66,7 +66,17 @@ jobs:
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql --yes
+        # Column additions must run BEFORE schema.sql: the file indexes the new
+        # column, and an index on a column the live table doesn't have yet
+        # would abort the whole file. SQLite has no ADD COLUMN IF NOT EXISTS,
+        # so "duplicate column" (= already applied) is tolerated explicitly —
+        # any other ALTER failure still stops the deploy.
+        run: |
+          out=$(npx wrangler d1 execute blorbo-leaderboard --remote --yes \
+            --command "ALTER TABLE scores ADD COLUMN cpm INTEGER NOT NULL DEFAULT 0" 2>&1) \
+            || { echo "$out" | grep -q "duplicate column" && echo "cpm column already exists — fine"; } \
+            || { echo "$out"; exit 1; }
+          npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql --yes
 
       - name: Deploy
         working-directory: worker

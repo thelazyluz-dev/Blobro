@@ -85,7 +85,7 @@ import {
 } from './auth';
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
 // — see worker/src/rules.ts for why this is never reimplemented locally.
-import { CURRENT_VERSION, isCleanNickname, migrate, verifySaveDelta } from './rules';
+import { CURRENT_VERSION, isCleanNickname, maxCpm, migrate, verifySaveDelta } from './rules';
 
 export interface Env {
   DB: D1Database;
@@ -232,8 +232,8 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
   });
 }
 
-function metricCol(by: string | null): 'clicks' | 'goo' {
-  return by === 'goo' ? 'goo' : 'clicks';
+function metricCol(by: string | null): 'clicks' | 'goo' | 'cpm' {
+  return by === 'goo' || by === 'cpm' ? by : 'clicks';
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -907,14 +907,21 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
     }
 
     // The scores come from the server's own copy of this account's save. There
-    // is deliberately no path for the request to supply them.
-    const save = await env.DB.prepare('SELECT lifetime_goo, clicks FROM saves WHERE user_id = ?1')
+    // is deliberately no path for the request to supply them. The board values
+    // live inside the payload, sanitized through the same migrate() the client
+    // loads with — which also enforces goo ≤ lifetimeGoo and the physical
+    // bestCpm ceiling, so an edited field can't sail past the rate audit.
+    const row = await env.DB.prepare('SELECT payload FROM saves WHERE user_id = ?1')
       .bind(user.id)
-      .first<{ lifetime_goo: number; clicks: number }>();
-    if (!save) return authJson({ error: 'no-save' }, 409, origin);
+      .first<{ payload: string }>();
+    if (!row) return authJson({ error: 'no-save' }, 409, origin);
+    const save = migrate(tryParseJson(row.payload), now);
 
-    const goo = clamp(Number(save.lifetime_goo) || 0, 0, MAX_GOO);
+    // HELD goo, not lifetime — the owner's call: the board shows what a player
+    // has right now, so spending it on creatures is a real trade-off.
+    const goo = clamp(Number(save.goo) || 0, 0, MAX_GOO);
     const clicks = clamp(Math.floor(Number(save.clicks) || 0), 0, MAX_CLICKS);
+    const cpm = clamp(Math.floor(Number(save.bestCpm) || 0), 0, maxCpm);
 
     const existing = await env.DB.prepare('SELECT updated FROM scores WHERE code = ?1')
       .bind(code)
@@ -923,17 +930,20 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
       return authJson({ error: 'too-fast' }, 429, origin);
     }
 
+    // goo tracks the CURRENT balance so it may go DOWN (that is the point);
+    // clicks and cpm are records and only ever ratchet up via MAX.
     await env.DB.prepare(
-      `INSERT INTO scores (code, name, clicks, goo, created, updated)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+      `INSERT INTO scores (code, name, clicks, goo, cpm, created, updated)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
        ON CONFLICT(code) DO UPDATE SET
          name    = excluded.name,
          clicks  = MAX(scores.clicks, excluded.clicks),
-         goo     = MAX(scores.goo, excluded.goo),
+         goo     = excluded.goo,
+         cpm     = MAX(scores.cpm, excluded.cpm),
          created = CASE WHEN scores.created > 0 THEN scores.created ELSE excluded.created END,
          updated = excluded.updated`,
     )
-      .bind(code, name, clicks, goo, now)
+      .bind(code, name, clicks, goo, cpm, now)
       .run();
 
     return authJson(await rankPayload(env, code), 200, origin);
@@ -942,7 +952,7 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
   }
 }
 
-async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo'): Promise<Response> {
+async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo' | 'cpm'): Promise<Response> {
   const origin = request.headers.get('Origin');
   let user: UserRow | null;
   try {
@@ -974,16 +984,20 @@ async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo'): Pr
 
 /** The {total, clicks:{best,rank}, goo:{best,rank}} shape the client expects. */
 async function rankPayload(env: Env, code: string) {
-  const row = await env.DB.prepare('SELECT clicks, goo FROM scores WHERE code = ?1')
+  const row = await env.DB.prepare('SELECT clicks, goo, cpm FROM scores WHERE code = ?1')
     .bind(code)
-    .first<{ clicks: number; goo: number }>();
+    .first<{ clicks: number; goo: number; cpm: number }>();
   const bestClicks = row?.clicks ?? 0;
   const bestGoo = row?.goo ?? 0;
+  const bestCpm = row?.cpm ?? 0;
   const cAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE clicks > ?1')
     .bind(bestClicks)
     .first<{ c: number }>();
   const gAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE goo > ?1')
     .bind(bestGoo)
+    .first<{ c: number }>();
+  const mAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE cpm > ?1')
+    .bind(bestCpm)
     .first<{ c: number }>();
   const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
   return {
@@ -991,6 +1005,7 @@ async function rankPayload(env: Env, code: string) {
     total: total?.c ?? 1,
     clicks: { best: bestClicks, rank: (cAbove?.c ?? 0) + 1 },
     goo: { best: bestGoo, rank: (gAbove?.c ?? 0) + 1 },
+    cpm: { best: bestCpm, rank: (mAbove?.c ?? 0) + 1 },
   };
 }
 

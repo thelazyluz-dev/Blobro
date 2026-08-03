@@ -74,9 +74,10 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 12;
+  version: 13;
   goo: number;
   lifetimeGoo: number;
+  bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
   upgrades: Upgrades;
   characters: OwnedCharacters;
   eggs: number; // unopened eggs in the player's inventory

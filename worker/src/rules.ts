@@ -69,6 +69,11 @@ export {
 } from '../../src/game/verify';
 export type { PlausibilityFlag, PlausibilityVerdict } from '../../src/game/verify';
 
+// Taps-per-minute record (the ⚡ board). The server never computes a CPM —
+// only the client's rolling window does — but it clamps the claimed record to
+// the same physical ceiling, so both sides share the one constant.
+export { maxCpm } from '../../src/game/cpm';
+
 // Nickname validation. This was enforced in the UI only, which meant anyone
 // posting to /submit by hand could put whatever they liked on a leaderboard
 // that children read. Same pure function both sides now.
