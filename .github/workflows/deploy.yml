@@ -21,14 +21,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Don't leave the GITHUB_TOKEN sitting in .git/config while npm ci
           # runs hundreds of packages' install scripts.
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test
@@ -56,14 +56,14 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Don't leave the GITHUB_TOKEN sitting in .git/config while npm ci
           # runs hundreds of packages' install scripts.
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       # Give Pages a moment to actually serve the new deployment before
       # hitting it — deploy-pages can report success just ahead of propagation.
       - run: sleep 15
