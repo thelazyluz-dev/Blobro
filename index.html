@@ -12,6 +12,41 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="בלורבו" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <!-- Content Security Policy. GitHub Pages cannot set HTTP headers, so this
+         goes in a meta tag — which means `frame-ancestors` is unavailable
+         (meta-delivered CSP ignores it); everything else applies normally.
+
+         `'unsafe-inline'` in script-src is NOT an oversight. The AdSense loader
+         injects inline scripts and Google's own guidance is that ad serving
+         requires it; a policy without it silently kills every ad. The app
+         itself has no HTML-injection sink at all (no innerHTML, no
+         dangerouslySetInnerHTML, no eval anywhere), so what this policy is
+         really buying is the other directives: scripts and connections can only
+         reach an allowlisted set of hosts, `object-src 'none'` kills plugin
+         injection, and `base-uri 'self'` blocks <base> hijacking. That is
+         defence in depth around a third-party script we cannot sandbox, not a
+         replacement for not having sinks.
+
+         IF ADS EVER STOP SHOWING, look here first: the browser console will say
+         "Refused to load ... because it violates the following Content Security
+         Policy directive". Deleting this one meta tag restores the old
+         behaviour completely. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.gstatic.com https://*.doubleclick.net https://ep2.adtrafficquality.google;
+               connect-src 'self' https://api.bl-or-bo.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://ep1.adtrafficquality.google;
+               img-src 'self' data: blob: https:;
+               style-src 'self' 'unsafe-inline';
+               font-src 'self' data:;
+               frame-src https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com;
+               media-src 'self' blob: data:;
+               worker-src 'self' blob:;
+               object-src 'none';
+               base-uri 'self';
+               form-action 'self'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <!-- Google AdSense + H5 Games Ads (Ad Placement API: adConfig/adBreak).
          data-tag-for-age-treatment="1" marks every ad request as child-directed
          (TFAT=1, the replacement for the deprecated TFCD) — this disables

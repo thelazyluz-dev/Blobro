@@ -18,6 +18,12 @@ import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:
 import { beforeEach, describe, expect, it } from 'vitest';
 import worker from '../src/index';
 
+// The email/password routes are disabled in production (Google-only sign-in).
+// These tests create accounts through them because it is the only way to mint
+// a session without a real Google round-trip; the disabled-by-default behaviour
+// has its own tests in auth-endpoints.integration.test.ts.
+(env as { ALLOW_PASSWORD_AUTH?: string }).ALLOW_PASSWORD_AUTH = '1';
+
 const ORIGIN = 'https://bl-or-bo.com';
 
 function sessionCookieFrom(res: Response): string {
@@ -227,5 +233,67 @@ describe('Google OAuth routes without configured credentials (this repo default)
   it('GET /auth/google/callback answers 501, not a crash', async () => {
     const res = await call('/auth/google/callback?code=x&state=y');
     expect(res.status).toBe(501);
+  });
+});
+
+describe('password routes are disabled by default', () => {
+  // The app is Google-only. Leaving these live gave anyone who knew the path an
+  // email-enumeration oracle: /auth/register answers 409 "email-taken" for a
+  // registered address and 201 otherwise — on a children's app, from an
+  // endpoint no player can reach.
+  const withPasswordAuth = async <T>(value: string | undefined, fn: () => Promise<T>): Promise<T> => {
+    const e = env as { ALLOW_PASSWORD_AUTH?: string };
+    const prev = e.ALLOW_PASSWORD_AUTH;
+    e.ALLOW_PASSWORD_AUTH = value;
+    try {
+      return await fn();
+    } finally {
+      e.ALLOW_PASSWORD_AUTH = prev;
+    }
+  };
+
+  it('POST /auth/register answers 404 when the flag is unset', async () => {
+    await withPasswordAuth(undefined, async () => {
+      const res = await call('/auth/register', jsonInit({ email: 'probe@example.com', password: 'hunter22' }));
+      expect(res.status).toBe(404);
+    });
+  });
+
+  it('POST /auth/login answers 404 when the flag is unset', async () => {
+    await withPasswordAuth(undefined, async () => {
+      const res = await call('/auth/login', jsonInit({ email: 'probe@example.com', password: 'hunter22' }));
+      expect(res.status).toBe(404);
+    });
+  });
+
+  it('gives away NOTHING about whether an address is registered', async () => {
+    // The whole point. A known-registered address and a never-seen one must be
+    // indistinguishable — same status, same body.
+    const known = `known-${Date.now()}@example.com`;
+    await withPasswordAuth('1', async () => {
+      expect((await call('/auth/register', jsonInit({ email: known, password: 'hunter22' }))).status).toBe(201);
+    });
+
+    await withPasswordAuth(undefined, async () => {
+      const a = await call('/auth/register', jsonInit({ email: known, password: 'hunter22' }));
+      const b = await call('/auth/register', jsonInit({ email: `never-${Date.now()}@example.com`, password: 'hunter22' }));
+      expect(a.status).toBe(b.status);
+      expect(await a.text()).toBe(await b.text());
+    });
+  });
+
+  it('404, not 403 — a 403 would confirm the route exists', async () => {
+    await withPasswordAuth(undefined, async () => {
+      const res = await call('/auth/register', jsonInit({ email: 'probe@example.com', password: 'hunter22' }));
+      expect(res.status).not.toBe(403);
+      expect((await res.json() as { error: string }).error).toBe('not-found');
+    });
+  });
+
+  it('Google sign-in is unaffected', async () => {
+    await withPasswordAuth(undefined, async () => {
+      // 501 = "not configured in this test env", i.e. the route still routes.
+      expect((await call('/auth/google/start')).status).toBe(501);
+    });
   });
 });

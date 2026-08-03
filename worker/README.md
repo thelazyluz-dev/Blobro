@@ -112,10 +112,21 @@ later PR) and it does **not** touch the `scores` table or the leaderboard
 endpoints above — they keep working exactly as before, with or without auth
 configured.
 
-**The app only offers Google sign-in.** The `/auth/register` and `/auth/login`
-endpoints remain implemented and tested, but no UI reaches them: there is no
-password-reset flow, so a child who forgets a password would be locked out
-permanently. See the header comment in `src/ui/AuthGate.tsx`.
+**The app only offers Google sign-in, and the password routes are now switched
+OFF.** `/auth/register` and `/auth/login` answer `404` unless
+`ALLOW_PASSWORD_AUTH="1"` is set. The implementation and its tests remain — the
+routes are disabled, not deleted.
+
+Why: no UI reached them (there is no password-reset flow, so a child who forgot
+one would be locked out forever — see the header comment in
+`src/ui/AuthGate.tsx`), but they stayed reachable by anyone who knew the path,
+and `/auth/register` answered `409 email-taken` for a registered address and
+`201` otherwise. That is an email-enumeration oracle on a children's app.
+Disabling removes the oracle, the password-guessing surface and the
+login-throttle question in one move — the safest code is code that does not run.
+
+`404`, not `403`: a `403` would confirm the route exists, which is the one bit
+of information this is meant to withhold.
 
 The auth endpoints are served from `api.bl-or-bo.com` (a subdomain of the app,
 so the session cookie is same-site) — see `cookieDomainFor` in `src/auth.ts`.

@@ -90,6 +90,8 @@ export interface Env {
   APP_ORIGIN?: string; // default 'https://bl-or-bo.com'
   SESSION_TTL_DAYS?: string; // default 30 (see DEFAULT_SESSION_TTL_DAYS)
   MIN_SAVE_INTERVAL_MS?: string; // default 5000 — see DEFAULT_MIN_SAVE_INTERVAL_MS
+  // Password sign-up/sign-in. OFF unless explicitly "1" — see passwordAuthEnabled.
+  ALLOW_PASSWORD_AUTH?: string;
 }
 
 const CORS: Record<string, string> = {
@@ -442,9 +444,32 @@ async function resetLoginThrottle(db: D1Database, email: string): Promise<void> 
   await db.prepare('DELETE FROM login_throttle WHERE email = ?1').bind(email).run();
 }
 
+/**
+ * Whether the email/password routes answer at all. Off by default.
+ *
+ * The app offers Google sign-in only (there is no password-reset flow, so a
+ * child who forgot one would be locked out forever — see src/ui/AuthGate.tsx).
+ * The routes stayed live anyway, reachable by anyone who knew the path, and
+ * they leaked which email addresses have accounts: /auth/register answers 409
+ * "email-taken" for a registered one and 201 otherwise. That is an enumeration
+ * oracle on a children's app, sitting on an endpoint no player can even reach.
+ *
+ * Disabling beats patching the message: it removes the oracle, the
+ * password-guessing surface and the login-throttle question in one move. The
+ * implementation and its tests stay — flip this to "1" to bring them back.
+ */
+function passwordAuthEnabled(env: Env): boolean {
+  return env.ALLOW_PASSWORD_AUTH === '1';
+}
+
 async function handleAuth(request: Request, env: Env, url: URL): Promise<Response> {
   const origin = request.headers.get('Origin');
 
+  // 404, not 403: a 403 would confirm the route exists, which is the one bit
+  // of information disabling it is meant to withhold.
+  if (url.pathname === '/auth/register' || url.pathname === '/auth/login') {
+    if (!passwordAuthEnabled(env)) return authJson({ error: 'not-found' }, 404, origin);
+  }
   if (url.pathname === '/auth/register' && request.method === 'POST') return authRegister(request, env, origin);
   if (url.pathname === '/auth/login' && request.method === 'POST') return authLogin(request, env, origin);
   if (url.pathname === '/auth/logout' && request.method === 'POST') return authLogout(request, env, origin);

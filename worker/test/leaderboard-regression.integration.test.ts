@@ -14,6 +14,12 @@ import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:
 import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
 
+// The email/password routes are disabled in production (Google-only sign-in).
+// These tests create accounts through them because it is the only way to mint
+// a session without a real Google round-trip; the disabled-by-default behaviour
+// has its own tests in auth-endpoints.integration.test.ts.
+(env as { ALLOW_PASSWORD_AUTH?: string }).ALLOW_PASSWORD_AUTH = '1';
+
 (env as { MIN_SAVE_INTERVAL_MS?: string }).MIN_SAVE_INTERVAL_MS = '0';
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
