@@ -300,6 +300,15 @@ export const soundSkins: SoundSkin[] = [
     melody: [659, 988, 1319, 988, 587, 880, 1175, 880, 523, 784, 1047, 784, 587, 880, 1175, 1319],
   },
   {
+    id: 'sound-bouncy',
+    kind: 'sound',
+    nameHe: 'קוֹפְצָנִי',
+    cost: 600_000,
+    requiresClicks: 3_000,
+    // A major line that springs up and drops back — playful, kid-friendly.
+    melody: [523, 659, 523, 784, 659, 1047, 784, 659, 523, 659, 523, 784, 659, 1047, 784, 523],
+  },
+  {
     id: 'sound-calm',
     kind: 'sound',
     nameHe: 'רָגוּעַ',
@@ -316,12 +325,30 @@ export const soundSkins: SoundSkin[] = [
     melody: [440, 523, 659, 880, 659, 523, 494, 587, 740, 988, 740, 587, 440, 523, 659, 880],
   },
   {
+    id: 'sound-mysterious',
+    kind: 'sound',
+    nameHe: 'מִסְתּוֹרִי',
+    cost: 1_200_000_000,
+    requiresClicks: 55_000,
+    // A minor, drifting motif — moody without being sad.
+    melody: [440, 523, 587, 440, 349, 440, 523, 659, 587, 523, 440, 392, 349, 392, 440, 523],
+  },
+  {
     id: 'sound-royal',
     kind: 'sound',
     nameHe: 'מַלְכוּתִי',
     cost: 20_000_000_000,
     requiresClicks: 90_000,
     melody: [523, 659, 784, 1047, 784, 1047, 1319, 1047, 880, 1047, 1319, 1568, 1319, 1047, 880, 784],
+  },
+  {
+    id: 'sound-legendary',
+    kind: 'sound',
+    nameHe: 'אַגָּדִי',
+    cost: 500_000_000_000,
+    requiresClicks: 150_000,
+    // A rising fanfare — the top of the sound ladder, a real endgame goal.
+    melody: [523, 784, 1047, 784, 1047, 1319, 1568, 1319, 1047, 1319, 1047, 784, 1047, 1568, 1319, 1047],
   },
 ];
 
