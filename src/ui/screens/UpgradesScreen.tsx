@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { formatGoo } from '../../game/format';
-import { autoClicksPerSec } from '../../game/economy';
+import { autoClicksPerSec, autoTapMaxLevel } from '../../game/economy';
 import { globalMultiplier } from '../../game/balance';
 import { upgradeCost, upgradeDefs, upgradeGainHe, upgradeTotalHe } from '../../game/upgrades';
 import type { UpgradeId } from '../../game/types';
@@ -63,6 +63,10 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   // so the shown number is the real per-tap gain, not the raw base.
   const tapMult = m.clickMultiplier * m.starMultiplier * globalMultiplier;
 
+  // The robot hand tops out — past that level the store refuses the sale, so
+  // the button flips to a maxed-out state instead of taking money for nothing.
+  const atMax = id === 'autoTap' && level >= autoTapMaxLevel;
+
   const cost = upgradeCost(id, level);
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
@@ -116,19 +120,25 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onBuy}
-        className={`btn mt-3 w-full py-3 text-lg ${
-          canAfford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
-        }`}
-      >
-        {canAfford ? (
-          <>שַׁדְרֵג — {formatGoo(cost)} גּוּ</>
-        ) : (
-          <span className="tabular">חסר {formatGoo(missing)} גּוּ</span>
-        )}
-      </button>
+      {atMax ? (
+        <button type="button" disabled className="btn mt-3 w-full bg-cy/15 py-3 text-lg text-cy ring-1 ring-cy/40">
+          רָמָה מַקְסִימָלִית! 🤖
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onBuy}
+          className={`btn mt-3 w-full py-3 text-lg ${
+            canAfford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
+          }`}
+        >
+          {canAfford ? (
+            <>שַׁדְרֵג — {formatGoo(cost)} גּוּ</>
+          ) : (
+            <span className="tabular">חסר {formatGoo(missing)} גּוּ</span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

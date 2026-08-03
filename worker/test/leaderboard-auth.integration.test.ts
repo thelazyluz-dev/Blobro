@@ -12,6 +12,7 @@
 import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
+import { maxCpm } from '../src/rules';
 
 // The email/password routes are disabled in production (Google-only sign-in).
 // These tests create accounts through them because it is the only way to mint
@@ -263,7 +264,7 @@ describe('the cpm board and the held-goo board', () => {
     const res = await submit(cookie, { name: 'רן' });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { cpm: { best: number } };
-    expect(body.cpm.best).toBe(1_500); // maxHumanTapsPerSec * 60 — see game/cpm.ts
+    expect(body.cpm.best).toBe(maxCpm); // maxHumanTapsPerSec * 60 — see game/cpm.ts
   });
 
   it('the goo board tracks the CURRENT balance — it goes DOWN after spending', async () => {

@@ -187,15 +187,6 @@ const MAX_GOO = 1e24; // raised with the pacing rebalance: the milestone table
 // scores while the game still hands out badges above it. Still absurd-junk
 // protection — the plausibility audit is the real defence.
 
-// Clicks plausibility: at most this many taps per second since first-seen, plus
-// a small grace for taps made in the session before the first submit.
-const CLICK_RATE_PER_SEC = 25; // well above a human's ~10/s
-const CLICK_BASELINE = 5_000;
-// Goo can't be time-bounded (idle income is exponential), so a fresh identity's
-// FIRST submit is capped low — this kills the one-shot "new player → millions"
-// drive-by. Established rows may grow up to MAX_GOO.
-const GOO_FIRST_CAP = 1_000_000;
-
 // A real save is a few KB; 64 KiB is a generous ceiling that still blocks
 // someone using the account as free blob storage. Checked on the raw request
 // text, in bytes, BEFORE any JSON parsing.

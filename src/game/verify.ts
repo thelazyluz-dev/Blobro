@@ -33,12 +33,13 @@ import { starBonusFor } from './achievements';
 import type { SaveState } from './types';
 
 /**
- * Physical tap ceiling. A fast adult sustains roughly 10 taps/sec; this is set
- * well above that so a kid drumming with several fingers on a tablet, or a
- * burst of autoclicks landing in the same second, never trips it. The same
- * spirit as CLICK_RATE_PER_SEC in the leaderboard's anti-cheat clamp.
+ * Physical tap ceiling. Originally 25/sec ("well above a fast adult's ~10"),
+ * and real play disproved it: two players racing the taps-per-minute board
+ * both pinned exactly 25×60 for a full minute — multi-finger drumming on a
+ * touchscreen sustains more than one finger ever could. Doubled so an honest
+ * record can't hit the wall again; still far below anything a script does.
  */
-export const maxHumanTapsPerSec = 25;
+export const maxHumanTapsPerSec = 50;
 
 /**
  * Floor on the measured interval. Two saves can land within milliseconds of

@@ -95,6 +95,14 @@ export function autoClicksPerSec(level: number): number {
   return Math.min(autoTapRateCap, autoTapRatePerLevel * level);
 }
 
+/**
+ * The last robot-hand level that still raises the rate. Past it the cap makes
+ * every level a dead purchase, so the shop must stop selling there — the cap
+ * itself stays, protecting the audit ceiling from edited saves with absurd
+ * autoTap levels.
+ */
+export const autoTapMaxLevel = Math.round(autoTapRateCap / autoTapRatePerLevel);
+
 /** charIncome = baseByRarity × charIncomeGrowth^(level − 1) — compounding per
  * level. Exponent is guarded so an absurd level can never overflow to Infinity. */
 export function charIncome(rarity: Rarity, level: number): number {

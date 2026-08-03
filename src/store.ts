@@ -48,6 +48,7 @@ import {
 import {
   affordableCreatureLevels,
   autoClicksPerSec,
+  autoTapMaxLevel,
   effectiveClickPower,
   creatureLevelCost,
   eggCost,
@@ -344,6 +345,11 @@ function achContextOf(s: {
   };
 }
 
+/** A star fraction as Hebrew-ready percent text — keeps the half tier honest ("1.5%", not "2%"). */
+function starPctHe(star: number): string {
+  return `${(star * 100).toFixed(1).replace(/\.0$/, '')}%`;
+}
+
 /** The daily-quest slice of the store, in the shape game/daily.ts speaks. */
 function questStateOf(s: {
   questDay: number;
@@ -623,6 +629,8 @@ export const useGame = create<GameState>((set, get) => {
 
     buyUpgrade: (id) => {
       const s = get();
+      // The robot hand's rate is capped — refuse to sell dead levels past it.
+      if (id === 'autoTap' && s.upgrades.autoTap >= autoTapMaxLevel) return;
       const cost = upgradeCost(id, s.upgrades[id]);
       if (s.goo < cost) return;
       set({
@@ -1132,8 +1140,13 @@ export const useGame = create<GameState>((set, get) => {
         goo: s.goo + def.gooReward,
         lifetimeGoo: s.lifetimeGoo + def.gooReward,
       });
+      // Star ladders grant a permanent income %; grind ladders grant one-time
+      // goo — the toast must name whichever one this badge actually paid.
       get().pushToast({
-        text: `${def.nameHe} · +${Math.round(def.starReward * 100)}% הכנסה!`,
+        text:
+          def.starReward > 0
+            ? `${def.nameHe} · ‎+${starPctHe(def.starReward)} הכנסה לנצח!`
+            : `${def.nameHe} · ‎+${formatGoo(def.gooReward)} גּוּ!`,
         icon: def.icon,
         tone: 'star',
       });
@@ -1145,12 +1158,21 @@ export const useGame = create<GameState>((set, get) => {
       const ready = newlyCompleted(new Set(s.achievements), achContextOf(s));
       if (ready.length === 0) return;
       const grant = ready.reduce((sum, a) => sum + a.gooReward, 0);
+      const stars = ready.reduce((sum, a) => sum + a.starReward, 0);
       set({
         achievements: [...s.achievements, ...ready.map((a) => a.id)],
         goo: s.goo + grant,
         lifetimeGoo: s.lifetimeGoo + grant,
       });
-      get().pushToast({ text: `אספת ${ready.length} הישגים! 🏆`, icon: '🏆', tone: 'star' });
+      const rewards = [
+        ...(grant > 0 ? [`‎+${formatGoo(grant)} גּוּ`] : []),
+        ...(stars > 0 ? [`‎+${starPctHe(stars)} הכנסה לנצח`] : []),
+      ].join(' · ');
+      get().pushToast({
+        text: `אספת ${ready.length} הישגים! ${rewards} 🏆`,
+        icon: '🏆',
+        tone: 'star',
+      });
     },
 
     setNicknameOpen: (open) => set({ nicknameOpen: open }),

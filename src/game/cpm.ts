@@ -11,10 +11,9 @@ import { maxHumanTapsPerSec } from './verify';
 export const cpmWindowMs = 60_000;
 
 /**
- * Hard ceiling on a plausible record — the same 25 taps/sec bound the
- * plausibility audit uses, sustained for a full minute. No human sustains
- * this (a fast adult holds ~10/sec in bursts); anything above it in a save is
- * an edited save, and migrate() clamps it out before it can reach a board.
+ * Hard ceiling on a plausible record — the audit's maxHumanTapsPerSec bound,
+ * sustained for a full minute. Anything above it in a save is an edited save,
+ * and migrate() clamps it out before it can reach a board.
  */
 export const maxCpm = maxHumanTapsPerSec * 60;
 
