@@ -9,6 +9,11 @@ name: Audit Report
 # Touches nothing. Every statement below is a SELECT.
 on:
   workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'Optional: an account id to show flagged-row DETAIL for (why it flagged)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -60,6 +65,34 @@ jobs:
                 OR ',' || a.flags || ',' LIKE '%,click-rate,%'
                 OR ',' || a.flags || ',' LIKE '%,first-save-cap,%')
             GROUP BY a.user_id ORDER BY last_flagged_ms DESC LIMIT 25;"
+
+      # Per-account forensics: for ONE account, every flagged write in full —
+      # the numbers that explain WHY it flagged. A goo-rate row with a single
+      # huge goo_gain over a short elapsed_sec (ratio just over 1) is the
+      # signature of a one-time artifact — a save-format migration raising
+      # lifetimeGoo, a balance/deploy window — not sustained fabrication, which
+      # overshoots the (deliberately generous) ceiling by orders of magnitude.
+      # Read this before releasing anything: goo-rate is the core anti-cheat
+      # signal, not a bound that was simply set too low.
+      - name: Flagged-row detail for one account (optional)
+        if: ${{ inputs.user_id != '' }}
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          # Account ids are UUIDs; reject anything else so the value can't carry
+          # a quote or a UNION into the SELECT below.
+          if ! printf '%s' "$USER_ID" | grep -Eq '^[0-9a-fA-F-]{36}$'; then
+            echo "user_id '$USER_ID' is not a valid account id (expected a UUID). Skipping detail."
+            exit 0
+          fi
+          npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
+            SELECT a.created, a.elapsed_sec, a.goo_gain, a.max_gain, a.ratio,
+                   a.click_gain, a.flags, u.display_name
+            FROM save_audit a LEFT JOIN users u ON u.id = a.user_id
+            WHERE a.user_id = '$USER_ID' AND a.ok = 0
+            ORDER BY a.created DESC LIMIT 50;"
 
       # The tuning data: how far below the ceiling honest play sits. Buckets of
       # ratio = goo_gain / max_gain over CLEAN rows. A future threshold wants a

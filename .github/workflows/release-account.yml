@@ -32,6 +32,7 @@ on:
         default: 'click-rate only'
         options:
           - 'click-rate only'   # the too-strict-tap-ceiling false positives
+          - 'goo-rate only'      # the core anti-cheat flag — release only after seeing the detail
           - 'all flags'          # every ok=0 row for this account
 
 permissions:
@@ -90,8 +91,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           USER_ID: ${{ inputs.user_id }}
         run: |
+          # Full numeric picture so the log records WHY each row was flagged,
+          # right next to the deletion — the only forensics available after.
           npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
-            SELECT a.created, a.flags, a.ratio, a.click_gain, u.display_name
+            SELECT a.created, a.elapsed_sec, a.goo_gain, a.max_gain, a.ratio,
+                   a.click_gain, a.flags, u.display_name
             FROM save_audit a LEFT JOIN users u ON u.id = a.user_id
             WHERE a.user_id = '$USER_ID' AND a.ok = 0
             ORDER BY a.created DESC LIMIT 25;"
@@ -110,6 +114,12 @@ jobs:
             echo "Clearing ALL flagged writes for $USER_ID"
             npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
               DELETE FROM save_audit WHERE user_id = '$USER_ID' AND ok = 0;"
+          elif [ "$SCOPE" = "goo-rate only" ]; then
+            echo "Clearing goo-rate flags for $USER_ID"
+            npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
+              DELETE FROM save_audit
+              WHERE user_id = '$USER_ID' AND ok = 0
+                AND ',' || flags || ',' LIKE '%,goo-rate,%';"
           else
             echo "Clearing click-rate flags for $USER_ID"
             npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
