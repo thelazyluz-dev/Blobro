@@ -20,15 +20,28 @@ export function useGameEngine(): boolean {
   // Passive-income tick via requestAnimationFrame. rAF is throttled/paused while
   // the tab is hidden, so foreground time is handled here and BACKGROUND time is
   // credited on resume via applyAwayEarnings (see below).
+  //
+  // The tick is deliberately SLOWER than the frame rate. Writing goo into the
+  // store every frame re-rendered the whole active screen at 60Hz for as long
+  // as any passive income existed — a constant battery cost on the phones kids
+  // actually hold. Income is linear in dt (rates only change on user actions),
+  // so crediting the same elapsed time in 100ms slices instead of 16ms slices
+  // yields the same goo to the last digit; only the on-screen number updates
+  // at 10Hz, which is as fast as a rolling counter reads anyway. rAF stays the
+  // scheduler (it pauses when hidden, which the away-earnings flow relies on);
+  // frames between ticks just accumulate time.
   useEffect(() => {
     if (!loaded) return;
+    const displayTickMs = 100;
     let raf = 0;
     let last = performance.now();
 
     const frame = (now: number) => {
-      const dt = Math.min(1, (now - last) / 1000); // clamp long pauses
-      last = now;
-      if (dt > 0) useGame.getState().tick(dt);
+      if (now - last >= displayTickMs) {
+        const dt = Math.min(1, (now - last) / 1000); // clamp long pauses
+        last = now;
+        useGame.getState().tick(dt);
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
