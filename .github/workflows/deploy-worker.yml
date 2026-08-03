@@ -1,0 +1,74 @@
+name: Deploy Worker
+
+# Deliberately manual — a button, not a push trigger.
+#
+# The Worker talks to the live D1 database, so it has always been deployed by
+# hand. That is the right level of control, but doing it from a laptop terminal
+# has gone wrong three times in a row: run from the repo root instead of
+# worker/ and wrangler tries to deploy the frontend as a new Worker; let npx
+# fetch its own copy and you get wrangler 4 against a config tested on 3; miss
+# the install-script prompt and the esbuild binary never downloads.
+#
+# None of those are possible here. The directory, the wrangler version and the
+# install are fixed by this file, and it runs from a phone — GitHub's mobile
+# app or the website, Actions → Deploy Worker → Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      apply_schema:
+        description: 'Also apply schema.sql first (only when a PR added tables)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # The Worker bundles src/game/* through worker/src/rules.ts, so the root
+      # install and typecheck are part of validating a Worker deploy, not
+      # separate from it.
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      - name: Install worker toolchain
+        working-directory: worker
+        run: npm ci
+
+      # Gate the deploy on the Worker's own integration tests. The manual
+      # process ran no tests at all; this is the part worth adding, not just
+      # the convenience.
+      - name: Worker integration tests
+        working-directory: worker
+        run: npx vitest run
+
+      - name: Apply schema
+        if: ${{ inputs.apply_schema }}
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql --yes
+
+      - name: Deploy
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy
+
+      # The Worker is the thing sign-in and cloud save depend on, and a bad
+      # deploy makes the game unplayable rather than degraded. Check it answers
+      # before calling this a success.
+      - name: Post-deploy check
+        run: |
+          sleep 10
+          node scripts/sanity.mjs https://bl-or-bo.com

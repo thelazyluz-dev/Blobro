@@ -181,6 +181,22 @@ local testing, your `*.workers.dev` equivalent).
 
 ### 3. Redeploy
 
+**From a phone, or from anywhere:** GitHub → Actions → **Deploy Worker** → Run
+workflow. Tick *apply_schema* only when a change added tables.
+
+That path runs the full test suite first and a live sanity check after, and it
+cannot be run from the wrong directory or with the wrong wrangler version —
+all three of which have gone wrong doing this by hand. It needs one secret,
+set once: **Settings → Secrets and variables → Actions → New repository
+secret**, named `CLOUDFLARE_API_TOKEN`.
+
+Create the token at **dash.cloudflare.com → My Profile → API Tokens → Create
+Token → Edit Cloudflare Workers**. It needs Workers Scripts: Edit and D1: Edit,
+scoped to this account only. Treat it like a password — it can deploy code and
+read the database.
+
+By hand, if you prefer (from this folder, never from the repo root):
+
 ```bash
 npx wrangler deploy
 ```
