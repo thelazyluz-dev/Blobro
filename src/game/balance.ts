@@ -219,8 +219,17 @@ export const frenzyDurationMs = 9000;
 // BOTH taps and passive income. This is the hook that later carries real
 // rewarded ads — the reward is generous on purpose so watching feels worth it.
 export const adRewardMult = 3; // ×income and ×taps while the boost is live
-export const adRewardDurationMs = 30000; // half a minute of triple everything
+// A full minute (was 30s): the watch-an-ad ritual costs a kid real attention,
+// and 30 seconds of reward for it felt thin next to that cost — the product
+// review called it the weakest number in the ads flow. The toast has always
+// said "for a minute"; now it's true.
+export const adRewardDurationMs = 60000;
 export const adRewardCooldownMs = 600000; // button recharges 10 min after use
+// "Watch an ad → a free egg" (the hatch screen's rewarded placement). The
+// cooldown keeps it a treat, not an egg firehose — and the economy self-limits
+// anyway: every egg (free or bought) raises the escalating egg-price curve via
+// totalHatches, so farmed free eggs mostly make future eggs pricier.
+export const adEggCooldownMs = 30 * 60 * 1000;
 export const adPlaceholderMs = 4000; // how long the dummy ad "plays"
 
 // --- Achievements ------------------------------------------------------------

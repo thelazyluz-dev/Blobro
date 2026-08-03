@@ -3,6 +3,7 @@
 // egg crack-by-crack (the reveal overlay), or the whole stash at once with
 // "בקע הכל". A pity meter and a "how much is missing" hint round it out.
 
+import { useEffect, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { pityLegendaryThreshold, pityRareThreshold } from '../../game/balance';
 import { formatGoo } from '../../game/format';
@@ -21,9 +22,22 @@ export function HatchScreen() {
   const characters = useGame((s) => s.characters);
   const buyEgg = useGame((s) => s.buyEgg);
   const buyEggsMax = useGame((s) => s.buyEggsMax);
+  const watchAdForEgg = useGame((s) => s.watchAdForEgg);
+  const adEggReadyAt = useGame((s) => s.adEggReadyAt);
   const openEgg = useGame((s) => s.openEgg);
   const openAllEggs = useGame((s) => s.openAllEggs);
   const reduced = useReducedMotion();
+
+  // Ticks once a second only while the free-egg button is cooling down, so
+  // the countdown text stays honest without a permanent timer.
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    if (adEggReadyAt <= Date.now()) return;
+    const iv = window.setInterval(() => setNowTs(Date.now()), 1000);
+    return () => window.clearInterval(iv);
+  }, [adEggReadyAt]);
+  const adEggReady = adEggReadyAt <= nowTs;
+  const adEggWaitMin = Math.ceil(Math.max(0, adEggReadyAt - nowTs) / 60000);
 
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
@@ -148,6 +162,20 @@ export function HatchScreen() {
           </button>
         </div>
         {!canAfford && <p className="mt-3 text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>}
+
+        {/* Rewarded placement (opt-in, like every ad here): one free egg for
+            one ad, on a cooldown so it stays a treat. Ads and the game's most
+            exciting moment, in the same button. */}
+        <button
+          type="button"
+          onClick={watchAdForEgg}
+          disabled={!adEggReady}
+          className={`btn mt-2 w-full py-3 text-base ${
+            adEggReady ? 'bg-pop text-void glow-pop' : 'bg-surface text-bone/35 ring-hairline'
+          }`}
+        >
+          {adEggReady ? '🎬 סִרְטוֹן = בֵּיצָה בְּמַתָּנָה!' : `🎬 בֵּיצָה נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
+        </button>
       </div>
     </div>
   );

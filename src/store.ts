@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import {
+  adEggCooldownMs,
   adRewardCooldownMs,
   adRewardDurationMs,
   adRewardMult,
@@ -173,8 +174,9 @@ interface GameState {
   // Rewarded "watch to boost" mechanic (session-only, never persisted).
   adRewardUntil: number; // epoch ms; a ×N boost to taps AND income is live until then
   adCooldownUntil: number; // epoch ms; the bonus button recharges after this
+  adEggReadyAt: number; // epoch ms; the free-egg ad button recharges after this (session-only)
   adOverlayOpen: boolean; // the placeholder ad is currently playing
-  adPurpose: 'boost' | 'offline' | null; // what the current ad rewards on finish
+  adPurpose: 'boost' | 'offline' | 'egg' | null; // what the current ad rewards on finish
   offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
   toasts: Toast[];
   dailyOpen: boolean; // the daily gift + quests panel
@@ -213,6 +215,7 @@ interface GameState {
   collectBonus: () => number;
   startAdBonus: () => void;
   watchAdForOffline: () => void;
+  watchAdForEgg: () => void;
   finishAd: () => void;
   cancelAd: () => void;
   applyAwayEarnings: (seconds: number) => OfflineReport | null;
@@ -432,6 +435,7 @@ export const useGame = create<GameState>((set, get) => {
     frenzyUntil: 0,
     adRewardUntil: 0,
     adCooldownUntil: 0,
+    adEggReadyAt: 0,
     adOverlayOpen: false,
     adPurpose: null,
     offlineDoubled: false,
@@ -885,6 +889,12 @@ export const useGame = create<GameState>((set, get) => {
       if (s.adOverlayOpen || !s.offlineReport || s.offlineDoubled) return;
       set({ adOverlayOpen: true, adPurpose: 'offline' });
     },
+    watchAdForEgg: () => {
+      const s = get();
+      if (s.adOverlayOpen) return;
+      if (Date.now() < s.adEggReadyAt) return;
+      set({ adOverlayOpen: true, adPurpose: 'egg' });
+    },
     finishAd: () => {
       const s = get();
       if (!s.adOverlayOpen) return;
@@ -902,6 +912,17 @@ export const useGame = create<GameState>((set, get) => {
         if (extra > 0) {
           get().pushToast({ text: `הַכְנָסָה כְּפוּלָה! +${formatGoo(extra)} גּוּ 🎬`, icon: '🎬', tone: 'pop' });
         }
+        return;
+      }
+      if (s.adPurpose === 'egg') {
+        set({
+          adOverlayOpen: false,
+          adPurpose: null,
+          eggs: s.eggs + 1,
+          adEggReadyAt: now + adEggCooldownMs,
+        });
+        get().pushToast({ text: 'בֵּיצָה בְּמַתָּנָה! 🥚', icon: '🎬', tone: 'star' });
+        get().triggerConfetti('confetti');
         return;
       }
       // default: the boost button
