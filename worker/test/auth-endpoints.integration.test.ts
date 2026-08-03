@@ -297,3 +297,93 @@ describe('password routes are disabled by default', () => {
     });
   });
 });
+
+// ── Host-only session cookies ──────────────────────────────────────────────
+// The session cookie used to be Domain=.bl-or-bo.com, which sent the raw
+// token to the GitHub Pages site on the apex with every asset request. It is
+// host-only now; the Domain-scoped variant is actively cleared so a returning
+// browser can't end up with two same-name cookies fighting each other.
+
+async function callAt(urlStr: string, init: RequestInit = {}): Promise<Response> {
+  const ctx = createExecutionContext();
+  const res = await worker.fetch(new Request(urlStr, init), env, ctx);
+  await waitOnExecutionContext(ctx);
+  return res;
+}
+
+describe('session cookies are host-only', () => {
+  it('on the production API host: no Domain attribute, plus a clear for the legacy wide cookie', async () => {
+    const res = await callAt(
+      'https://api.bl-or-bo.com/auth/register',
+      jsonInit({ email: freshEmail(), password: 'hunter22' }),
+    );
+    expect(res.status).toBe(201);
+    const cookies = res.headers.getSetCookie();
+    const session = cookies.find((c) => c.startsWith('blorbo_session=') && !c.includes('Max-Age=0'));
+    expect(session).toBeDefined();
+    expect(session).not.toContain('Domain='); // the token no longer travels to the Pages origin
+    const legacyClear = cookies.find((c) => c.startsWith('blorbo_session=') && c.includes('Max-Age=0'));
+    expect(legacyClear).toBeDefined();
+    expect(legacyClear).toContain('Domain=.bl-or-bo.com');
+  });
+
+  it('on a non-production host there is no legacy cookie to clear — a single Set-Cookie', async () => {
+    const res = await call('/auth/register', jsonInit({ email: freshEmail(), password: 'hunter22' }));
+    expect(res.status).toBe(201);
+    expect(res.headers.getSetCookie()).toHaveLength(1);
+  });
+
+  it('a transition-era browser sending BOTH cookies stays signed in regardless of their order', async () => {
+    const reg = await call('/auth/register', jsonInit({ email: freshEmail(), password: 'hunter22' }));
+    const real = sessionCookieFrom(reg).split('=')[1];
+    for (const header of [
+      `blorbo_session=stale-legacy-token; blorbo_session=${real}`,
+      `blorbo_session=${real}; blorbo_session=stale-legacy-token`,
+    ]) {
+      const me = await call('/auth/me', { headers: { Cookie: header } });
+      expect(me.status).toBe(200);
+    }
+  });
+
+  it('logout revokes every presented session token, not just the first', async () => {
+    const regA = await call('/auth/register', jsonInit({ email: freshEmail(), password: 'hunter22' }));
+    const regB = await call('/auth/register', jsonInit({ email: freshEmail(), password: 'hunter22' }));
+    const tokenA = sessionCookieFrom(regA).split('=')[1];
+    const tokenB = sessionCookieFrom(regB).split('=')[1];
+
+    const res = await call('/auth/logout', {
+      method: 'POST',
+      headers: { Cookie: `blorbo_session=${tokenA}; blorbo_session=${tokenB}` },
+    });
+    expect(res.status).toBe(200);
+
+    expect((await call('/auth/me', { headers: { Cookie: `blorbo_session=${tokenA}` } })).status).toBe(401);
+    expect((await call('/auth/me', { headers: { Cookie: `blorbo_session=${tokenB}` } })).status).toBe(401);
+  });
+});
+
+describe('cross-origin writes are refused at the boundary, not merely made unreadable', () => {
+  // CORS headers only decide whether the CALLER may read the response — the
+  // handler itself still ran. These prove the request is refused outright, so
+  // SameSite=Lax is no longer the single control against cross-site writes.
+  it('a POST from an off-allowlist origin answers 403 before any handler runs', async () => {
+    const res = await call('/auth/logout', { method: 'POST', origin: 'https://evil.example.com' });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('bad-origin');
+  });
+
+  it('a POST from the app origin is untouched', async () => {
+    expect((await call('/auth/logout', { method: 'POST', origin: ORIGIN })).status).toBe(200);
+  });
+
+  it('a request with no Origin at all (curl, a native app) is untouched', async () => {
+    expect((await call('/auth/logout', { method: 'POST' })).status).toBe(200);
+  });
+});
+
+describe('identity responses are never cacheable', () => {
+  it('/auth/me and /save send Cache-Control: no-store', async () => {
+    expect((await call('/auth/me')).headers.get('Cache-Control')).toBe('no-store');
+    expect((await call('/save')).headers.get('Cache-Control')).toBe('no-store');
+  });
+});

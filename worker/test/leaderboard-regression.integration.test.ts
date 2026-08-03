@@ -93,29 +93,30 @@ describe('the leaderboard still works end to end', () => {
 });
 
 describe('impossible values cannot reach the board', () => {
-  // Previously these arrived in the request and were clamped. Now they can only
-  // arrive via a save, which is sanitized by migrate() and audited on write —
-  // so the guarantee is stronger, and this asserts the end state either way.
-  it('an absurd goo figure in a save does not become an absurd leaderboard score', async () => {
+  // The guarantee got stronger twice. Originally these values arrived in the
+  // request and were clamped; then they could only arrive via a save; now a
+  // save that arrives already-absurd trips the first-save cap and the account
+  // is not published AT ALL (403), so the board never holds the value in any
+  // form. MAX() over a table this account never reached is NULL — assert both
+  // the refusal and the empty end state.
+  it('an absurd goo figure in a save never becomes a leaderboard row', async () => {
     const cookie = await signUp();
     await putSave(cookie, save({ lifetimeGoo: 1e30 }));
     const res = await submit(cookie, 'רָן');
+    expect(res.status).toBe(403);
 
-    if (res.status === 200) {
-      const body = (await res.json()) as { goo: { best: number } };
-      expect(body.goo.best).toBeLessThanOrEqual(1e18);
-    }
-    const row = await env.DB.prepare('SELECT MAX(goo) AS g FROM scores').first<{ g: number }>();
-    expect(row!.g).toBeLessThanOrEqual(1e18);
+    const row = await env.DB.prepare('SELECT MAX(goo) AS g FROM scores').first<{ g: number | null }>();
+    expect(row!.g ?? 0).toBeLessThanOrEqual(1e18);
   });
 
-  it('an absurd tap count in a save does not become an absurd leaderboard score', async () => {
+  it('an absurd tap count in a save never becomes a leaderboard row', async () => {
     const cookie = await signUp();
     await putSave(cookie, save({ clicks: 999_999_999 }));
-    await submit(cookie, 'רָן');
+    const res = await submit(cookie, 'רָן');
+    expect(res.status).toBe(403);
 
-    const row = await env.DB.prepare('SELECT MAX(clicks) AS c FROM scores').first<{ c: number }>();
-    expect(row!.c).toBeLessThanOrEqual(5_000_000);
+    const row = await env.DB.prepare('SELECT MAX(clicks) AS c FROM scores').first<{ c: number | null }>();
+    expect(row!.c ?? 0).toBeLessThanOrEqual(5_000_000);
   });
 });
 

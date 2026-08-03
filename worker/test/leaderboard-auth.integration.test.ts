@@ -162,3 +162,75 @@ describe('GET /top stays public', () => {
     expect((await call('/top?by=goo')).status).toBe(200);
   });
 });
+
+// ── Enforcement (PR 6, minimal) ─────────────────────────────────────────────
+// The audit stopped being purely shadow: an account with a rate-violation on
+// record keeps its cloud save but is not published to the board. These tests
+// pin the exact boundary — what bars, what deliberately doesn't, and that the
+// save itself is never blocked or lost.
+
+async function userIdFor(cookie: string): Promise<string> {
+  const res = await call('/auth/me', { headers: { Cookie: cookie } });
+  expect(res.status).toBe(200);
+  return ((await res.json()) as { user: { id: string } }).user.id;
+}
+
+describe('POST /submit — flagged accounts are not published', () => {
+  it('an impossible goo jump bars the account from the board, but never costs it the save', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    // A gain of 1e15 goo in one 10-second window at finger level 1 — the
+    // exact F12 attack: write absurd numbers into /save, then publish them.
+    const res = await putSave(cookie, 1, save({ lifetimeGoo: 1e15, clicks: 350 }));
+    expect(res.status).toBe(200); // the save is stored — progress is never destroyed on suspicion
+
+    const submit1 = await submit(cookie, { name: 'רן' });
+    expect(submit1.status).toBe(403);
+    expect(((await submit1.json()) as { error: string }).error).toBe('flagged');
+
+    // The cloud save is intact and readable — only the board is withheld.
+    const get = await call('/save', { headers: { Cookie: cookie } });
+    expect(((await get.json()) as { save: { lifetimeGoo: number } }).save.lifetimeGoo).toBe(1e15);
+  });
+
+  it('a fresh account cannot arrive already rich — the first save is capped', async () => {
+    const cookie = await signUp();
+    // No history to diff against, so verifySaveDelta alone would call this
+    // clean. The worker's first-save cap is what stands in the way.
+    expect((await putSave(cookie, 0, save({ lifetimeGoo: 5e9, clicks: 300 }))).status).toBe(200);
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(403);
+  });
+
+  it('a deliberate restore (decrease) does NOT bar — that is the button we gave players', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    const res = await call('/save', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ baseRev: 1, save: save({ lifetimeGoo: 4_000, clicks: 250 }), rollback: true }),
+    });
+    expect(res.status).toBe(200);
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(200);
+  });
+
+  it('flags recorded before enforcement shipped do not bar — shadow-era data keeps its contract', async () => {
+    const cookie = await signUp();
+    const userId = await userIdFor(cookie);
+    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    // A goo-rate flag as the shadow period would have recorded it: before the
+    // enforcement date. The family's test accounts carry rows like this one.
+    await env.DB.prepare(
+      `INSERT INTO save_audit (user_id, rev, created, elapsed_sec, goo_gain, max_gain, ratio, click_gain, flags, ok)
+       VALUES (?1, 1, ?2, 10, 1e15, 1e6, 1e9, 0, 'goo-rate', 0)`,
+    )
+      .bind(userId, Date.UTC(2026, 7, 2)) // the day before SUBMIT_ENFORCE_SINCE
+      .run();
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(200);
+  });
+
+  it('an ordinary honest account is untouched by all of this', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(200);
+  });
+});

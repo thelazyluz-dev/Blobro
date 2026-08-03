@@ -257,7 +257,10 @@ describe('save auditing (PR 5, shadow mode)', () => {
     expect(aRows).toHaveLength(1);
     expect(bRows).toHaveLength(1);
     expect(aRows[0].ok).toBe(1); // a's honest first save is unaffected by b's flagged one
-    expect(bRows[0].ok).toBe(1); // b's own FIRST save also has nothing to compare against yet
+    // b's first save has nothing to diff against, but it arrived already rich —
+    // the worker's first-save cap flags it (see FIRST_SAVE_GOO_CAP in index.ts).
+    expect(bRows[0].ok).toBe(0);
+    expect(bRows[0].flags.split(',')).toContain('first-save-cap');
     expect(aRows.every((r) => r.user_id === a.userId)).toBe(true);
     expect(bRows.every((r) => r.user_id === b.userId)).toBe(true);
   });

@@ -20,6 +20,11 @@ on:
         type: boolean
         default: false
 
+# The job only reads the repo — deploy credentials are the Cloudflare token,
+# not the GITHUB_TOKEN, so the latter gets no write scope at all.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-worker
   cancel-in-progress: false
@@ -29,6 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the GITHUB_TOKEN sitting in .git/config while npm ci
+          # runs hundreds of packages' install scripts.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20

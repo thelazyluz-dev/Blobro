@@ -22,6 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the GITHUB_TOKEN sitting in .git/config while npm ci
+          # runs hundreds of packages' install scripts.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -53,6 +57,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the GITHUB_TOKEN sitting in .git/config while npm ci
+          # runs hundreds of packages' install scripts.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20

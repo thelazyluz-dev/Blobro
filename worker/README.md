@@ -434,3 +434,45 @@ reason the table exists.
 
 Deploying this needs no schema change, just `npx wrangler deploy`. The cron
 trigger is registered from `wrangler.toml` on that same deploy.
+
+## Enforcement (PR 6, minimal) — flagged accounts are not published
+
+The shadow-mode promise above still holds for the **save itself**: `PUT /save`
+never rejects, blocks, or clamps, and a player can never lose progress on
+suspicion. What changed is the consequence at the leaderboard boundary:
+
+- `POST /submit` answers `403 {"error":"flagged"}` for an account that has a
+  **rate-violation** audit flag on record: `goo-rate`, `click-rate`, or
+  `first-save-cap` (a first save that arrived already rich — see
+  `FIRST_SAVE_GOO_CAP` in `src/index.ts`). The account's cloud save keeps
+  working; only the public board is withheld.
+- Decrease flags (`lifetime-goo-decreased`, `clicks-decreased`,
+  `rollback-claimed`) deliberately do **not** bar — they are what the restore
+  button legitimately produces, and a decrease cannot inflate a MAX()-based
+  board anyway.
+- Only flags recorded **after** `SUBMIT_ENFORCE_SINCE` (2026-08-03) count.
+  Rows from the shadow-only period were collected under a different contract
+  and never bar anyone retroactively.
+
+### Releasing a wrongly-barred account
+
+Look at the evidence, then delete the flags (the nightly sweep never deletes
+flagged rows, so this is the only way they go away):
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote \
+  --command "SELECT user_id, created, elapsed_sec, goo_gain, max_gain, ratio, flags FROM save_audit WHERE ok = 0 ORDER BY created DESC LIMIT 50"
+npx wrangler d1 execute blorbo-leaderboard --remote \
+  --command "DELETE FROM save_audit WHERE user_id = '<id>' AND ok = 0"
+```
+
+The player's row appears on the board at their next sync — nothing else to do.
+
+### Honest limits (unchanged in spirit)
+
+The ceiling is deliberately generous (~three orders of magnitude above honest
+play), so this blocks the *trivial* attack — one F12 paste of an absurd
+number — and forces a cheater into a patient, scripted drip that stays under
+the ceiling on every save. That is "too expensive to bother", which is the
+stated goal; it is not proof of honesty. The data-driven threshold on `ratio`
+(the real PR 6) still needs real players' distributions.

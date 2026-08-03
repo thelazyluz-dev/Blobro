@@ -181,6 +181,33 @@ export function buildClearCookie(name: string, opts: { domain?: string; path?: s
   return buildCookie({ name, value: '', maxAgeSeconds: 0, domain: opts.domain, path: opts.path });
 }
 
+/**
+ * ALL values sent under one cookie name, in header order.
+ *
+ * Needed for the host-only-cookie transition: a browser that signed in before
+ * the change holds the legacy Domain-scoped session cookie AND the new
+ * host-only one — same name, both sent. `parseCookies` keeps whichever comes
+ * last, and the order two same-name cookies arrive in is the browser's choice,
+ * so a reader that keeps only one would sign the player out at random.
+ * Callers try each value until one resolves.
+ */
+export function parseCookieValues(header: string | null, name: string): string[] {
+  const out: string[] = [];
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() !== name) continue;
+    const value = part.slice(idx + 1).trim();
+    try {
+      out.push(decodeURIComponent(value));
+    } catch {
+      out.push(value);
+    }
+  }
+  return out;
+}
+
 /** Parse a `Cookie` request header into a plain map. */
 export function parseCookies(header: string | null): Record<string, string> {
   const out: Record<string, string> = {};
@@ -201,14 +228,19 @@ export function parseCookies(header: string | null): Record<string, string> {
 }
 
 /**
- * Only set a Domain attribute when the Worker's own hostname is the apex
- * domain or a subdomain of it — a browser rejects (silently drops) a
- * Set-Cookie whose Domain isn't the current host or a superdomain of it.
- * This lets the same code work against a workers.dev URL during setup
- * (host-only cookie) and against api.bl-or-bo.com in production (cookie
- * scoped to the whole apex).
+ * The session cookie used to carry `Domain=.bl-or-bo.com`, scoping it to the
+ * whole apex — which sent the raw session token along with every page and
+ * asset request to the GitHub Pages site on the apex, a third party with no
+ * use for it, and would hand it to any future subdomain automatically. The
+ * only host that ever READS the cookie is the API itself, so cookies are
+ * host-only now (no Domain attribute at all).
+ *
+ * This helper survives solely to CLEAR the legacy wide cookie that existing
+ * players still carry (a host-only clear cannot delete a Domain-scoped
+ * cookie — the attributes must match). Safe to delete once the 30-day
+ * session TTL has rotated everyone past the change.
  */
-export function cookieDomainFor(hostname: string): string | undefined {
+export function legacyCookieDomainFor(hostname: string): string | undefined {
   if (hostname === 'bl-or-bo.com' || hostname.endsWith('.bl-or-bo.com')) return '.bl-or-bo.com';
   return undefined;
 }

@@ -21,7 +21,8 @@ import {
   buildCookie,
   bytesToBase64Url,
   codeChallengeFromVerifier,
-  cookieDomainFor,
+  legacyCookieDomainFor,
+  parseCookieValues,
   generateCodeVerifier,
   generateSessionToken,
   generateState,
@@ -226,15 +227,30 @@ describe('cookies', () => {
     expect(parseCookies(nameValue)).toEqual({ blorbo_session: token });
   });
 
-  it('cookieDomainFor: apex and subdomains of bl-or-bo.com get the shared domain', () => {
-    expect(cookieDomainFor('bl-or-bo.com')).toBe('.bl-or-bo.com');
-    expect(cookieDomainFor('api.bl-or-bo.com')).toBe('.bl-or-bo.com');
+  // legacyCookieDomainFor exists only to CLEAR the pre-host-only wide cookie
+  // (a clear must repeat the Domain the cookie was set with, or the browser
+  // treats it as a different cookie and deletes nothing).
+  it('legacyCookieDomainFor: apex and subdomains of bl-or-bo.com get the old shared domain', () => {
+    expect(legacyCookieDomainFor('bl-or-bo.com')).toBe('.bl-or-bo.com');
+    expect(legacyCookieDomainFor('api.bl-or-bo.com')).toBe('.bl-or-bo.com');
   });
 
-  it('cookieDomainFor: unrelated hosts (dev, workers.dev) get a host-only cookie', () => {
-    expect(cookieDomainFor('localhost')).toBeUndefined();
-    expect(cookieDomainFor('blorbo-leaderboard.example.workers.dev')).toBeUndefined();
-    expect(cookieDomainFor('evil-bl-or-bo.com')).toBeUndefined(); // NOT a suffix match trap
+  it('legacyCookieDomainFor: unrelated hosts (dev, workers.dev) have no legacy cookie to clear', () => {
+    expect(legacyCookieDomainFor('localhost')).toBeUndefined();
+    expect(legacyCookieDomainFor('blorbo-leaderboard.example.workers.dev')).toBeUndefined();
+    expect(legacyCookieDomainFor('evil-bl-or-bo.com')).toBeUndefined(); // NOT a suffix match trap
+  });
+
+  it('parseCookieValues returns every value sent under one name, in header order', () => {
+    expect(parseCookieValues('blorbo_session=old; a=1; blorbo_session=new', 'blorbo_session')).toEqual([
+      'old',
+      'new',
+    ]);
+  });
+
+  it('parseCookieValues: absent header or absent name gives an empty list', () => {
+    expect(parseCookieValues(null, 'blorbo_session')).toEqual([]);
+    expect(parseCookieValues('a=1; b=2', 'blorbo_session')).toEqual([]);
   });
 });
 

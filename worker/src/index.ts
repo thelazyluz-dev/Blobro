@@ -3,9 +3,10 @@
  *
  * Free tier forever at family scale → ₪0/month.
  *
- * Privacy (kids' app): stores only a nickname, two scores, and a random
- * per-device recovery code. No email, no real name, no IP, no location. The
- * code is a write-only secret — never returned.
+ * Privacy (kids' app): the leaderboard shows only a nickname and two scores.
+ * Accounts (PR 3a) store the Google email, sub and display name — used for
+ * sign-in only, never shown to other players. No IP, no location. Disclosed
+ * in public/privacy.html; keep the two in sync.
  *
  * Anti-cheat (pragmatic — you can't fully secure a client-side game, the goal
  * is "annoying enough nobody bothers"):
@@ -44,12 +45,17 @@
  *   PUT  /save                      → { rev, updated } | 409 { error, rev, updated, save } | 401
  *        body: { baseRev, save }
  *
- * PR 5 adds save AUDITING, SHADOW MODE ONLY — see the "Save auditing (PR 5)"
- * section below. Every successful `PUT /save` now also records the server's
- * opinion of whether the upload's delta was physically achievable into
- * `save_audit`. It never rejects, blocks, or alters the write or its response
- * — this PR is purely "observe and record", so a later PR can pick an
- * enforcement threshold from real data instead of a guess.
+ * PR 5 adds save AUDITING — see the "Save auditing (PR 5)" section below.
+ * Every successful `PUT /save` also records the server's opinion of whether
+ * the upload's delta was physically achievable into `save_audit`. The WRITE is
+ * never rejected, blocked, or altered — a player must never lose progress on
+ * suspicion.
+ *
+ * PR 6 (minimal) adds the CONSEQUENCE: an account with a rate-violation flag
+ * on record (goo/clicks beyond the ceiling, or a first save that arrived
+ * already rich) keeps its cloud save but is not published by /submit — see
+ * SUBMIT_ENFORCE_SINCE for the boundary and the release command. The tuned,
+ * data-driven threshold on the audit RATIO remains future work.
  */
 
 import {
@@ -62,7 +68,6 @@ import {
   buildClearCookie,
   buildCookie,
   codeChallengeFromVerifier,
-  cookieDomainFor,
   generateCodeVerifier,
   generateSessionToken,
   generateState,
@@ -72,6 +77,8 @@ import {
   hmacVerify,
   isSessionExpired,
   isThrottled,
+  legacyCookieDomainFor,
+  parseCookieValues,
   parseCookies,
   sessionExpiresAt,
   verifyPassword,
@@ -152,12 +159,20 @@ function authJson(
   body: unknown,
   status: number,
   origin: string | null,
-  extraHeaders: Record<string, string> = {},
+  cookies: string[] = [],
 ): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...authCorsHeaders(origin), ...extraHeaders },
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    // Identity and save payloads must never land in any cache, shared or
+    // local. Browsers rarely cache these heuristically, but "rarely" is not a
+    // security property — no-store makes it one.
+    'Cache-Control': 'no-store',
+    ...authCorsHeaders(origin),
   });
+  // Set-Cookie is the one header that can legitimately repeat (the session
+  // cookie plus the legacy-domain clear), which a plain Record can't express.
+  for (const cookie of cookies) headers.append('Set-Cookie', cookie);
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 const MAX_NAME_LEN = 12;
@@ -242,6 +257,21 @@ export default {
         return new Response(null, { status: 204, headers: authCorsHeaders(request.headers.get('Origin')) });
       }
       return new Response(null, { status: 204, headers: CORS });
+    }
+
+    // CORS response headers only govern who may READ a response — they never
+    // stop the request itself from running. For the cookie-carrying write
+    // routes that left SameSite=Lax as the single control against cross-site
+    // writes. A browser always names the sending site in Origin on a
+    // cross-origin POST/PUT, so an off-allowlist Origin is refused before any
+    // handler runs. Requests with no Origin at all (curl, native apps) pass —
+    // this boundary is about browsers steered from someone else's page, and
+    // those always announce themselves.
+    if (isCredentialedRoute && (request.method === 'POST' || request.method === 'PUT')) {
+      const origin = request.headers.get('Origin');
+      if (origin && !allowedOrigins.includes(origin)) {
+        return authJson({ error: 'bad-origin' }, 403, origin);
+      }
     }
 
     if (url.pathname === '/health') {
@@ -391,40 +421,60 @@ async function openSession(db: D1Database, userId: string, ttlDays: number): Pro
   return { token };
 }
 
-function sessionCookieFor(request: Request, token: string, ttlDays: number): string {
-  const hostname = new URL(request.url).hostname;
-  return buildCookie({
-    name: SESSION_COOKIE_NAME,
-    value: token,
-    maxAgeSeconds: ttlDays * 24 * 60 * 60,
-    domain: cookieDomainFor(hostname),
-  });
+/**
+ * Set-Cookie list for a fresh session: the host-only session cookie, plus —
+ * on the production host — a clear for the legacy Domain-scoped cookie a
+ * returning browser may still hold. Without the clear the two coexist under
+ * the same name and which one the browser sends first is unspecified, so a
+ * stale session could shadow the new one at random.
+ */
+function sessionCookiesFor(request: Request, token: string, ttlDays: number): string[] {
+  const cookies = [
+    buildCookie({ name: SESSION_COOKIE_NAME, value: token, maxAgeSeconds: ttlDays * 24 * 60 * 60 }),
+  ];
+  const legacyDomain = legacyCookieDomainFor(new URL(request.url).hostname);
+  if (legacyDomain) cookies.push(buildClearCookie(SESSION_COOKIE_NAME, { domain: legacyDomain }));
+  return cookies;
 }
 
-function clearSessionCookieFor(request: Request): string {
-  const hostname = new URL(request.url).hostname;
-  return buildClearCookie(SESSION_COOKIE_NAME, { domain: cookieDomainFor(hostname) });
+/** Clear the session cookie — both the host-only one and the legacy Domain-scoped one. */
+function clearSessionCookiesFor(request: Request): string[] {
+  const cookies = [buildClearCookie(SESSION_COOKIE_NAME)];
+  const legacyDomain = legacyCookieDomainFor(new URL(request.url).hostname);
+  if (legacyDomain) cookies.push(buildClearCookie(SESSION_COOKIE_NAME, { domain: legacyDomain }));
+  return cookies;
 }
 
-/** Resolve the caller's session cookie to a user row, or null. Lazily deletes an expired session row. */
+/**
+ * Resolve the caller's session cookie to a user row, or null. Lazily deletes
+ * an expired session row.
+ *
+ * Tries every value sent under the session cookie's name (capped, but in
+ * practice two): during the host-only-cookie transition a browser can hold
+ * both the legacy Domain-scoped cookie and the new host-only one, and if the
+ * one it happens to list first is stale, keeping only that one would sign the
+ * player out at random.
+ */
 async function getUserFromRequest(request: Request, env: Env): Promise<UserRow | null> {
-  const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies[SESSION_COOKIE_NAME];
-  if (!token) return null;
-  const tokenHash = await hashSessionToken(token);
-  const session = await env.DB.prepare('SELECT user_id, expires FROM sessions WHERE token_hash = ?1')
-    .bind(tokenHash)
-    .first<{ user_id: string; expires: number }>();
-  if (!session) return null;
-  if (isSessionExpired(session.expires)) {
-    await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?1').bind(tokenHash).run();
-    return null;
+  const tokens = parseCookieValues(request.headers.get('Cookie'), SESSION_COOKIE_NAME).slice(0, 3);
+  for (const token of tokens) {
+    const tokenHash = await hashSessionToken(token);
+    const session = await env.DB.prepare('SELECT user_id, expires FROM sessions WHERE token_hash = ?1')
+      .bind(tokenHash)
+      .first<{ user_id: string; expires: number }>();
+    if (!session) continue;
+    if (isSessionExpired(session.expires)) {
+      await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?1').bind(tokenHash).run();
+      continue;
+    }
+    const user = await env.DB.prepare(
+      'SELECT id, email, password_hash, google_sub, display_name, created, last_login FROM users WHERE id = ?1',
+    )
+      .bind(session.user_id)
+      .first<UserRow>();
+    if (user) return user;
   }
-  return env.DB.prepare(
-    'SELECT id, email, password_hash, google_sub, display_name, created, last_login FROM users WHERE id = ?1',
-  )
-    .bind(session.user_id)
-    .first<UserRow>();
+  return null;
 }
 
 async function recordLoginFailure(db: D1Database, email: string, row: ThrottleRow | null, now: number): Promise<void> {
@@ -508,9 +558,7 @@ async function authRegister(request: Request, env: Env, origin: string | null): 
 
     const ttlDays = sessionTtlDays(env);
     const { token } = await openSession(env.DB, id, ttlDays);
-    return authJson({ user: { id, email, displayName } }, 201, origin, {
-      'Set-Cookie': sessionCookieFor(request, token, ttlDays),
-    });
+    return authJson({ user: { id, email, displayName } }, 201, origin, sessionCookiesFor(request, token, ttlDays));
   } catch (err) {
     // A UNIQUE-constraint race (two concurrent registers for the same email)
     // lands here as a generic D1 error — surface the same 409, not a scary 500.
@@ -560,18 +608,17 @@ async function authLogin(request: Request, env: Env, origin: string | null): Pro
 
     const ttlDays = sessionTtlDays(env);
     const { token } = await openSession(env.DB, user.id, ttlDays);
-    return authJson({ user: publicUser(user) }, 200, origin, {
-      'Set-Cookie': sessionCookieFor(request, token, ttlDays),
-    });
+    return authJson({ user: publicUser(user) }, 200, origin, sessionCookiesFor(request, token, ttlDays));
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }
 }
 
 async function authLogout(request: Request, env: Env, origin: string | null): Promise<Response> {
-  const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies[SESSION_COOKIE_NAME];
-  if (token) {
+  // Every presented value, not just one — a transition-era browser can send
+  // two session cookies, and logout must kill both server-side rows.
+  const tokens = parseCookieValues(request.headers.get('Cookie'), SESSION_COOKIE_NAME).slice(0, 3);
+  for (const token of tokens) {
     try {
       const tokenHash = await hashSessionToken(token);
       await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?1').bind(tokenHash).run();
@@ -579,7 +626,7 @@ async function authLogout(request: Request, env: Env, origin: string | null): Pr
       // Best-effort — the cookie gets cleared client-side below regardless.
     }
   }
-  return authJson({ ok: true }, 200, origin, { 'Set-Cookie': clearSessionCookieFor(request) });
+  return authJson({ ok: true }, 200, origin, clearSessionCookiesFor(request));
 }
 
 async function authMe(request: Request, env: Env, origin: string | null): Promise<Response> {
@@ -634,7 +681,6 @@ async function authGoogleStart(env: Env, url: URL): Promise<Response> {
     name: OAUTH_STATE_COOKIE_NAME,
     value: cookieValue,
     maxAgeSeconds: OAUTH_STATE_TTL_MS / 1000,
-    domain: cookieDomainFor(url.hostname),
     path: '/auth/google',
   });
 
@@ -740,11 +786,17 @@ async function authGoogleCallback(request: Request, env: Env, url: URL): Promise
     const ttlDays = sessionTtlDays(env);
     const { token } = await openSession(env.DB, user.id, ttlDays);
     const headers = new Headers({ Location: dest });
-    headers.append('Set-Cookie', sessionCookieFor(request, token, ttlDays));
-    headers.append(
-      'Set-Cookie',
-      buildClearCookie(OAUTH_STATE_COOKIE_NAME, { domain: cookieDomainFor(url.hostname), path: '/auth/google' }),
-    );
+    for (const cookie of sessionCookiesFor(request, token, ttlDays)) headers.append('Set-Cookie', cookie);
+    headers.append('Set-Cookie', buildClearCookie(OAUTH_STATE_COOKIE_NAME, { path: '/auth/google' }));
+    // The pre-change state cookie was Domain-scoped; a host-only clear can't
+    // remove it, so clear that variant too while any may still be in flight.
+    const legacyDomain = legacyCookieDomainFor(url.hostname);
+    if (legacyDomain) {
+      headers.append(
+        'Set-Cookie',
+        buildClearCookie(OAUTH_STATE_COOKIE_NAME, { domain: legacyDomain, path: '/auth/google' }),
+      );
+    }
     return new Response(null, { status: 302, headers });
   } catch {
     return failRedirect('google-error');
@@ -767,6 +819,60 @@ function leaderboardCodeFor(userId: string): string {
 /** Minimum gap between leaderboard writes for one account. */
 const MIN_SUBMIT_INTERVAL_MS = 10_000;
 
+// ── Enforcement (PR 6, minimal) ───────────────────────────────────────────
+//
+// The audit (PR 5) records physically-impossible save deltas; this is the
+// consequence. An account with a rate violation on record — goo or clicks
+// beyond the plausibility ceiling, or a first save that arrived already rich
+// — KEEPS its cloud save (progress is never destroyed on suspicion) but is
+// not published to a board children compete on.
+//
+// Decrease flags deliberately do NOT bar: they are what the restore button
+// legitimately produces, and a decrease cannot inflate a MAX()-based board
+// anyway. And only rows from after ENFORCE_SINCE count — everything recorded
+// while the audit was shadow-only was collected under a different contract,
+// and the family's test accounts must not be barred retroactively by it.
+//
+// Releasing a wrongly-barred account is a one-liner for the owner:
+//   npx wrangler d1 execute blorbo-leaderboard --remote \
+//     --command "DELETE FROM save_audit WHERE user_id = '<id>' AND ok = 0"
+const SUBMIT_ENFORCE_SINCE = Date.UTC(2026, 7, 3); // 2026-08-03, the day enforcement shipped
+const BARRING_FLAGS = ['goo-rate', 'click-rate', 'first-save-cap'] as const;
+
+/**
+ * A first save has no previous row to diff against, so verifySaveDelta
+ * reports it clean by design (everyone has a first save). That leniency was
+ * the last hole wide enough to matter: a fresh account's very first PUT could
+ * claim any number at all, and /submit would publish it. A genuinely new
+ * account syncs within its first minute of play (sign-in is mandatory and
+ * checkpoints run every 60s), so an honest first save is worth a few hundred
+ * goo — these caps sit three-plus orders of magnitude above that. This is
+ * worker-side POLICY, not shared physics: thresholds live here, the ceiling
+ * math lives in src/game/verify.ts.
+ *
+ * The save is STORED either way (a wrong guess here must never cost progress
+ * — e.g. signing in on a plane and playing for hours before the first sync
+ * lands); the flag only keeps the account off the leaderboard.
+ */
+const FIRST_SAVE_GOO_CAP = 1_000_000;
+const FIRST_SAVE_CLICK_CAP = 5_000;
+
+/** True when this account has a barring audit flag recorded since enforcement began. */
+async function isBarredFromBoard(db: D1Database, userId: string): Promise<boolean> {
+  // Exact-token match on the comma-joined flags column: wrap both sides in
+  // delimiters so e.g. 'goo-rate' can never match inside another flag name.
+  const row = await db
+    .prepare(
+      `SELECT 1 AS x FROM save_audit
+       WHERE user_id = ?1 AND ok = 0 AND created >= ?2
+         AND (${BARRING_FLAGS.map((_, i) => `',' || flags || ',' LIKE ?${i + 3}`).join(' OR ')})
+       LIMIT 1`,
+    )
+    .bind(userId, SUBMIT_ENFORCE_SINCE, ...BARRING_FLAGS.map((f) => `%,${f},%`))
+    .first<{ x: number }>();
+  return row !== null;
+}
+
 async function handleSubmit(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get('Origin');
   let user: UserRow | null;
@@ -787,6 +893,11 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
   try {
     const now = Date.now();
     const code = leaderboardCodeFor(user.id);
+
+    // The consequence half of the audit — see SUBMIT_ENFORCE_SINCE above.
+    if (await isBarredFromBoard(env.DB, user.id)) {
+      return authJson({ error: 'flagged' }, 403, origin);
+    }
 
     // The scores come from the server's own copy of this account's save. There
     // is deliberately no path for the request to supply them.
@@ -1059,6 +1170,16 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       const verdict = verifySaveDelta(previousSave, sanitized, elapsedSeconds, {
         rollbackClaimed: b.rollback === true,
       });
+      // First-save policy (see FIRST_SAVE_* above): the shared rule can't
+      // judge a save with nothing before it, so the worker applies a flat cap
+      // of its own. Recorded as an extra flag on the same audit row — the
+      // write itself already succeeded and stays untouched.
+      const flags: string[] = [...verdict.flags];
+      let ok = verdict.ok;
+      if (!previousRow && (sanitized.lifetimeGoo > FIRST_SAVE_GOO_CAP || sanitized.clicks > FIRST_SAVE_CLICK_CAP)) {
+        flags.push('first-save-cap');
+        ok = false;
+      }
       await env.DB.prepare(
         `INSERT INTO save_audit (user_id, rev, created, elapsed_sec, goo_gain, max_gain, ratio, click_gain, flags, ok)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
@@ -1072,8 +1193,8 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
           verdict.maxGain,
           verdict.ratio,
           verdict.clickGain,
-          verdict.flags.join(','),
-          verdict.ok ? 1 : 0,
+          flags.join(','),
+          ok ? 1 : 0,
         )
         .run();
     } catch (err) {
