@@ -1,0 +1,136 @@
+name: Release Account
+
+# Lifts a plausibility bar off ONE account, runnable from a phone.
+#
+# Why this exists: an account is kept off the leaderboard when the audit has
+# recorded a barring flag for it (see isBarredFromBoard in worker/src/index.ts).
+# Most bars are honest — but a *rule that was too strict* produces false ones,
+# and when that happens the fix is to delete the flag rows so the account's real
+# score returns to the board on its next sync. The canonical example: the
+# taps-per-minute ceiling was raised from 25 to 50/sec after two real players
+# both pinned the old wall, which means their genuine racing had already been
+# stamped 'click-rate'. This button clears exactly those.
+#
+# It only ever DELETEs from save_audit (the audit trail), and only rows with
+# ok = 0 (already-flagged writes) for the one user_id you name. It never touches
+# saves, users, sessions, or scores — the player's progress is untouched, and a
+# clean write simply re-publishes their score afterward.
+on:
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'The account to release (copy the user_id from the Audit Report)'
+        required: true
+        default: ''
+      confirm:
+        description: 'Type RELEASE to confirm (anything else aborts)'
+        required: true
+        default: ''
+      scope:
+        description: 'Which flags to clear'
+        type: choice
+        default: 'click-rate only'
+        options:
+          - 'click-rate only'   # the too-strict-tap-ceiling false positives
+          - 'all flags'          # every ok=0 row for this account
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-account
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Refuse a wrong confirmation before anything is installed or any database
+      # is reached. Inputs travel through env vars, never interpolated into the
+      # script text — the classic Actions injection shape.
+      - name: Check confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          if [ "$CONFIRM" != "RELEASE" ]; then
+            echo "Confirmation was '$CONFIRM', expected 'RELEASE'. Nothing was changed."
+            exit 1
+          fi
+          if [ -z "$USER_ID" ]; then
+            echo "No user_id given. Nothing was changed."
+            exit 1
+          fi
+          # Account ids are crypto.randomUUID() — hex and hyphens only. Rejecting
+          # anything else means the value spliced into the SQL below can never
+          # carry a quote or a statement separator, whatever was typed in.
+          if ! printf '%s' "$USER_ID" | grep -Eq '^[0-9a-fA-F-]{36}$'; then
+            echo "user_id '$USER_ID' is not a valid account id (expected a UUID). Nothing was changed."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install worker toolchain
+        working-directory: worker
+        run: npm ci
+
+      # Show what's on this account BEFORE touching anything: the flagged rows,
+      # what flags they carry, and when. If the account isn't actually flagged,
+      # this makes that obvious next to the (no-op) deletion.
+      - name: This account's flagged writes (before)
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
+            SELECT a.created, a.flags, a.ratio, a.click_gain, u.display_name
+            FROM save_audit a LEFT JOIN users u ON u.id = a.user_id
+            WHERE a.user_id = '$USER_ID' AND a.ok = 0
+            ORDER BY a.created DESC LIMIT 25;"
+
+      # The release itself. 'click-rate only' clears just the false positives the
+      # raised tap ceiling created (an exact-token match so it can't hit another
+      # flag name); 'all flags' clears every ok=0 row for the account.
+      - name: Release the account
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          USER_ID: ${{ inputs.user_id }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          if [ "$SCOPE" = "all flags" ]; then
+            echo "Clearing ALL flagged writes for $USER_ID"
+            npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
+              DELETE FROM save_audit WHERE user_id = '$USER_ID' AND ok = 0;"
+          else
+            echo "Clearing click-rate flags for $USER_ID"
+            npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
+              DELETE FROM save_audit
+              WHERE user_id = '$USER_ID' AND ok = 0
+                AND ',' || flags || ',' LIKE '%,click-rate,%';"
+          fi
+
+      - name: This account's flagged writes (after)
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "
+            SELECT COUNT(*) AS still_flagged
+            FROM save_audit WHERE user_id = '$USER_ID' AND ok = 0;"
+
+      - name: What happens next
+        run: |
+          echo "The account's score returns to the leaderboard on its next sync."
+          echo "If 'still_flagged' above is 0, the bar is fully lifted."
+          echo "If it's non-zero, those are OTHER flags (e.g. goo-rate) — rerun"
+          echo "with scope 'all flags' only if you've judged them honest too."
