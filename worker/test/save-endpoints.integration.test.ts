@@ -9,6 +9,7 @@
 import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
+import { CURRENT_VERSION } from '../src/rules';
 
 // The email/password routes are disabled in production (Google-only sign-in).
 // These tests create accounts through them because it is the only way to mint
@@ -246,7 +247,10 @@ describe('PUT /save', () => {
     // are what a later PR re-simulates against, so drift here would be silent.
     expect(row!.lifetimeGoo).toBe(0);
     expect(row!.clicks).toBe(0);
-    expect(row!.version).toBe(13); // CURRENT_VERSION after the v13 (bestCpm) bump
+    // Pinned to the shared constant, not a literal: this broke a deploy once
+    // (v14 shipped, the 13 here didn't) and the row must simply always match
+    // whatever migrate() currently produces.
+    expect(row!.version).toBe(CURRENT_VERSION);
   });
 
   it('one user cannot read or overwrite another user\'s save', async () => {
