@@ -136,6 +136,12 @@ export function InfoOverlay() {
           <button
             type="button"
             onClick={() => {
+              // Close this panel first. Both overlays sit at z-40, so opening
+              // the legend on top of the info panel left it invisible until the
+              // player closed the panel they were already looking at. One modal
+              // at a time is also simply better on a phone: stacked sheets give
+              // a child two "close" buttons and no idea which one goes back.
+              setOpen(false);
               setNumberLegendOpen(true);
               haptic(10);
             }}

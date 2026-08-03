@@ -145,3 +145,16 @@ test('the bottom nav keeps a large touch target while staying compact', async ({
     expect(b.width, `nav tab ${i} is too narrow to tap`).toBeGreaterThanOrEqual(44);
   }
 });
+
+test('the number legend is visible the moment it is opened', async ({ page }) => {
+  // It opens from inside the info panel, and both overlays sit at z-40 — so it
+  // used to render behind the panel that launched it, invisible until the
+  // player closed the thing they were already looking at.
+  await page.getByRole('button', { name: 'מידע על ההכנסות' }).click();
+  await page.getByRole('button', { name: /K, M, B/ }).click();
+
+  await expect(page.getByText('מַקְרָא מִסְפָּרִים')).toBeVisible();
+  // Exactly one sheet on screen: two stacked modals would give a child two
+  // close buttons and no idea which one goes back.
+  await expect(page.locator('[role="dialog"]')).toHaveCount(1);
+});
