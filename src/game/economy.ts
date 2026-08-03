@@ -23,7 +23,7 @@ import {
   paybackMultMax,
   paybackMultMin,
   paybackPivotRate,
-  paybackSlopePerDecade,
+  paybackGrowthPerDecade,
   tapProductionShare,
   upgradeConfig,
 } from './balance';
@@ -164,7 +164,7 @@ export function eggCost(n: number): number {
  */
 export function wealthPaybackMult(gooPerSecValue: number): number {
   const r = Math.max(1, gooPerSecValue);
-  const mult = 1 + paybackSlopePerDecade * Math.log10(r / paybackPivotRate);
+  const mult = Math.pow(paybackGrowthPerDecade, Math.log10(r / paybackPivotRate));
   return Math.min(paybackMultMax, Math.max(paybackMultMin, mult));
 }
 

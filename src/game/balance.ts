@@ -77,9 +77,16 @@ export const creatureLevelPaybackSeconds = 180;
 // a challenge instead of trivially doubling every couple of minutes forever.
 // multiplier = 1 at the pivot rate, floored below it, +slope per 10× above.
 export const paybackPivotRate = 1000; // goo/sec at which the ratio equals the base
-export const paybackSlopePerDecade = 0.5; // +0.5× payback for each 10× richer
+// GEOMETRIC per decade, not linear (owner-approved rebalance, measured first):
+// a linear slope cannot brake an exponential — the bot crossed the game's
+// entire number space (1e18) in 1.8 hours of active play with each decade a
+// flat ~10 minutes. Compounding ×1.6 per decade makes every decade ~1.5×
+// slower than the one before it: same first day, but 1e18 moves from "days"
+// to "weeks" and the numbers stop running out. Measured: 9.3 bot-hours to
+// 1e18, last decade ×15 longer than today's.
+export const paybackGrowthPerDecade = 1.6;
 export const paybackMultMin = 0.5; // early game: half-price upgrades
-export const paybackMultMax = 20; // hard ceiling so it can never explode
+export const paybackMultMax = 1e6; // still bounded, but far past any reachable rate
 
 // --- "Upgrade all" convenience (paced so it isn't a free fast-forward) --------
 // Pressing it charges a service fee (this many seconds of your income) that
