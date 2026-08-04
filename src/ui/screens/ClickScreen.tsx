@@ -416,9 +416,12 @@ export function ClickScreen() {
           style={{ left: `${d.left}%` }}
         >
           <span
-            className={reduced ? 'block' : 'anim-rain-fall block'}
+            className={reduced ? 'block p-2' : 'anim-rain-fall block p-2'}
             style={{ '--fall': `${d.fall}s`, animationDelay: `${d.delay}s` } as React.CSSProperties}
           >
+            {/* p-2 on this (transformed) span, not the button, gives the falling
+                drop a ≥44px hit area small hands can actually catch — the button's
+                own box stays at top:0 and never follows the drop down. */}
             <svg viewBox="0 0 40 52" width="34" height="44" aria-hidden style={{ filter: 'drop-shadow(0 0 8px rgba(163,255,18,0.7))' }}>
               <path d="M20 2 C20 2 4 24 4 34 a16 16 0 0 0 32 0 C36 24 20 2 20 2 Z" fill="#A3FF12" stroke="#3A1F10" strokeWidth="3" strokeLinejoin="round" />
               <ellipse cx="14" cy="28" rx="4" ry="6" fill="#FFF4E0" opacity="0.6" />

@@ -39,7 +39,7 @@ export function AuthGate() {
         <Wordmark size="hero" className="mt-1 block" />
         <h2 className="mt-3 font-display text-2xl text-bone">בּוֹאוּ נִכָּנֵס!</h2>
         <p className="mt-2 px-1 text-xs leading-relaxed text-bone/60">
-          הַהִתְקַדְּמוּת שֶׁלְּךָ בַּמֶּכְשִׁיר הַזֶּה נִשְׁמֶרֶת, וְתְקֻשַּׁר לַחֶשְׁבּוֹן שֶׁלְּךָ.
+          הַהִתְקַדְּמוּת נִשְׁמֶרֶת וּתְקֻשַּׁר לַחֶשְׁבּוֹן. הִכָּנְסוּ עִם חֶשְׁבּוֹן גּוּגֶל שֶׁל מְבֻגָּר. 🧑‍🦱
         </p>
 
         {configured ? (

@@ -33,6 +33,10 @@ function dismissedRecently(): boolean {
 
 export function InstallPrompt() {
   const loaded = useGame((s) => s.loaded);
+  // Never stack the install banner under the first-entry nickname dialog — a kid
+  // mid-typing would get it sliding in beneath them. It stays queued (mode keeps
+  // its value) and appears the moment the nickname step is done.
+  const nicknameOpen = useGame((s) => s.nicknameOpen);
   const [mode, setMode] = useState<'android' | 'ios' | null>(null);
 
   useEffect(() => {
@@ -77,7 +81,7 @@ export function InstallPrompt() {
     setMode(null);
   };
 
-  if (!mode) return null;
+  if (!mode || nicknameOpen) return null;
 
   return (
     // bottom-24 (not bottom-0): sits ABOVE the bottom nav — measured at 360x640

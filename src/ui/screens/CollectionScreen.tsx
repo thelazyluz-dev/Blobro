@@ -38,6 +38,7 @@ const idsByRarity: Record<Rarity, CharId[]> = RARITY_ORDER.reduce(
 
 export function CollectionScreen() {
   const owned = useGame((s) => s.characters);
+  const setTab = useGame((s) => s.setTab);
   const goo = useGame((s) => s.goo);
   const clicks = useGame((s) => s.clicks);
   const m = useGame(selectMods);
@@ -116,6 +117,17 @@ export function CollectionScreen() {
             ) : (
               <span>⬆️ שַׁדְרֵג אֶת כֻּלָּם</span>
             )}
+          </button>
+        )}
+        {/* A fresh collection is all "?" tiles — point the kid at the one action
+            that fills it, so an empty grid never reads as a dead end. */}
+        {ownedCount === 0 && (
+          <button
+            type="button"
+            onClick={() => setTab('hatch')}
+            className="btn anim-breathe mt-4 w-full bg-cy py-3 text-base text-void glow-goo"
+          >
+            🥚 בִּקְעוּ בֵּיצִים כְּדֵי לְמַלֵּא אֶת הָאֹסֶף!
           </button>
         )}
       </header>
@@ -436,8 +448,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           <span className="text-lg">⬆️ שַׁדְרֵג רָמָה</span>
           <span className="text-xs tabular">
             {affordLevel
-              ? `${formatGoo(levelCost)} גּוּ · +${formatGoo(levelGain)}/שנייה`
-              : `חסר ${formatGoo(levelCost - goo)} גּוּ`}
+              ? `${formatGoo(levelCost)} גּוּ · +${formatGoo(levelGain)}/שְׁנִיָּה`
+              : `חָסֵר ${formatGoo(levelCost - goo)} גּוּ`}
           </span>
         </button>
         {affordN > 1 && (
@@ -462,8 +474,8 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             <span className="text-lg">✨ אֶבּוֹלוּצְיָה — שֶׁלָּב {stage + 1} ✨</span>
             <span className="text-xs tabular">
               {affordEvolve
-                ? `${formatGoo(evolveCostGoo)} גּוּ — פי ${Math.round(evolveMultNext * 10) / 10} הכנסה!`
-                : `חסר ${formatGoo(evolveCostGoo - goo)} גּוּ`}
+                ? `${formatGoo(evolveCostGoo)} גּוּ — פִּי ${Math.round(evolveMultNext * 10) / 10} הַכְנָסָה!`
+                : `חָסֵר ${formatGoo(evolveCostGoo - goo)} גּוּ`}
             </span>
           </button>
         )}

@@ -46,7 +46,7 @@ export function BonusButton() {
   // While a boost is live, show its countdown (not tappable). Otherwise it's the
   // call-to-action when ready, or a cooldown timer when recharging.
   const label = active
-    ? `🚀 ×${adRewardMult} · ${boostLeft}s`
+    ? `🚀 ×${adRewardMult} · ${boostLeft} שְׁנִיּוֹת`
     : ready
       ? `🎁 בּוֹנוּס ×${adRewardMult}`
       : `⏳ ${mmss(cooldownLeft)}`;

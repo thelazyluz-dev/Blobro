@@ -88,7 +88,7 @@ export function App() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <Wordmark size="hero" className="anim-idle" />
-        <div className="anim-breathe text-sm text-bone/50">טוען…</div>
+        <div className="anim-breathe text-sm text-bone/70">טוֹעֵן…</div>
       </div>
     );
   }

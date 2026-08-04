@@ -97,14 +97,14 @@ export function HatchScreen() {
           "chase status" unit instead of two floating bars (design proposal A). */}
       <div className="surface w-full max-w-xs shrink-0 space-y-1 rounded-2xl px-3 py-1.5">
         <PityBar
-          label={rareLeft === 0 ? 'הפתיחה הבאה: נדיר מובטח! ✨' : `עוד ${rareLeft} עד נדיר מובטח`}
+          label={rareLeft === 0 ? 'הַפְּתִיחָה הַבָּאָה: נָדִיר מֻבְטָח! ✨' : `עוֹד ${rareLeft} עַד נָדִיר מֻבְטָח`}
           value={sinceRare}
           max={pityRareThreshold}
           color="#FF2E88"
         />
         {!legendaryOwned && (
           <PityBar
-            label={legLeft === 0 ? 'אֲגָדִי מובטח!' : `עוד ${legLeft} עד אֲגָדִי מובטח`}
+            label={legLeft === 0 ? 'אַגָּדִי מֻבְטָח!' : `עוֹד ${legLeft} עַד אַגָּדִי מֻבְטָח`}
             value={totalHatches}
             max={pityLegendaryThreshold}
             color="#FFD84D"

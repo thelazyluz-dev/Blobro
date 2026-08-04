@@ -203,7 +203,7 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
       onClick={onClick}
       className={`btn mt-2 w-full py-2 text-sm ${afford ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'}`}
     >
-      {afford ? <>קְנֵה — {formatGoo(cost)}</> : <span className="tabular">חסר {formatGoo(cost - goo)}</span>}
+      {afford ? <>קְנֵה — {formatGoo(cost)}</> : <span className="tabular">חָסֵר {formatGoo(cost - goo)}</span>}
     </button>
   );
 }

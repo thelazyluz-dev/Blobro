@@ -24,8 +24,8 @@ export function UpgradesScreen() {
       </header>
 
       <div className="mb-4 grid grid-cols-2 gap-3">
-        <Stat label="לכל נגיעה" value={`${formatGoo(clickP)} גּוּ`} color="text-goo" />
-        <Stat label="לשנייה" value={`${formatGoo(rate)} גּוּ`} color="text-cy" />
+        <Stat label="לְכָל נְגִיעָה" value={`${formatGoo(clickP)} גּוּ`} color="text-goo" />
+        <Stat label="לְשְׁנִיָּה" value={`${formatGoo(rate)} גּוּ`} color="text-cy" />
       </div>
 
       <div className="flex flex-col gap-3 pb-4">
@@ -149,7 +149,7 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
           {canAfford ? (
             <>שַׁדְרֵג — {formatGoo(cost)} גּוּ</>
           ) : (
-            <span className="tabular">חסר {formatGoo(missing)} גּוּ</span>
+            <span className="tabular">חָסֵר {formatGoo(missing)} גּוּ</span>
           )}
         </button>
       )}
