@@ -13,6 +13,7 @@ import {
   bonusMinGoo,
   critChanceCap,
   critMultiplier,
+  dailyGiftDay7Eggs,
   eggBuyMaxPerPress,
   evolveLevels,
   frenzyDurationMs,
@@ -200,7 +201,8 @@ interface GameState {
   magnitudePulse: number; // increments each time goo crosses an order of magnitude
   magnitudeExp: number; // the exponent (10^exp) of the latest order-of-magnitude crossing
   // "Upgrade all" pacing (session-only, never persisted): the button is locked
-  // until this epoch-ms, and its service fee doubles with each use this session.
+  // until this epoch-ms. There is NO service fee — a press just spends goo on the
+  // cheapest available levels, then a short cooldown keeps it from being spammed.
   upgradeAllReadyAt: number;
 
   // --- actions ---
@@ -1096,8 +1098,8 @@ export const useGame = create<GameState>((set, get) => {
       const after = claimGift(gift, now);
 
       if (reward.kind === 'egg') {
-        set({ eggs: s.eggs + 1, lastGiftDay: after.lastGiftDay, giftStreak: after.giftStreak });
-        get().pushToast({ text: 'יוֹם 7 — בֵּיצָה בְּמַתָּנָה! 🥚', icon: '🎁', tone: 'star' });
+        set({ eggs: s.eggs + dailyGiftDay7Eggs, lastGiftDay: after.lastGiftDay, giftStreak: after.giftStreak });
+        get().pushToast({ text: `יוֹם 7 — ${dailyGiftDay7Eggs} בֵּיצִים בְּמַתָּנָה! 🥚`, icon: '🎁', tone: 'star' });
         get().triggerConfetti('rainbow');
       } else {
         const perSec = gooPerSec(s.characters, mods());

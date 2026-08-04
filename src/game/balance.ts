@@ -327,8 +327,11 @@ export const saveIntervalMs = 5000;
 // the same felt value at every depth. Floors keep day one from paying pennies.
 // Ceilings were checked against the plausibility audit: the largest single
 // grant (160s) sits well inside the smallest window's ceiling.
-export const dailyGiftIncomeSeconds = [40, 60, 80, 100, 130, 160] as const; // days 1–6; day 7 is an egg
+export const dailyGiftIncomeSeconds = [40, 60, 80, 100, 130, 160] as const; // days 1–6; day 7 is eggs
 export const dailyGiftMinGoo = 30; // floor per gift-day, times the day number
+// Day 7 is the week's finale — a small clutch of eggs, not a lone one, so the
+// payoff for a full streak feels like an event (playtest: day 7 read as flat).
+export const dailyGiftDay7Eggs = 3;
 // Bumped ~1.5x (playtest) to track the quest targets, which were raised twice
 // since launch (taps 300→800, levels 10→65, …) while the reward stayed flat —
 // the effort-to-reward ratio had drifted toward "chore". Kept modest so the

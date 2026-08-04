@@ -16,6 +16,7 @@ import {
   questStateFor,
   questsForDay,
 } from '../game/daily';
+import { dailyGiftDay7Eggs } from '../game/balance';
 import { formatGoo } from '../game/format';
 import { gooPerSec } from '../game/economy';
 import { selectMods, useGame } from '../store';
@@ -83,7 +84,9 @@ export function DailyOverlay() {
   const allBonusPays = Math.max(Math.round(perSec * questAllBonus.incomeSeconds), questAllBonus.minGoo);
   const reward = giftRewardFor(cycleDay);
   const giftLabel =
-    reward.kind === 'egg' ? 'בֵּיצָה! 🥚' : `+${formatGoo(Math.max(Math.round(perSec * reward.incomeSeconds), reward.minGoo))} גּוּ`;
+    reward.kind === 'egg'
+      ? `${dailyGiftDay7Eggs} בֵּיצִים! 🥚`
+      : `+${formatGoo(Math.max(Math.round(perSec * reward.incomeSeconds), reward.minGoo))} גּוּ`;
 
   if (!open) return null;
   return (
