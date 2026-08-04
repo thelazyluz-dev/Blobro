@@ -102,7 +102,10 @@ describe('impossible values cannot reach the board', () => {
   // the refusal and the empty end state.
   it('an absurd goo figure in a save never becomes a leaderboard row', async () => {
     const cookie = await signUp();
-    await putSave(cookie, save({ lifetimeGoo: 1e30 }));
+    // Above MAX_GOO (1e34, raised for the decillion challenge) → first-save-absurd,
+    // which bars regardless of date. A decillion (1e33) is now legitimate; only
+    // the truly impossible is refused.
+    await putSave(cookie, save({ lifetimeGoo: 1e36 }));
     const res = await submit(cookie, 'רָן');
     expect(res.status).toBe(403);
 

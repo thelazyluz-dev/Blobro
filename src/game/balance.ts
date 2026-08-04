@@ -96,7 +96,15 @@ export const paybackPivotRate = 1000; // goo/sec at which the ratio equals the b
 // 1e18, last decade ×15 longer than today's.
 export const paybackGrowthPerDecade = 1.6;
 export const paybackMultMin = 0.5; // early game: half-price upgrades
-export const paybackMultMax = 1e6; // still bounded, but far past any reachable rate
+// The brake CAP. Above the rate where it bites (~5e15 goo/sec), the geometric
+// slowdown stops and the far tail becomes a steady grind instead of an
+// ever-steepening wall — this is what makes the "first to a decillion" (1e33)
+// challenge a marathon of MONTHS rather than years. Lowered 1e6 → 400
+// (owner-approved, pacing-sim measured, scripts/pace-sim.ts): a dedicated
+// player reaches a decillion in ~half a year, casual players effectively never.
+// Everything up to ~1e18 is untouched (the cap only affects rates past it);
+// 1e21–1e24 is modestly quicker.
+export const paybackMultMax = 400;
 
 // --- "Upgrade all" convenience (paced so it isn't a free fast-forward) --------
 // Pressing it charges a service fee (this many seconds of your income) that
