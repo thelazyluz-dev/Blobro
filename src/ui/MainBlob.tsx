@@ -214,6 +214,27 @@ function AccessoryArtEl({ art }: { art: AccessoryArt }) {
           <ellipse cx="100" cy="16" rx="36" ry="11" fill="none" stroke="#FFF4E0" strokeWidth="2" opacity="0.7" />
         </>
       );
+    // 💎 Crystal-exclusive (prestige-only). Cyan/white to read as "crystal".
+    case 'sparkles':
+      // Four-point sparkles scattered around the head — twinkle without covering
+      // the face. A tiny CSS shimmer, disabled under reduced-motion (index.css).
+      return (
+        <g className="creature-sparkle" fill="#BEF9FF" stroke="#00E5FF" strokeWidth="2" strokeLinejoin="round">
+          <path d="M40 40 L44 52 L56 56 L44 60 L40 72 L36 60 L24 56 L36 52 Z" />
+          <path d="M158 34 L161 43 L170 46 L161 49 L158 58 L155 49 L146 46 L155 43 Z" />
+          <path d="M168 104 L170 111 L177 113 L170 115 L168 122 L166 115 L159 113 L166 111 Z" />
+          <path d="M34 116 L36 123 L43 125 L36 127 L34 134 L32 127 L25 125 L32 123 Z" />
+        </g>
+      );
+    case 'aura':
+      // A glowing crystal ring hugging the blob's edge — a status halo that
+      // frames the whole creature without hiding it.
+      return (
+        <g className="creature-aura" fill="none" strokeLinecap="round">
+          <circle cx="100" cy="112" r="90" stroke="#00E5FF" strokeWidth="4" opacity="0.55" />
+          <circle cx="100" cy="112" r="90" stroke="#BEF9FF" strokeWidth="1.5" opacity="0.8" strokeDasharray="3 10" />
+        </g>
+      );
   }
 }
 

@@ -7,7 +7,7 @@
 
 export type CosmeticKind = 'blob' | 'background' | 'accessory' | 'sound';
 export type BlobShape = 'goo' | 'round' | 'star' | 'ghost' | 'spiky' | 'heart';
-export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo';
+export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo' | 'sparkles' | 'aura';
 
 /**
  * Taps a player must have made — ever — before an item can be bought at all.
@@ -30,12 +30,24 @@ export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo'
  */
 export type ClickRequirement = number;
 
+/**
+ * Crystals a player must have earned (from prestige) before an item unlocks.
+ * A GATE, not a spend — crystals stay monotonic (a pure function of lifetime,
+ * see game/prestige.ts), so the leaderboard/anti-cheat invariants are untouched
+ * and no save migration is needed. Crystal items are the one thing prestige is
+ * FOR: exclusive, purely visual (zero bonus — a stat bonus would be a false
+ * promise anyway, since the wealth brake eats it), and free once unlocked, so
+ * every roll visibly pays off in something a kid can equip and show off.
+ */
+export type CrystalRequirement = number;
+
 export interface BlobSkin {
   id: string;
   kind: 'blob';
   nameHe: string;
   cost: number;
   requiresClicks?: ClickRequirement;
+  requiresCrystals?: CrystalRequirement;
   clickBonus: number; // fraction added to tap power
   shape: BlobShape;
   colors: { body: string; belly: string; highlight: string; arm: string };
@@ -47,6 +59,7 @@ export interface BackgroundSkin {
   nameHe: string;
   cost: number;
   requiresClicks?: ClickRequirement;
+  requiresCrystals?: CrystalRequirement;
   incomeBonus: number; // fraction added to passive income
   gradient: string; // CSS background-image for the full-screen layer
 }
@@ -57,6 +70,7 @@ export interface Accessory {
   nameHe: string;
   cost: number;
   requiresClicks?: ClickRequirement;
+  requiresCrystals?: CrystalRequirement;
   clickBonus: number; // fraction added to tap power (stacks with the blob)
   art: AccessoryArt;
 }
@@ -67,6 +81,7 @@ export interface SoundSkin {
   nameHe: string;
   cost: number;
   requiresClicks?: ClickRequirement;
+  requiresCrystals?: CrystalRequirement;
   melody: number[]; // the 8-bit combo melody (note frequencies in Hz) this pack plays
 }
 
@@ -259,6 +274,32 @@ export const backgroundSkins: BackgroundSkin[] = [
       'radial-gradient(30% 20% at 50% 96%, rgba(255,242,185,0.55), transparent 55%),' +
       'linear-gradient(180deg, rgba(28,0,6,0.62), transparent 42%)',
   },
+  // 💎 Crystal-exclusive backgrounds — prestige-only, free once unlocked, no bonus.
+  {
+    id: 'bg-prism',
+    kind: 'background',
+    nameHe: 'פְּרִיזְמָה',
+    cost: 0,
+    requiresCrystals: 2,
+    incomeBonus: 0,
+    gradient:
+      'conic-gradient(from 210deg at 30% 20%, rgba(0,229,255,0.34), rgba(155,93,229,0.30), rgba(255,46,136,0.28), rgba(0,229,255,0.34)),' +
+      'radial-gradient(60% 45% at 72% 82%, rgba(190,249,255,0.22), transparent 62%),' +
+      'linear-gradient(150deg, rgba(0,229,255,0.10), transparent 46%)',
+  },
+  {
+    id: 'bg-diamond',
+    kind: 'background',
+    nameHe: 'יַהֲלוֹם',
+    cost: 0,
+    requiresCrystals: 5,
+    incomeBonus: 0,
+    gradient:
+      'repeating-linear-gradient(60deg, rgba(190,249,255,0.10) 0 2px, transparent 2px 26px),' +
+      'repeating-linear-gradient(-60deg, rgba(0,229,255,0.10) 0 2px, transparent 2px 26px),' +
+      'radial-gradient(70% 55% at 50% 18%, rgba(200,250,255,0.28), transparent 64%),' +
+      'radial-gradient(65% 55% at 50% 104%, rgba(120,180,255,0.24), transparent 60%)',
+  },
 ];
 
 export const accessories: Accessory[] = [
@@ -272,6 +313,12 @@ export const accessories: Accessory[] = [
     requiresClicks: 70_000, clickBonus: 0.2, art: 'crown' },
   { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 8_000_000_000_000,
     requiresClicks: 180_000, clickBonus: 0.28, art: 'halo' },
+  // 💎 Crystal-exclusive — obtainable ONLY through prestige. Free once the crystal
+  // gate is met (crystals are earned, not spent), and purely cosmetic (no bonus).
+  { id: 'acc-sparkles', kind: 'accessory', nameHe: 'נִצְנוּצֵי קְרִיסְטָל', cost: 0,
+    requiresCrystals: 1, clickBonus: 0, art: 'sparkles' },
+  { id: 'acc-aura', kind: 'accessory', nameHe: 'הִלַּת קְרִיסְטָל', cost: 0,
+    requiresCrystals: 3, clickBonus: 0, art: 'aura' },
 ];
 
 // Sound packs: each is a different 8-bit combo melody that plays once your tap
@@ -398,4 +445,19 @@ export function meetsClickRequirement(c: Cosmetic, clicks: number): boolean {
 /** Taps still needed before this item unlocks (0 once it is available). */
 export function clicksRemainingFor(c: Cosmetic, clicks: number): number {
   return Math.max(0, (c.requiresClicks ?? 0) - clicks);
+}
+
+/** True when the player has earned enough crystals for this item (0 = no gate). */
+export function meetsCrystalRequirement(c: Cosmetic, crystals: number): boolean {
+  return crystals >= (c.requiresCrystals ?? 0);
+}
+
+/** Crystals still needed before this item unlocks (0 once it is available). */
+export function crystalsRemainingFor(c: Cosmetic, crystals: number): number {
+  return Math.max(0, (c.requiresCrystals ?? 0) - crystals);
+}
+
+/** Whether this cosmetic is a prestige-only (crystal-gated) item. */
+export function isCrystalItem(c: Cosmetic): boolean {
+  return (c.requiresCrystals ?? 0) > 0;
 }

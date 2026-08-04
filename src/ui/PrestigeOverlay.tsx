@@ -38,7 +38,7 @@ function usePrestige() {
 
 export function PrestigeCard() {
   const setOpen = useGame((s) => s.setPrestigeOpen);
-  const { crystals, bonusPct, ready, gained, toNext, progress } = usePrestige();
+  const { crystals, ready, gained, toNext, progress } = usePrestige();
 
   return (
     <div className="mt-4 rounded-2xl bg-black/30 p-4 ring-1 ring-hairline">
@@ -46,13 +46,13 @@ export function PrestigeCard() {
         <span className="font-display text-lg text-bone">💎 גִּלְגּוּל מֵחָדָשׁ</span>
         {crystals > 0 && (
           <span className="rounded-full bg-cy/20 px-3 py-0.5 text-sm font-bold text-cy tabular">
-            {crystals} 💎 · ‎+{bonusPct}%
+            {crystals} 💎
           </span>
         )}
       </div>
       <p className="mb-3 text-xs leading-relaxed text-bone/60">
-        מַתְחִילִים מֵהַתְחָלָה — וּמְקַבְּלִים גְּבִישִׁים שֶׁנּוֹתְנִים
-        ‎+5% לְכָל הָרְוָחִים, לָנֶצַח!
+        מַתְחִילִים מֵהַתְחָלָה — וּמְקַבְּלִים 💎 גְּבִישִׁים שֶׁפּוֹתְחִים
+        קִשּׁוּטִים נְדִירִים בַּחֲנוּת, לָנֶצַח!
       </p>
       {ready ? (
         <>
@@ -91,7 +91,7 @@ export function PrestigeOverlay() {
   const setOpen = useGame((s) => s.setPrestigeOpen);
   const roll = useGame((s) => s.prestigeRoll);
   const gps = useGame(selectGooPerSec);
-  const { ready, gained, totalBonusPct } = usePrestige();
+  const { ready, gained } = usePrestige();
 
   if (!open) return null;
   return (
@@ -122,23 +122,25 @@ export function PrestigeOverlay() {
           </ul>
           <div className="mb-1 mt-3 font-bold text-goo">מָה נִשְׁאָר לָנֶצַח:</div>
           <ul className="ms-4 list-disc text-bone/75">
-            <li>💎 הַגְּבִישִׁים — כָּל אֶחָד נוֹתֵן ‎+5% לְכָל הָרְוָחִים</li>
+            <li>💎 הַגְּבִישִׁים — פּוֹתְחִים קִשּׁוּטִים נְדִירִים בַּחֲנוּת</li>
             <li>הַהֶשֵּׂגִים, הָאֲבִיזָרִים וְהָרְקָעִים</li>
             <li>הַשִּׂיאִים בְּטַבְלַת הַמּוֹבִילִים</li>
           </ul>
         </div>
 
         {/* Kids fear losing their creatures forever — reassure honestly: the
-            mastery (stars/achievements) is kept, and re-collecting is faster. */}
+            mastery (stars/achievements) stays, and the crystals are the prize.
+            NB: no "you'll recollect faster" promise — the wealth brake makes that
+            untrue, so we frame the reward as the look, not speed. */}
         <div className="mt-3 rounded-2xl bg-goo/10 p-3 text-xs leading-relaxed text-bone/70 ring-1 ring-goo/30">
           🥚 הַיְּצוּרִים חוֹזְרִים לַבֵּיצָה — אֲבָל הַכּוֹכָבִים וְהַהֶשֵּׂגִים
-          שֶׁכְּבָר צָבַרְתָּ נִשְׁאָרִים, וְעִם הַגְּבִישִׁים תֶּאֱסֹף אוֹתָם
-          שׁוּב הַרְבֵּה יוֹתֵר מַהֵר! 💪
+          שֶׁכְּבָר צָבַרְתָּ נִשְׁאָרִים, וְהַגְּבִישִׁים שֶׁתְּקַבֵּל הֵם שֶׁלְּךָ
+          לָנֶצַח! 💎
         </div>
 
         <div className="mt-3 rounded-2xl bg-cy/15 p-3 text-center ring-1 ring-cy/40">
           <div className="font-display text-xl text-cy">תְּקַבֵּל עַכְשָׁו 💎 +{gained}</div>
-          <div className="text-xs text-bone/60">סַךְ הַבּוֹנוּס אַחֲרֵי הַגִּלְגּוּל: ‎+{totalBonusPct}%</div>
+          <div className="text-xs text-bone/60">קִשּׁוּטִים בִּלְעֲדִיִּים חֲדָשִׁים נִפְתָּחִים בַּחֲנוּת!</div>
         </div>
 
         <button

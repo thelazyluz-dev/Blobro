@@ -55,6 +55,7 @@ function rankBadgeClass(i: number): string {
 export function LeaderboardContent({ active }: { active: boolean }) {
   const clicks = useGame((s) => s.clicks);
   const goo = useGame((s) => s.goo);
+  const crystals = useGame((s) => s.prestigeCrystals);
   const bestCpm = useGame((s) => s.bestCpm);
   const leaderboard = useGame((s) => s.leaderboard);
 
@@ -228,6 +229,14 @@ export function LeaderboardContent({ active }: { active: boolean }) {
             {myRank ? `#${myRank.rank}` : '—'}
           </span>
           <span className="min-w-0 flex-1 truncate text-cy">אַתָּה ({savedName})</span>
+          {/* Prestige badge — a quiet status marker on your own row. Only yours:
+              other players' crystal counts aren't in the board payload (that'd
+              need a server change), so this stays client-side for now. */}
+          {crystals > 0 && (
+            <span className="shrink-0 rounded-full bg-cy/25 px-2 py-0.5 text-xs font-bold text-cy tabular">
+              {crystals} 💎
+            </span>
+          )}
           <span className="shrink-0 font-display text-pop tabular" dir="ltr">
             {fmt(metric, myValue)}
           </span>

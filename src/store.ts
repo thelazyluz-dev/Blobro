@@ -43,6 +43,8 @@ import {
   clickCosmeticBonus,
   cosmeticsById,
   meetsClickRequirement,
+  meetsCrystalRequirement,
+  isCrystalItem,
   soundById,
   type CosmeticKind,
 } from './game/cosmetics';
@@ -873,16 +875,19 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const c = cosmeticsById.get(id);
       if (!c || s.ownedCosmetics.includes(id) || s.goo < c.cost) return;
-      // Enforced here, not only in the shop UI: this is the rule, and the
-      // screen is just one caller of it.
+      // Enforced here, not only in the shop UI: these are the rules, and the
+      // screen is just one caller of them. Crystal items are a GATE (never a
+      // spend — see cosmetics.ts): crystals stay monotonic, the item is free.
       if (!meetsClickRequirement(c, s.clicks)) return;
+      if (!meetsCrystalRequirement(c, s.prestigeCrystals)) return;
       set({
         goo: s.goo - c.cost,
         ownedCosmetics: [...s.ownedCosmetics, id],
         ...equipPatch(c.kind, id),
       });
-      const icon = c.kind === 'blob' ? '🎨' : c.kind === 'background' ? '🖼️' : '🎩';
-      get().pushToast({ text: `${c.nameHe} נִקְנָה!`, icon, tone: 'star' });
+      const crystal = isCrystalItem(c);
+      const icon = crystal ? '💎' : c.kind === 'blob' ? '🎨' : c.kind === 'background' ? '🖼️' : '🎩';
+      get().pushToast({ text: crystal ? `${c.nameHe} נִפְתַּח!` : `${c.nameHe} נִקְנָה!`, icon, tone: 'star' });
     },
 
     equipCosmetic: (id) => {

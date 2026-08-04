@@ -509,6 +509,25 @@ body {
   animation: blorbo-eye-glance 6.5s ease-in-out infinite;
 }
 
+/* 💎 Crystal-exclusive accessories (prestige-only). A gentle twinkle/breathe so
+   the status reads as "special" without distracting. Still under reduced-motion. */
+@keyframes blorbo-sparkle {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.creature-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blorbo-sparkle 2.4s ease-in-out infinite;
+}
+@keyframes blorbo-aura-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+.creature-aura {
+  animation: blorbo-aura-pulse 3.2s ease-in-out infinite;
+}
+
 /* Hatch shell chips: a shard flung loose by a tap arcs down, spins and fades.
    --sx/--sy/--sr are set per-shard in HatchReveal. */
 @keyframes blorbo-shell-fall {
@@ -587,6 +606,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .blob-pupils,
   .creature-eyes,
+  .creature-sparkle,
+  .creature-aura,
   .evo-spark,
   .anim-shell-fall,
   .anim-evolve-glow,
