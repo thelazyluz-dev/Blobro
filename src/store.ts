@@ -1560,10 +1560,16 @@ export const selectGooPerSec = (s: GameState) =>
 export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
 export const selectEggCost = (s: GameState) =>
   Math.max(1, Math.round(eggCost(s.totalHatches + s.eggs) * currentEvent(Date.now()).eggCostMult));
-export const selectClickPower = (s: GameState) =>
-  effectiveClickPower(modsOf(s), gooPerSec(s.characters, modsOf(s))) *
-  currentEvent(Date.now()).clickMult *
-  adMultOf(s, Date.now());
+// Evaluated on every store notification (10Hz once passive income ticks), so
+// compute modsOf — which walks achievements and abilities — exactly once.
+export const selectClickPower = (s: GameState) => {
+  const m = modsOf(s);
+  return (
+    effectiveClickPower(m, gooPerSec(s.characters, m)) *
+    currentEvent(Date.now()).clickMult *
+    adMultOf(s, Date.now())
+  );
+};
 /** The combo melody (note frequencies) of the equipped sound pack. */
 export const selectComboMelody = (s: GameState) => soundById(s.equippedSound).melody;
 export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);

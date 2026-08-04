@@ -98,7 +98,9 @@ describe('createRng — cursor bookkeeping', () => {
 
 describe('createRng — distribution sanity', () => {
   it('draws stay within [0, 1) and average close to 0.5 over a large sample', () => {
-    const rng = createRng({ seed: randomSeed(), cursor: 0 });
+    // A fixed seed: the property holds for any seed, and a random one only
+    // buys nondeterminism (and the suite's slowest test) for nothing.
+    const rng = createRng({ seed: 123456789, cursor: 0 });
     const n = 50_000;
     let sum = 0;
     let min = Infinity;

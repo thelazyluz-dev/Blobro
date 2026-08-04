@@ -279,7 +279,11 @@ export function migrate(raw: unknown, now: number): SaveState {
     equippedMain,
     milestonesShown,
     // v14 daily loop — plain sanitation; all real semantics live in daily.ts.
-    lastGiftDay: nonNegInt(data.lastGiftDay, 0),
+    // Clamped to today: a device clock that jumped forward, got a gift claim,
+    // and was then NTP-corrected leaves a future lastGiftDay — which would
+    // lock the gift button until the calendar catches up (days… or years).
+    // Plausible on a kid's phone, so heal it on load instead.
+    lastGiftDay: Math.min(nonNegInt(data.lastGiftDay, 0), Math.floor(now / 86_400_000)),
     giftStreak: Math.min(nonNegInt(data.giftStreak, 0), GIFT_CYCLE_DAYS),
     questDay: nonNegInt(data.questDay, 0),
     questProgress: sanitizeQuestProgress(data.questProgress),

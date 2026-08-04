@@ -146,6 +146,15 @@ describe('migrate', () => {
     });
   });
 
+  describe('clock skew: a future lastGiftDay heals on load', () => {
+    it('a forward-jumped clock that claimed a gift cannot lock the button after correction', () => {
+      const todayKey = Math.floor(NOW / 86_400_000);
+      // The QA probe scenario: claim at clock+1000 days, then the clock corrects.
+      const s = migrate({ ...v9Save, lastGiftDay: todayKey + 1000, giftStreak: 1 }, NOW);
+      expect(s.lastGiftDay).toBeLessThanOrEqual(todayKey); // claimable again tomorrow at the latest
+    });
+  });
+
   describe('v17: lifetimeHatches (prestige-safe hatch achievement ladder)', () => {
     it('a pre-v17 save seeds lifetimeHatches from totalHatches so ladder progress is not lost', () => {
       const s = migrate({ ...v9Save, totalHatches: 37 }, NOW);

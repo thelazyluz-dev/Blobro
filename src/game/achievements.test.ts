@@ -16,6 +16,13 @@ const zero: AchievementContext = {
 };
 
 describe('achievement ladders', () => {
+  it('pins the session-tuned ladder values (a balance.ts typo must not slip through)', () => {
+    const goals = (k: string) =>
+      achievements.filter((a) => a.kind === k).map((a) => a.goal);
+    expect(goals('maxevolved')).toEqual([1, 3, 6, 12, 24]);
+    expect(Math.max(...goals('lifetime'))).toBe(6e23); // lands with the Avogadro milestone
+  });
+
   it('collection and shinies run all the way to every creature', () => {
     const topCollection = Math.max(...achievements.filter((a) => a.kind === 'collection').map((a) => a.goal));
     const topShinies = Math.max(...achievements.filter((a) => a.kind === 'shinies').map((a) => a.goal));
