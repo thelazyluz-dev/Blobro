@@ -12,8 +12,8 @@
 // PARENTAL GATE (§ owner report: a child completed sign-up alone): the Google
 // button is behind a two-step parent check — "I'm the parent" plus a worded
 // arithmetic question (see parentGate.ts, including its honesty note: this is
-// a deterrent, not legal COPPA consent). A pass is remembered per device for
-// 30 days so re-logins don't nag.
+// a deterrent, not legal COPPA consent). A pass is remembered on the device
+// permanently — the gate guards the first sign-in, not every re-login.
 
 import { useState } from 'react';
 import { AUTH_API } from '../config';

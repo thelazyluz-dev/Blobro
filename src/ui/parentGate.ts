@@ -31,13 +31,13 @@ export function pickParentQuestion(): ParentQuestion {
 }
 
 const GATE_KEY = 'blorbo-parent-gate';
-const GATE_TTL_MS = 30 * 86_400_000; // re-ask monthly, not on every re-login
 
-/** True while a previous pass on this device is still fresh. */
+/** True once a parent has ever passed the gate on this device (owner call:
+ * the gate guards the FIRST sign-in — a device an adult approved once is an
+ * approved family device, and re-asking monthly is nagging, not safety). */
 export function parentGatePassed(): boolean {
   try {
-    const raw = localStorage.getItem(GATE_KEY);
-    return !!raw && Date.now() - Number(raw) < GATE_TTL_MS;
+    return !!localStorage.getItem(GATE_KEY);
   } catch {
     return false; // private mode — just ask again
   }
