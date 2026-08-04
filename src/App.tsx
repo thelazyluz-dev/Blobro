@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { AUTH_REQUIRED } from './config';
 import { initAds } from './net/ads';
 import { unlockAudio } from './audio/synth';
@@ -25,10 +25,19 @@ import { UnlockReveal } from './ui/UnlockReveal';
 import { useEventMusic } from './ui/useEventMusic';
 import { useFrenzyAudio } from './ui/useFrenzyAudio';
 import { ClickScreen } from './ui/screens/ClickScreen';
-import { CollectionScreen } from './ui/screens/CollectionScreen';
-import { HatchScreen } from './ui/screens/HatchScreen';
-import { ShopScreen } from './ui/screens/ShopScreen';
-import { UpgradesScreen } from './ui/screens/UpgradesScreen';
+
+// The click screen is the game and loads eagerly. The other four tabs are
+// code-split: on the cheap Android phones this game targets, parsing JS for
+// screens a session may never open is pure first-load waste (~a third of the
+// main chunk). Each import lands once, on first visit, then stays warm.
+const CollectionScreen = lazy(() =>
+  import('./ui/screens/CollectionScreen').then((m) => ({ default: m.CollectionScreen })),
+);
+const HatchScreen = lazy(() => import('./ui/screens/HatchScreen').then((m) => ({ default: m.HatchScreen })));
+const ShopScreen = lazy(() => import('./ui/screens/ShopScreen').then((m) => ({ default: m.ShopScreen })));
+const UpgradesScreen = lazy(() =>
+  import('./ui/screens/UpgradesScreen').then((m) => ({ default: m.UpgradesScreen })),
+);
 import { useGameEngine } from './ui/useGameEngine';
 import { backgroundById } from './game/cosmetics';
 import { useGame } from './store';
@@ -101,10 +110,18 @@ export function App() {
       </header>
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         {activeTab === 'click' && <ClickScreen />}
-        {activeTab === 'hatch' && <HatchScreen />}
-        {activeTab === 'collection' && <CollectionScreen />}
-        {activeTab === 'upgrades' && <UpgradesScreen />}
-        {activeTab === 'shop' && <ShopScreen />}
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center">
+              <div className="anim-breathe text-sm text-bone/70">טוֹעֵן…</div>
+            </div>
+          }
+        >
+          {activeTab === 'hatch' && <HatchScreen />}
+          {activeTab === 'collection' && <CollectionScreen />}
+          {activeTab === 'upgrades' && <UpgradesScreen />}
+          {activeTab === 'shop' && <ShopScreen />}
+        </Suspense>
       </main>
 
       <EventBanner />
