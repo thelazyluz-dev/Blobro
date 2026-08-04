@@ -21,6 +21,26 @@ function trimZeros(s: string): string {
   return s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
 }
 
+// Hebrew names for the big-number scales, for the "you reached a new scale!"
+// celebration. K/M/B/T are familiar to a kid, so we only name quadrillion (1e15)
+// and up — exactly the suffixes (Qa/Qi/Sx…) that read as letter-soup on the HUD.
+// Keyed by exponent (a multiple of 3). Mirrors NumberLegendOverlay's ladder.
+const BIG_SCALE_NAMES_HE: Record<number, string> = {
+  15: 'קְוַדְרִילְיוֹן',
+  18: 'קְוִינְטִילְיוֹן',
+  21: 'סֶקְסְטִילְיוֹן',
+  24: 'סֶפְּטִילְיוֹן',
+  27: 'אוֹקְטִילְיוֹן',
+  30: 'נוֹנִילְיוֹן',
+  33: 'דֶצִילְיוֹן',
+};
+
+/** The Hebrew scale name for an order of magnitude, or undefined below 1e15.
+ * Floors to the scale's base exponent, so 1e15–1e17 all read "quadrillion". */
+export function bigScaleNameHe(exp: number): string | undefined {
+  return BIG_SCALE_NAMES_HE[Math.floor(exp / 3) * 3];
+}
+
 /** Full number with thousands separators — e.g. 1_234_567 → "1,234,567".
  * Used as a fine-grained indicator under the compact counter so big totals
  * visibly tick up (compact form barely changes between, say, 1M and 1.1M). */

@@ -6,8 +6,14 @@ import { playMagnitude, playMilestone } from '../audio/sfx';
 import { speakCompliment, speakName } from '../audio/speech';
 import { saveIntervalMs } from '../game/balance';
 import { unlockCreatures } from '../game/characters';
+import { bigScaleNameHe } from '../game/format';
 import { milestonesCrossed } from '../game/milestones';
 import { useGame } from '../store';
+
+// Big-number scales already named this session, so the "you reached quadrillion!"
+// toast fires once per scale per session (it only ever triggers on a live
+// crossing, so a reload at 1e20 never re-announces scales already passed).
+const bigScalesNamed = new Set<number>();
 
 export function useGameEngine(): boolean {
   const loaded = useGame((s) => s.loaded);
@@ -97,6 +103,15 @@ export function useGameEngine(): boolean {
       if (nextMag > beforeMag && nextMag >= 2) {
         playMagnitude(muted, nextMag);
         useGame.getState().pulseMagnitude(nextMag);
+        // The first time a session reaches a hard-to-read big scale (quadrillion
+        // and up, where the HUD shows "1Qa"), name it in Hebrew so the number
+        // means something — reusing the toast the rest of the game celebrates in.
+        const scale = bigScaleNameHe(nextMag);
+        const tier = Math.floor(nextMag / 3) * 3;
+        if (scale && !bigScalesNamed.has(tier)) {
+          bigScalesNamed.add(tier);
+          useGame.getState().pushToast({ text: `${scale}! 🚀`, icon: '🎉', tone: 'star' });
+        }
       }
     });
     return unsub;
