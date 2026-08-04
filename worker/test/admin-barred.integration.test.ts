@@ -87,15 +87,18 @@ describe('GET /admin/barred', () => {
     expect((await barredList()).some((b) => b.userId === userId)).toBe(false);
   });
 
-  it('does NOT list a goo-rate row the client marked as a cross-device merge', async () => {
-    // An honest multi-device player: the huge jump is recorded (ratio kept) but
-    // the merge-claimed annotation spares them the bar.
+  it('STILL lists a merge-claimed goo-rate row — merge is advisory, not an auto-exemption', async () => {
+    // merge-claimed is a CLIENT claim, so it never auto-spares the bar (that would
+    // let one crafted request publish any score). It's surfaced so the owner can
+    // release an honest multi-device player by hand from the dashboard.
     const userId = freshUserId();
     await seedAudit(userId, 'goo-rate,merge-claimed', 0, 7232);
-    expect((await barredList()).some((b) => b.userId === userId)).toBe(false);
+    const row = (await barredList()).find((b) => b.userId === userId);
+    expect(row).toBeTruthy();
+    expect(row!.flags).toContain('merge-claimed'); // still surfaced, so the UI can hint "likely honest"
   });
 
-  it('STILL lists a plain goo-rate row without the merge annotation', async () => {
+  it('lists a plain goo-rate row too', async () => {
     const userId = freshUserId();
     await seedAudit(userId, 'goo-rate', 0, 7232);
     expect((await barredList()).some((b) => b.userId === userId)).toBe(true);

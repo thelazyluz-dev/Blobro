@@ -78,6 +78,17 @@ describe('plausibilityCeiling', () => {
     expect(maxEventIncomeMult).toBeGreaterThanOrEqual(1);
     expect(maxEventClickMult).toBeGreaterThanOrEqual(1);
   });
+
+  it('folds the equipped-main creature ability in, matching the client (no structural blind spot)', () => {
+    // An income/tap ability legitimately raises real earnings, so the ceiling
+    // must include it — otherwise equipping a strong creature drifts a real
+    // player above a ceiling that can't see the mechanic. galaxo grants income.
+    const withoutAbility = midGame({ characters: { galaxo: { level: 50 } }, equippedMain: null });
+    const withAbility = midGame({ characters: { galaxo: { level: 50 } }, equippedMain: 'galaxo' });
+    expect(plausibilityCeiling(withAbility, 3600).maxGain).toBeGreaterThan(
+      plausibilityCeiling(withoutAbility, 3600).maxGain,
+    );
+  });
 });
 
 describe('verifySaveDelta — honest play is never flagged', () => {

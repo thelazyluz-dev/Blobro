@@ -24,7 +24,8 @@
 // this ceiling rises with it automatically — a hardcoded number would silently
 // start flagging honest players the day that event shipped.
 
-import { adRewardMult, critMultiplier, frenzyMultiplier } from './balance';
+import { adRewardMult, critChanceCap, critMultiplier, frenzyMultiplier, luckCap } from './balance';
+import { abilityOf } from './abilities';
 import { charactersById } from './characters';
 import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
 import { EVENTS } from './events';
@@ -66,13 +67,30 @@ export const maxEventClickMult = EVENTS.reduce((max, e) => Math.max(max, e.click
 
 /** Modifiers for a save, folded together exactly as the client does. */
 function modsFor(save: SaveState) {
-  return modifiersFrom(
+  const m = modifiersFrom(
     save.upgrades,
     starBonusFor(save.achievements),
     clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
     backgroundIncomeBonus(save.equippedBackground),
     save.prestigeCrystals,
   );
+  // Fold the equipped-main creature's ability, exactly as the client's modsOf
+  // does (store.ts) — otherwise the ceiling is structurally blind to up to +40%
+  // tap/income a real player legitimately earns, so it would drift from the game
+  // and become a false-positive source the moment the ceiling's other slack is
+  // tightened. Only the modifier-affecting types fold in (tap/income/crit/luck);
+  // combo/bonus live where those mechanics apply, and the ceiling's own
+  // event/ad/frenzy assumptions cover the rest. (Event luck is intentionally NOT
+  // added here — the ceiling already assumes a permanent maximum event.)
+  const id = save.equippedMain;
+  if (id && save.characters[id] && charactersById[id as keyof typeof charactersById]) {
+    const ab = abilityOf(id, charactersById[id as keyof typeof charactersById].rarity);
+    if (ab.type === 'tap') m.clickMultiplier *= 1 + ab.value;
+    else if (ab.type === 'income') m.incomeMultiplier *= 1 + ab.value;
+    else if (ab.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab.value);
+    else if (ab.type === 'luck') m.luck = Math.min(luckCap, m.luck + ab.value);
+  }
+  return m;
 }
 
 export interface PlausibilityCeiling {

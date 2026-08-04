@@ -139,7 +139,7 @@
 
       // Plain-language reason for each audit flag (kids' parents read this).
       const REASON = {
-        'goo-rate': 'קפיצת גו חריגה — כנראה מיזוג התקדמות בין מכשירים',
+        'goo-rate': 'קפיצת גו חריגה',
         'click-rate': 'קפיצת לחיצות חריגה',
         'first-save-absurd': 'שמירה ראשונה עם מספר בלתי-אפשרי',
         'first-save-cap': 'שמירה ראשונה גבוהה (חלון מיגרציה)',
@@ -147,8 +147,14 @@
       function reasonText(flags) {
         const set = [...new Set(String(flags || '').split(',').filter(Boolean))];
         const known = set.filter((f) => REASON[f]);
-        if (!known.length) return esc(set.join(', ') || '—');
-        return known.map((f) => REASON[f]).join(' · ');
+        let base = known.length ? known.map((f) => REASON[f]).join(' · ') : esc(set.join(', ') || '—');
+        // A merge-claimed annotation means the client flagged this as a
+        // cross-device/pre-auth progress transfer — almost always an honest kid,
+        // safe to release. Surface it prominently so the owner acts confidently.
+        if (set.includes('merge-claimed')) {
+          base += ' <span style="color:var(--goo)">✓ כנראה מיזוג בין מכשירים — קרוב לוודאי תקין, אפשר לשחרר</span>';
+        }
+        return base;
       }
 
       async function loadBarred(token) {

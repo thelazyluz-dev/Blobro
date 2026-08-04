@@ -1102,9 +1102,18 @@ export const useGame = create<GameState>((set, get) => {
 
       await backupLocal(snap);
       const rolled = applyPrestige(snap, now);
+      // Click-unlock creatures are earned by TOTAL taps, which prestige keeps —
+      // so a player still qualifies for them the instant the run resets. Re-grant
+      // them silently HERE (mirroring loadGame's retroactive grant). Without this
+      // the live clicks-subscription re-discovers them one-per-tap and replays a
+      // full "new creature!" celebration for something already long-owned.
+      const characters = { ...rolled.characters };
+      for (const c of unlockCreatures) {
+        if (c.unlockClicks != null && s.clicks >= c.unlockClicks) characters[c.id] = { level: 1 };
+      }
       set({
         goo: rolled.goo,
-        characters: rolled.characters,
+        characters,
         upgrades: { ...rolled.upgrades },
         eggs: rolled.eggs,
         totalHatches: rolled.totalHatches,
@@ -1498,7 +1507,12 @@ export async function pushCheckpoint(): Promise<void> {
         useGame.setState({ cloudSynced: false });
         return;
       }
-      result = await pushCloudSave(conflict.rev, save, { rollback, merge });
+      // Reaching here means local OUTRANKS the row another device/tab just wrote:
+      // we're about to overwrite its progress with our bigger save. That's the
+      // same "adopting/overtaking another copy" shape as the load-time merge, so
+      // mark it merge-claimed too — otherwise an honest concurrent multi-device
+      // session reads to the audit as a plain unexplained rate jump.
+      result = await pushCloudSave(conflict.rev, save, { rollback, merge: true });
     }
 
     if (result.ok) {

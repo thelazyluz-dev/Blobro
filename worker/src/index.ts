@@ -932,13 +932,17 @@ const FIRST_SAVE_CPM_CAP = 1_500;
  */
 function barringRowSql(col: string, enforcePh: string, firstCapPh: string): string {
   const f = `',' || ${col}flags || ','`;
-  // A row the client marked as a cross-device merge (merge-claimed, alongside its
-  // rate flag) never bars — an honest device-linking event lands as one huge
-  // jump that reads like an impossible rate. It's still RECORDED (ratio kept for
-  // tuning, spoofs visible on the dashboard) and still bounded by MAX_GOO; it
-  // just doesn't bench the player. See verify.ts's merge-claimed flag.
+  // NB: merge-claimed is deliberately NOT excluded here. It is a CLIENT claim
+  // (body.merge on PUT /save), and a client claim is unverifiable — the "other
+  // device's" progress was never audited by us, so an honest cross-device merge
+  // and a fabricated one are indistinguishable, and either can be as large as
+  // the other (up to MAX_GOO). Auto-exempting it would let one crafted request
+  // publish any score and defeat the "boards can be trusted" guarantee the whole
+  // enforcement exists for. So merge-claimed is ADVISORY ONLY — recorded and
+  // surfaced on the dashboard so the owner can release an honest multi-device
+  // player in one tap (with the annotation telling them it's likely genuine),
+  // exactly the "annotate, never excuse" posture rollback-claimed already uses.
   return `${col}ok = 0 AND ${col}created >= ${enforcePh}
-    AND ${f} NOT LIKE '%,merge-claimed,%'
     AND (${f} LIKE '%,goo-rate,%'
       OR ${f} LIKE '%,click-rate,%'
       OR ${f} LIKE '%,first-save-absurd,%'
