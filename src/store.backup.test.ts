@@ -48,7 +48,7 @@ afterEach(() => {
 
 describe('restoreBackup', () => {
   it('does nothing, and clears the offer, when there is no stash', async () => {
-    useGame.setState({ lifetimeGoo: 500, backupAvailable: { lifetimeGoo: 9, savedAt: NOW } });
+    useGame.setState({ lifetimeGoo: 500, backupAvailable: { lifetimeGoo: 9, goo: 9, savedAt: NOW } });
     await useGame.getState().restoreBackup();
     expect(useGame.getState().lifetimeGoo).toBe(500);
     expect(useGame.getState().backupAvailable).toBeNull();

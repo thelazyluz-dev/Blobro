@@ -165,7 +165,12 @@ interface GameState {
   // than dropped (see loadGame). This is what makes that stash reachable: a
   // stash nobody can restore is not a safety net, it's a comforting comment.
   // null = nothing stashed. Transient — recomputed from IndexedDB on load.
-  backupAvailable: { lifetimeGoo: number; savedAt: number } | null;
+  // `goo` (held) is tracked alongside lifetime so the recovery banner can tell a
+  // MEANINGFUL stash from a no-op: a prestige-undo snapshot has the same
+  // lifetimeGoo as now (prestige never resets lifetime) but far more held goo,
+  // while a stale loser-stash from an old cloud merge matches on both — and must
+  // stay hidden (it only looked confusing: "restore 180Qa" over your 180Qa).
+  backupAvailable: { lifetimeGoo: number; goo: number; savedAt: number } | null;
 
   // --- transient UI / session ---
   loaded: boolean;
@@ -599,7 +604,13 @@ export const useGame = create<GameState>((set, get) => {
       void loadBackup().then((raw) => {
         if (!raw) return;
         const stashed = migrate(raw, Date.now());
-        set({ backupAvailable: { lifetimeGoo: stashed.lifetimeGoo, savedAt: stashed.lastSeen } });
+        const cur = get();
+        // Only surface a stash worth restoring: more lifetime progress, or (the
+        // prestige-undo case, where lifetime is unchanged) more held goo. A
+        // stash that beats the current save in neither is a stale no-op — hide
+        // it, so nobody is offered a "restore" that changes nothing.
+        if (stashed.lifetimeGoo <= cur.lifetimeGoo && stashed.goo <= cur.goo) return;
+        set({ backupAvailable: { lifetimeGoo: stashed.lifetimeGoo, goo: stashed.goo, savedAt: stashed.lastSeen } });
       });
 
       // Seed/refresh the cloud right away so a brand-new device's save
@@ -1092,7 +1103,7 @@ export const useGame = create<GameState>((set, get) => {
         prestigeOpen: false,
         hatchResult: null,
         multiHatchResult: null,
-        backupAvailable: { lifetimeGoo: snap.lifetimeGoo, savedAt: now },
+        backupAvailable: { lifetimeGoo: snap.lifetimeGoo, goo: snap.goo, savedAt: now },
         activeTab: 'click',
       });
       await persist(snapshot(get(), now));
@@ -1388,7 +1399,7 @@ export const useGame = create<GameState>((set, get) => {
         prestigeCount: restored.prestigeCount,
         muted: restored.muted,
         rng: restored.rng,
-        backupAvailable: { lifetimeGoo: current.lifetimeGoo, savedAt: current.lastSeen },
+        backupAvailable: { lifetimeGoo: current.lifetimeGoo, goo: current.goo, savedAt: current.lastSeen },
       });
       await persist(restored);
       cloudDirty = true; // the cloud should learn about this at the next checkpoint

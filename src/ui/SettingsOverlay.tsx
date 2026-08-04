@@ -145,10 +145,14 @@ function BackupSection() {
   const backup = useGame((s) => s.backupAvailable);
   const restoreBackup = useGame((s) => s.restoreBackup);
   const lifetimeGoo = useGame((s) => s.lifetimeGoo);
+  const goo = useGame((s) => s.goo);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  if (!backup) return null;
+  // Hide a no-op stash: only offer a restore that actually gains something —
+  // more lifetime progress, or more held goo (the prestige-undo case). A stash
+  // that beats the current save in neither would "restore" to the same numbers.
+  if (!backup || (backup.lifetimeGoo <= lifetimeGoo && backup.goo <= goo)) return null;
 
   const onRestore = () => {
     if (busy) return;
@@ -162,12 +166,12 @@ function BackupSection() {
   return (
     <div className="mb-2 rounded-2xl bg-black/25 p-3 text-center ring-hairline">
       <p className="text-[11px] leading-relaxed text-bone/60">
-        יֵשׁ כָּאן עוֹד מִשְׂחָק שָׁמוּר מֵהַמַּכְשִׁיר הַזֶּה, עִם{' '}
+        יֵשׁ כָּאן מִשְׂחָק שָׁמוּר קוֹדֵם עִם{' '}
         <strong className="text-cy" dir="ltr">
-          {formatGoo(backup.lifetimeGoo)}
+          {formatGoo(backup.goo)}
         </strong>{' '}
-        גּוּ סַךְ הַכֹּל. הַמִּשְׂחָק הַנּוֹכְחִי שֶׁלְּךָ:{' '}
-        <strong dir="ltr">{formatGoo(lifetimeGoo)}</strong>.
+        גּוּ בַּיָּד. כָּרֶגַע יֵשׁ לְךָ{' '}
+        <strong dir="ltr">{formatGoo(goo)}</strong> גּוּ.
       </p>
       {confirming ? (
         <div className="mt-2 flex gap-2">

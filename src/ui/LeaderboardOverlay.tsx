@@ -176,7 +176,11 @@ export function LeaderboardContent({ active }: { active: boolean }) {
               <div className="py-6 text-center text-sm text-bone/50">עוֹד אַף אֶחָד לֹא בַּטַּבְלָה — תִּהְיֶה הָרִאשׁוֹן! 🥇</div>
             )}
             {(remote ?? []).map((r, i) => {
-              const isMe = joined && myRank?.rank === i + 1;
+              // Highlight MY row by nickname, not by rank-position: ranks are now
+              // approximate (server histogram), so myRank.rank === i+1 would land
+              // the "you" ring on a stranger who happens to sit at that position
+              // (the bug that highlighted "אלון" for a player who isn't Alon).
+              const isMe = joined && !!savedName && r.name === savedName;
               return (
                 <div
                   key={i}
@@ -215,9 +219,10 @@ export function LeaderboardContent({ active }: { active: boolean }) {
         )}
       </div>
 
-      {/* Your own pinned row — visible even at #5000, unless you're already in
-          the top list above. */}
-      {joined && !(myRank && myRank.rank <= TOP_N) && (
+      {/* Your own pinned row — visible even at #5000, unless your row is already
+          shown in the top list above. Keyed on the nickname actually appearing
+          (not the approximate rank), so you always see yourself exactly once. */}
+      {joined && !(remote ?? []).some((r) => r.name === savedName) && (
         <div className="mt-2 flex items-center gap-3 rounded-2xl bg-cy/15 px-3 py-2 ring-2 ring-cy">
           <span className="flex h-7 shrink-0 items-center justify-center rounded-full bg-cy px-2 font-display text-sm text-void">
             {myRank ? `#${myRank.rank}` : '—'}
