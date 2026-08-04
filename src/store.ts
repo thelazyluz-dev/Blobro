@@ -623,7 +623,8 @@ export const useGame = create<GameState>((set, get) => {
       // The taps-per-minute record counts MANUAL taps only — this action is
       // the one place a finger reaches the store (robot taps accrue in tick).
       const tapped = recordManualTap(s.tapTimes, Date.now());
-      const quests = bumpQuest(questStateOf(s), 'taps', 1, Date.now());
+      let quests = bumpQuest(questStateOf(s), 'taps', 1, Date.now());
+      if (crit) quests = bumpQuest(quests, 'crits', 1, Date.now());
       set({
         goo: s.goo + gain,
         lifetimeGoo: s.lifetimeGoo + gain,
@@ -660,7 +661,7 @@ export const useGame = create<GameState>((set, get) => {
       const priced = eggPricer(currentEvent(Date.now()).eggCostMult);
       const cost = priced(s.totalHatches + s.eggs);
       if (s.goo < cost) return;
-      set({ goo: s.goo - cost, eggs: s.eggs + 1 });
+      set({ goo: s.goo - cost, eggs: s.eggs + 1, ...bumpQuest(questStateOf(s), 'eggs', 1, Date.now()) });
     },
 
     // Buy as many eggs as you can afford right now (capped), at escalating price.
@@ -669,7 +670,7 @@ export const useGame = create<GameState>((set, get) => {
       const priced = eggPricer(currentEvent(Date.now()).eggCostMult);
       const { count, spent } = buyableEggs(s.goo, s.totalHatches + s.eggs, eggBuyMaxPerPress, priced);
       if (count === 0) return;
-      set({ goo: s.goo - spent, eggs: s.eggs + count });
+      set({ goo: s.goo - spent, eggs: s.eggs + count, ...bumpQuest(questStateOf(s), 'eggs', count, Date.now()) });
     },
 
     // Open a single egg from inventory (free — it was paid for at purchase). The
@@ -751,6 +752,7 @@ export const useGame = create<GameState>((set, get) => {
       set({
         goo: s.goo - cost,
         characters: { ...s.characters, [id]: { ...held, evolution: stage + 1 } },
+        ...bumpQuest(questStateOf(s), 'evolve', 1, Date.now()),
       });
       get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨ (שלב ${stage + 1})`, icon: '✨', tone: 'star' });
       get().triggerConfetti('rainbow');

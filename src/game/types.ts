@@ -99,8 +99,9 @@ export interface SaveState {
   lastGiftDay: number; // UTC dayKey of the last claimed daily gift (0 = never)
   giftStreak: number; // cycle position (1..7) of that claim (0 = never)
   questDay: number; // UTC dayKey this quest progress belongs to
-  questProgress: Partial<Record<'taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels', number>>;
-  questsClaimed: ('taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels')[];
+  // Mirrors QuestId in daily.ts (kept inline to avoid a types↔daily import cycle).
+  questProgress: Partial<Record<'taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels' | 'eggs' | 'evolve' | 'crits', number>>;
+  questsClaimed: ('taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels' | 'eggs' | 'evolve' | 'crits')[];
   questAllClaimed: boolean; // today's finish-all-three bonus collected
   // v15: the free-egg ad button's recharge time (epoch ms). Persisted because
   // a session-only cooldown reset on every refresh — the owner caught players

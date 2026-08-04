@@ -71,7 +71,7 @@ export function claimGift(state: DailyGiftState, now: number): DailyGiftState {
 
 // ── Daily quests ────────────────────────────────────────────────────────────
 
-export type QuestId = 'taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels';
+export type QuestId = 'taps' | 'hatches' | 'bonuses' | 'upgrades' | 'levels' | 'eggs' | 'evolve' | 'crits';
 
 export interface QuestDef {
   id: QuestId;
@@ -89,12 +89,21 @@ export interface QuestDef {
  * spawns every 42–88s, so seven of them is ~7 minutes of active play; 800 taps
  * is a solid tapping stretch; six eggs cost real (escalating) goo.
  */
+// A wider pool means the deterministic day-rotation (see questsForDay) takes
+// longer to repeat: at 5 types the whole 3-of-5 sequence looped every 5 days —
+// a returning kid saw every combination inside a week. Eight types push that to
+// an 8-day cycle with a much larger combination space. Each new counter is
+// bumped at exactly one store action (buyEgg/buyEggsMax, evolveCreature, and a
+// crit tap in click()). Kept everyone's "same quests today" shared design.
 export const QUEST_POOL: QuestDef[] = [
   { id: 'taps', nameHe: 'לִלְחֹץ 800 פְּעָמִים', icon: '👆', target: 800 },
   { id: 'hatches', nameHe: 'לִבְקֹעַ 6 בֵּיצִים', icon: '🥚', target: 6 },
   { id: 'bonuses', nameHe: 'לֶאֱסֹף 7 בּוֹנוּסִים', icon: '🎁', target: 7 },
   { id: 'upgrades', nameHe: 'לִקְנוֹת 20 שִׁדְרוּגִים', icon: '⬆️', target: 20 },
   { id: 'levels', nameHe: 'לְאַמֵּן יְצוּרִים 65 רָמוֹת', icon: '🐾', target: 65 },
+  { id: 'eggs', nameHe: 'לִקְנוֹת 5 בֵּיצִים', icon: '🛒', target: 5 },
+  { id: 'evolve', nameHe: 'לְפַתֵּחַ 3 יְצוּרִים', icon: '✨', target: 3 },
+  { id: 'crits', nameHe: 'לְהַנְחִית 20 מַכּוֹת עָצְמָה', icon: '⚡', target: 20 },
 ];
 
 /** Today's three quests — a deterministic rotation, identical for everyone. */
