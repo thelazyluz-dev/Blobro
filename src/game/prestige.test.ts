@@ -7,6 +7,7 @@ import {
   crystalsGained,
   gooToNextCrystal,
   prestigeMultiplierFor,
+  prestigeProgress,
 } from './prestige';
 import { defaultSaveState } from './save';
 
@@ -123,5 +124,22 @@ describe('the bonus and the next-crystal countdown', () => {
       const need = gooToNextCrystal({ lifetimeGoo: L, prestigeCrystals: have });
       expect(crystalsFor(L + need + 1)).toBeGreaterThan(have);
     }
+  });
+
+  it('prestigeProgress fills 0..1 across a band and resets at each crystal', () => {
+    // Nothing earned yet, and pre-first-crystal fills linearly toward the first.
+    expect(prestigeProgress({ lifetimeGoo: 0 })).toBe(0);
+    expect(prestigeProgress({ lifetimeGoo: prestigeFirstCrystalGoo / 2 })).toBeCloseTo(0.5, 10);
+    // Exactly on a crystal threshold: the band just started, so ~empty.
+    expect(prestigeProgress({ lifetimeGoo: prestigeFirstCrystalGoo })).toBeCloseTo(0, 10);
+    // Halfway (in log space) through the first band toward the next crystal.
+    const bandDecade = Math.pow(10, 1 / prestigeCrystalsPerDecade); // ×10 per crystal step
+    expect(
+      prestigeProgress({ lifetimeGoo: prestigeFirstCrystalGoo * Math.sqrt(bandDecade) }),
+    ).toBeCloseTo(0.5, 6);
+    // Always clamped to the unit interval, however large lifetime gets.
+    const p = prestigeProgress({ lifetimeGoo: 1e33 });
+    expect(p).toBeGreaterThanOrEqual(0);
+    expect(p).toBeLessThanOrEqual(1);
   });
 });

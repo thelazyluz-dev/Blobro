@@ -42,6 +42,23 @@ export function gooToNextCrystal(save: Pick<SaveState, 'lifetimeGoo' | 'prestige
 }
 
 /**
+ * Progress (0..1) toward the NEXT crystal, measured in log space — goo grows
+ * exponentially, so a linear-in-goo bar would sit near empty for almost the
+ * whole band and then snap full. The log measure fills the bar evenly, which
+ * is the point of the UI: it gives "one crystal at a time" a visible heartbeat
+ * without changing the strategy-proof payout (crystals are still a pure
+ * function of lifetime).
+ */
+export function prestigeProgress(save: Pick<SaveState, 'lifetimeGoo'>): number {
+  const life = save.lifetimeGoo;
+  if (!Number.isFinite(life) || life <= 0) return 0;
+  // Before the first crystal there is no lower band — fill toward that threshold.
+  if (life < prestigeFirstCrystalGoo) return Math.max(0, Math.min(1, life / prestigeFirstCrystalGoo));
+  const decades = Math.log10(life / prestigeFirstCrystalGoo) * prestigeCrystalsPerDecade;
+  return Math.max(0, Math.min(1, decades - Math.floor(decades)));
+}
+
+/**
  * The roll itself: a pure SaveState → SaveState transform.
  *
  * RESET (the fresh run): held goo, creatures, upgrades, egg inventory, the

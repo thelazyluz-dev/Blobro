@@ -9,9 +9,11 @@
 import { playMilestone } from '../audio/sfx';
 import {
   canPrestige,
+  crystalsFor,
   crystalsGained,
   gooToNextCrystal,
   prestigeMultiplierFor,
+  prestigeProgress,
 } from '../game/prestige';
 import { formatGoo } from '../game/format';
 import { selectGooPerSec, useGame } from '../store';
@@ -26,12 +28,17 @@ function usePrestige() {
     ready: canPrestige(save),
     gained: crystalsGained(save),
     toNext: gooToNextCrystal(save),
+    // Progress through the current lifetime band toward the next crystal (0..1).
+    progress: prestigeProgress(save),
+    // The permanent bonus you'd hold AFTER rolling now — the real curve, not a
+    // hardcoded per-crystal number (crystals after a roll == crystalsFor(life)).
+    totalBonusPct: Math.round((prestigeMultiplierFor(crystalsFor(lifetimeGoo)) - 1) * 100),
   };
 }
 
 export function PrestigeCard() {
   const setOpen = useGame((s) => s.setPrestigeOpen);
-  const { crystals, bonusPct, ready, gained, toNext } = usePrestige();
+  const { crystals, bonusPct, ready, gained, toNext, progress } = usePrestige();
 
   return (
     <div className="mt-4 rounded-2xl bg-black/30 p-4 ring-1 ring-hairline">
@@ -48,17 +55,32 @@ export function PrestigeCard() {
         ‎+5% לְכָל הָרְוָחִים, לָנֶצַח!
       </p>
       {ready ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="btn anim-breathe w-full bg-cy py-3 text-lg text-void"
-        >
-          לְגַלְגֵּל — 💎 +{gained}!
-        </button>
+        <>
+          <div className="anim-breathe mb-2 text-center font-display text-base text-cy">
+            💎 {gained} מְחַכִּים לְךָ!
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="btn w-full bg-cy py-3 text-lg text-void"
+          >
+            לְגַלְגֵּל — 💎 +{gained}!
+          </button>
+        </>
       ) : (
-        <div className="text-center text-xs text-bone/50 tabular">
-          עוֹד {formatGoo(toNext)} גּוּ לַגָּבִישׁ הַבָּא
-        </div>
+        <>
+          {/* A log-space bar toward the next crystal — the "one at a time" feel
+              the roll itself can't give (crystals are a function of lifetime). */}
+          <div className="h-2.5 overflow-hidden rounded-full bg-black/40 ring-1 ring-hairline">
+            <div
+              className="h-full rounded-full bg-cy transition-[width] duration-500"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+          <div className="mt-1.5 text-center text-xs text-bone/50 tabular">
+            עוֹד {formatGoo(toNext)} גּוּ לַגָּבִישׁ הַבָּא 💎
+          </div>
+        </>
       )}
     </div>
   );
@@ -69,7 +91,7 @@ export function PrestigeOverlay() {
   const setOpen = useGame((s) => s.setPrestigeOpen);
   const roll = useGame((s) => s.prestigeRoll);
   const gps = useGame(selectGooPerSec);
-  const { ready, gained, bonusPct } = usePrestige();
+  const { ready, gained, totalBonusPct } = usePrestige();
 
   if (!open) return null;
   return (
@@ -106,9 +128,17 @@ export function PrestigeOverlay() {
           </ul>
         </div>
 
+        {/* Kids fear losing their creatures forever — reassure honestly: the
+            mastery (stars/achievements) is kept, and re-collecting is faster. */}
+        <div className="mt-3 rounded-2xl bg-goo/10 p-3 text-xs leading-relaxed text-bone/70 ring-1 ring-goo/30">
+          🥚 הַיְּצוּרִים חוֹזְרִים לַבֵּיצָה — אֲבָל הַכּוֹכָבִים וְהַהֶשֵּׂגִים
+          שֶׁכְּבָר צָבַרְתָּ נִשְׁאָרִים, וְעִם הַגְּבִישִׁים תֶּאֱסֹף אוֹתָם
+          שׁוּב הַרְבֵּה יוֹתֵר מַהֵר! 💪
+        </div>
+
         <div className="mt-3 rounded-2xl bg-cy/15 p-3 text-center ring-1 ring-cy/40">
           <div className="font-display text-xl text-cy">תְּקַבֵּל עַכְשָׁו 💎 +{gained}</div>
-          <div className="text-xs text-bone/60">סַךְ הַבּוֹנוּס אַחֲרֵי הַגִּלְגּוּל: ‎+{bonusPct + gained * 5}%</div>
+          <div className="text-xs text-bone/60">סַךְ הַבּוֹנוּס אַחֲרֵי הַגִּלְגּוּל: ‎+{totalBonusPct}%</div>
         </div>
 
         <button
