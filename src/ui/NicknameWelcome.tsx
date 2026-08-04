@@ -80,7 +80,7 @@ export function NicknameWelcome() {
         >
           {saving ? '…' : 'הִצְטָרֵף לַטַּבְלָה! 🚀'}
         </button>
-        <button type="button" onClick={close} className="mt-2 w-full py-2 text-sm text-bone/50">
+        <button type="button" onClick={close} className="mt-2 min-h-11 w-full py-3 text-sm text-bone/50">
           אַחַר כָּךְ
         </button>
       </div>

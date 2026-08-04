@@ -27,8 +27,8 @@ export function OfflineModal() {
         <div className="text-5xl">👋</div>
         <h2 className="mt-2 font-display text-3xl text-bone">חָזַרְתָּ!</h2>
         <p className="mt-2 text-sm text-bone/60">
-          בזמן שלא היית ({formatAway(report.secondsAway)}) היצורים עבדו בשבילך
-          {report.capped ? ` (עד ${formatAway(offlineCapSeconds)})` : ''}:
+          בִּזְמַן שֶׁלֹּא הָיִיתָ ({formatAway(report.secondsAway)}) הַיְּצוּרִים עָבְדוּ בִּשְׁבִילְךָ
+          {report.capped ? ` (עַד ${formatAway(offlineCapSeconds)})` : ''}:
         </p>
         <div className="mt-4 font-display text-5xl text-pop">
           +<CountUp target={report.goo} /> <span className="text-2xl">גּוּ</span>

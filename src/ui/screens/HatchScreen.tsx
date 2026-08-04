@@ -74,7 +74,7 @@ export function HatchScreen() {
     <div className="anim-tab-in flex h-full flex-col items-center justify-between overflow-y-auto px-6 py-4">
       <header className="text-center">
         <h1 className="font-display text-4xl text-bone">בְּקִיעָה</h1>
-        <p className="mt-1 text-sm text-bone/60">קונים ביצים — פותחים ומגלים יצורים!</p>
+        <p className="mt-1 text-sm text-bone/60">קוֹנִים בֵּיצִים — פּוֹתְחִים וּמְגַלִּים יְצוּרִים!</p>
       </header>
 
       {/* pity meter */}

@@ -266,7 +266,7 @@ function RevealMessage({ outcome }: { outcome: HatchOutcome }) {
     const income = held ? creatureContribution(rarity, held, m) : 0;
     return (
       <>
-        <p className="mt-3 text-lg text-goo">יצור חדש הצטרף לאוסף!</p>
+        <p className="mt-3 text-lg text-goo">יְצוּר חָדָשׁ הִצְטָרֵף לָאוֹסֶף!</p>
         <p className="mt-1 text-sm text-cy tabular">מַרְוִיחַ {formatGoo(income)} גּוּ/שנייה</p>
       </>
     );
@@ -280,7 +280,7 @@ function RevealMessage({ outcome }: { outcome: HatchOutcome }) {
   return (
     <>
       <p className="mt-3 text-lg text-goo tabular">
-        {def.nameHe} התחזק! רמה {outcome.level}
+        {def.nameHe} הִתְחַזֵּק! רָמָה {outcome.level}
       </p>
       <p className="mt-1 text-sm text-cy tabular">+{formatGoo(delta)} גּוּ/שנייה</p>
     </>

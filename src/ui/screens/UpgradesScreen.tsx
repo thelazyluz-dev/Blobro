@@ -20,7 +20,7 @@ export function UpgradesScreen() {
     <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
       <header className="mb-4 text-center">
         <h1 className="font-display text-4xl text-bone">שְׁדְרוּגִים</h1>
-        <p className="mt-2 text-sm text-bone/60">מחזקים את הנגיעה ואת היצורים</p>
+        <p className="mt-2 text-sm text-bone/60">מְחַזְּקִים אֶת הַנְּגִיעָה וְאֶת הַיְּצוּרִים</p>
       </header>
 
       <div className="mb-4 grid grid-cols-2 gap-3">

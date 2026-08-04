@@ -50,7 +50,7 @@ export function AuthGate() {
           <p className="mt-5 text-sm text-hot">הַהִתְחַבְּרוּת אֵינָהּ זְמִינָה כָּרֶגַע. נַסּוּ שׁוּב מְאֻחָר יוֹתֵר.</p>
         )}
 
-        <p className="mt-4 px-1 text-[11px] leading-relaxed text-bone/45">
+        <p className="mt-4 px-1 text-[11px] leading-relaxed text-bone/60">
           אֲנַחְנוּ שׁוֹמְרִים רַק אֶת כְּתֹבֶת הָאִימֵייל וְהַשֵּׁם מֵהַחֶשְׁבּוֹן — לֹא סִיסְמָה.{' '}
           <a href="./privacy.html" target="_blank" rel="noopener" className="text-cy underline">
             פְּרָטִיּוּת

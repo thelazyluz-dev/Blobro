@@ -104,7 +104,7 @@ export function AchievementsContent() {
                   )}
                   <div className="mt-1 text-[11px]">
                     {a.starReward > 0 ? (
-                      <span className="text-goo">⭐ +{Math.round(a.starReward * 100)}% הכנסה לתמיד</span>
+                      <span className="text-goo">⭐ +{Math.round(a.starReward * 100)}% הַכְנָסָה לָתָמִיד</span>
                     ) : (
                       <span className="text-pop">💰 {formatGoo(a.gooReward)} גּוּ חַד־פַּעֲמִי</span>
                     )}

@@ -61,7 +61,7 @@ export function EventBanner() {
           </div>
           <div className="truncate text-[11px] text-bone/75">{event.descHe}</div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 text-end">
           <div className="text-[10px] text-bone/50">נִגְמָר בְּעוֹד</div>
           <div className="font-display text-sm tabular text-bone">⏳ {mmss(msLeft)}</div>
         </div>

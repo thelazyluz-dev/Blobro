@@ -91,7 +91,7 @@ export function CollectionScreen() {
       <header className="mb-4 text-center">
         <h1 className="font-display text-4xl text-bone">הַבְּלוֹבִּים שֶׁלִּי</h1>
         <p className="mt-2 text-sm text-bone/60 tabular">
-          {ownedCount} מתוך {total} יצורים
+          {ownedCount} מִתּוֹךְ {total} יְצוּרִים
         </p>
         <div className="mx-auto mt-3 h-2 w-40 overflow-hidden rounded-full bg-black/40 ring-hairline">
           <div

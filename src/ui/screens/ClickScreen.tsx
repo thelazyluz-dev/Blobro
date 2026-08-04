@@ -590,7 +590,7 @@ export function ClickScreen() {
           rate opens the stats panel for the full breakdown. */}
       <div className="mb-3 flex w-full flex-col items-center gap-1.5">
         {clicks < 100 && (
-          <p className="text-center text-sm text-bone/55">לוחצים על הבלוב — צוברים גּוּ!</p>
+          <p className="text-center text-sm text-bone/55">לוֹחֲצִים עַל הַבְּלוֹב — צוֹבְרִים גּוּ!</p>
         )}
         {/* One flow row: the bonus button and a compact info button holding the
             two numbers that matter. Tapping the info button opens the full

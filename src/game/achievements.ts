@@ -62,17 +62,17 @@ const ICON: Record<AchievementKind, string> = {
 function nameFor(kind: AchievementKind, goal: number): string {
   switch (kind) {
     case 'collection':
-      return goal >= TOTAL_CREATURES ? 'אספת את כל היצורים!' : `אספת ${goal} יצורים`;
+      return goal >= TOTAL_CREATURES ? 'אָסַפְתָּ אֶת כָּל הַיְּצוּרִים!' : `אָסַפְתָּ ${goal} יְצוּרִים`;
     case 'shinies':
-      return goal >= TOTAL_CREATURES ? 'כל היצורים מנצנצים!' : `${goal} יצורים מנצנצים`;
+      return goal >= TOTAL_CREATURES ? 'כָּל הַיְּצוּרִים מְנַצְנְצִים!' : `${goal} יְצוּרִים מְנַצְנְצִים`;
     case 'lifetime':
-      return `צברת ${shortNum(goal)} גּוּ`;
+      return `צָבַרְתָּ ${shortNum(goal)} גּוּ`;
     case 'hatches':
-      return `בקעת ${shortNum(goal)} ביצים`;
+      return `בָּקַעְתָּ ${shortNum(goal)} בֵּיצִים`;
     case 'clicks':
-      return `${shortNum(goal)} לחיצות`;
+      return `${shortNum(goal)} לְחִיצוֹת`;
     case 'bonuses':
-      return `אספת ${goal} בונוסים`;
+      return `אָסַפְתָּ ${goal} בּוֹנוּסִים`;
   }
 }
 
