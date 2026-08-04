@@ -288,9 +288,12 @@ export const achievementGooGrowth = 3; // …× this per tier (kept modest so a 
 // (clicks/hatches/bonuses/shinies) advance with play, so they carry the
 // mid-and-late-game cadence; lifetime-goo stays open-ended for the long haul.
 export const achievementGoals = {
-  // capped at the 16 creatures / 16 evolutions
-  collection: [4, 8, 12, 16],
-  shinies: [1, 3, 6, 10, 16],
+  // Runs to all 24 creatures (16 egg-hatchable + 8 click-unlock). It used to
+  // stop at 16, so the click-unlock grind — up to a 500K-tap legendary — paid no
+  // achievement/star at all, and the "collected everything" line could never
+  // fire. Top tier == TOTAL_CREATURES, so nameFor's all-collected branch lands.
+  collection: [4, 8, 12, 16, 20, 24],
+  shinies: [1, 3, 6, 10, 16, 20, 24],
   // open-ended, up to 100 trillion lifetime goo (with ~half-step tiers)
   // Extended past 1e14 (owner-approved rebalance): the old top tier fell on
   // day two of real play, and a deep player then never saw another badge.
