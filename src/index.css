@@ -493,6 +493,35 @@ body {
   animation: blorbo-pupil-look 7s ease-in-out infinite;
 }
 
+/* Living eyes on the collected creatures: the same idea as .blob-pupils, but
+   tuned smaller for their 0-100 viewBox (vs the main blob's 0-200) so the
+   pupils drift a hair without ever leaving the whites. Wraps only the pupils +
+   glints in svgs.tsx. */
+@keyframes blorbo-eye-glance {
+  0%, 22% { transform: translate(0, 0); }
+  32%, 46% { transform: translate(1.3px, -0.6px); }
+  56%, 72% { transform: translate(-1.3px, 0.9px); }
+  82%, 100% { transform: translate(0.6px, 1px); }
+}
+.creature-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blorbo-eye-glance 6.5s ease-in-out infinite;
+}
+
+/* Evolution stars: each twinkles in place (scale + fade). The count of stars
+   is set in CharacterBody by the creature's stage, so an evolved creature reads
+   at a glance. Under reduced-motion they stay lit but still (see below). */
+@keyframes blorbo-evo-spark {
+  0%, 100% { transform: scale(0.5); opacity: 0.3; }
+  50% { transform: scale(1); opacity: 1; }
+}
+.evo-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blorbo-evo-spark 2.4s ease-in-out infinite;
+}
+
 /* Order-of-magnitude crossing: a "spaceship accelerating" burst — a bright
    bloom, warp speed-lines racing upward, and a banner that springs in then
    rockets off the top. Everything is pointer-events-none and self-clears, so it
@@ -546,6 +575,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .blob-pupils,
+  .creature-eyes,
+  .evo-spark,
   .anim-evolve-glow,
   .anim-mag-flash,
   .anim-warp,
@@ -582,20 +613,23 @@ body {
    creature finally LOOKS evolved (the body itself never changes). Stage 4
    slowly cycles hue — the "maxed" flex. Size-agnostic: drop-shadow scales
    with the rendered svg, from an 11px tile to the 252px main creature. */
-.evo-aura-1 > svg { filter: drop-shadow(0 0 3px rgba(255, 216, 77, 0.55)); }
-.evo-aura-2 > svg { filter: drop-shadow(0 0 5px rgba(255, 216, 77, 0.8)); }
-.evo-aura-3 > svg {
-  filter: drop-shadow(0 0 6px rgba(255, 216, 77, 0.95)) drop-shadow(0 0 16px rgba(255, 216, 77, 0.45));
+/* :first-child = the body svg only; the star overlay svg is a later sibling and
+   keeps its own crisp gold. A small per-stage saturation lift makes the body
+   itself read a touch richer as it climbs, on top of the glow + stars. */
+.evo-aura-1 > svg:first-child { filter: drop-shadow(0 0 3px rgba(255, 216, 77, 0.55)) saturate(1.06); }
+.evo-aura-2 > svg:first-child { filter: drop-shadow(0 0 5px rgba(255, 216, 77, 0.8)) saturate(1.12); }
+.evo-aura-3 > svg:first-child {
+  filter: drop-shadow(0 0 6px rgba(255, 216, 77, 0.95)) drop-shadow(0 0 16px rgba(255, 216, 77, 0.45)) saturate(1.18);
 }
 @keyframes blorbo-evo4-hue {
-  0% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) hue-rotate(0deg); }
-  50% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(0, 229, 255, 0.55)) hue-rotate(12deg); }
-  100% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) hue-rotate(0deg); }
+  0% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) saturate(1.25) hue-rotate(0deg); }
+  50% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(0, 229, 255, 0.55)) saturate(1.25) hue-rotate(12deg); }
+  100% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) saturate(1.25) hue-rotate(0deg); }
 }
-.evo-aura-4 > svg { animation: blorbo-evo4-hue 3.5s ease-in-out infinite; }
+.evo-aura-4 > svg:first-child { animation: blorbo-evo4-hue 3.5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .evo-aura-4 > svg {
+  .evo-aura-4 > svg:first-child {
     animation: none;
-    filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55));
+    filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) saturate(1.25);
   }
 }

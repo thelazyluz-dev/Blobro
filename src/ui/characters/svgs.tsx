@@ -1,6 +1,12 @@
 // Inline SVG bodies for the 16 characters. viewBox 0 0 100 100, flat shapes
 // and thick strokes only — no gradients, filters, or drop shadows on bodies.
 // Flat highlight/shadow shapes give depth. Identifiable at 64×64.
+//
+// The pupils of each creature are wrapped in <g className="creature-eyes"> so
+// they gently drift inside the eyes (living eyes — same trick as the main
+// blob). Only the pupils + their glints go in the group, never the eye-whites,
+// noses or accessories. Two creatures wear opaque shades (Blombo, Idanosau) and
+// have no pupils to move.
 
 import type { FC } from 'react';
 import type { CharId } from '../../game/types';
@@ -44,10 +50,12 @@ const Fizzik: FC<BodyProps> = ({ className }) => (
     <circle cx="51" cy="30" r="3" fill="#8A8F98" />
     <circle cx="40" cy="22" r="11" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
     <circle cx="64" cy="20" r="11" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
+    <g className="creature-eyes">
     <circle cx="41" cy="23" r="4.5" fill="#150A22" />
     <circle cx="65" cy="21" r="4.5" fill="#150A22" />
     <circle cx="43" cy="21" r="1.6" fill="#FFF4E0" />
     <circle cx="67" cy="19" r="1.6" fill="#FFF4E0" />
+    </g>
     <path d="M44 64 q7 6 14 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
   </svg>
 );
@@ -58,9 +66,11 @@ const Nono: FC<BodyProps> = ({ className }) => (
     <path d="M30 32 Q22 80 60 86 Q80 88 80 74 Q58 76 46 46 Q42 32 36 30 Z" fill="#FFD84D" stroke={OUT} strokeWidth="4" {...S} />
     <path d="M34 36 Q28 74 58 80" fill="none" stroke="#F2C230" strokeWidth="4" {...S} />
     <path d="M78 74 q4 2 4 5" fill="none" stroke="#7A5A12" strokeWidth="4" {...S} />
+    <g className="creature-eyes">
     <circle cx="44" cy="56" r="4" fill="#150A22" />
     <circle cx="57" cy="62" r="4" fill="#150A22" />
     <circle cx="45.5" cy="54.5" r="1.4" fill="#FFF4E0" />
+    </g>
     <path d="M42 68 q8 6 16 1" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
     <ellipse cx="48" cy="66" rx="4" ry="2.5" fill="#FF8FBF" opacity="0.7" />
     <rect x="24" y="18" width="24" height="8" rx="2" fill="#FF2E88" stroke={OUT} strokeWidth="3" {...S} />
@@ -76,8 +86,10 @@ const Grumpolo: FC<BodyProps> = ({ className }) => (
     <path d="M26 60 Q40 66 76 62 Q80 60 82 55 Q60 60 30 55 Z" fill="#7E8CAE" />
     <path d="M33 44 l14 5" stroke={OUT} strokeWidth="4.5" {...S} />
     <path d="M67 44 l-14 5" stroke={OUT} strokeWidth="4.5" {...S} />
+    <g className="creature-eyes">
     <circle cx="42" cy="52" r="4" fill="#150A22" />
     <circle cx="60" cy="52" r="4" fill="#150A22" />
+    </g>
     <path d="M42 63 q9 -7 18 0" fill="none" stroke={OUT} strokeWidth="4" {...S} />
     <path d="M18 56 l-8 7" stroke="#9AA7C7" strokeWidth="6" {...S} />
     <path d="M84 56 l8 7" stroke="#9AA7C7" strokeWidth="6" {...S} />
@@ -92,10 +104,12 @@ const Skwibbly: FC<BodyProps> = ({ className }) => (
     <path d="M34 86 h34 M31 76 q19 -9 38 0 M31 64 q19 -9 38 0 M32 52 q18 -9 36 0" fill="none" stroke="#66F0FF" strokeWidth="2" {...S} />
     <circle cx="50" cy="30" r="17" fill="#A3FF12" stroke={OUT} strokeWidth="4" {...S} />
     <ellipse cx="43" cy="23" rx="6" ry="4" fill="#C6FF6E" />
+    <g className="creature-eyes">
     <circle cx="44" cy="27" r="4.5" fill="#150A22" />
     <circle cx="57" cy="27" r="4.5" fill="#150A22" />
     <circle cx="45.5" cy="25.5" r="1.5" fill="#FFF4E0" />
     <circle cx="58.5" cy="25.5" r="1.5" fill="#FFF4E0" />
+    </g>
     <path d="M40 34 q10 13 22 0 q-11 5 -22 0 Z" fill="#FFD84D" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
@@ -108,9 +122,11 @@ const Tikko: FC<BodyProps> = ({ className }) => (
     <circle cx="50" cy="40" r="27" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
     <circle cx="50" cy="40" r="27" fill="none" stroke="#FF2E88" strokeWidth="2" opacity="0.5" />
     <path d="M50 18 v4 M72 40 h-4 M50 62 v-4 M28 40 h4" stroke={OUT} strokeWidth="2.5" {...S} />
+    <g className="creature-eyes">
     <circle cx="43" cy="35" r="4" fill="#150A22" />
     <circle cx="57" cy="35" r="4" fill="#150A22" />
     <circle cx="44.5" cy="33.5" r="1.4" fill="#FFF4E0" />
+    </g>
     <path d="M42 48 q8 6 16 0" fill="none" stroke={OUT} strokeWidth="3.5" {...S} />
     <path d="M50 40 l0 -11 M50 40 l9 5" stroke="#FF2E88" strokeWidth="3.5" {...S} />
     <circle cx="50" cy="40" r="2.5" fill="#FF2E88" />
@@ -128,8 +144,10 @@ const Mumbo: FC<BodyProps> = ({ className }) => (
     <circle cx="62" cy="30" r="7" fill="#FFF4E0" />
     <circle cx="50" cy="44" r="4" fill="#FFF4E0" />
     <path d="M37 50 h26 v20 a13 13 0 0 1 -26 0 Z" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
+    <g className="creature-eyes">
     <circle cx="45" cy="58" r="3.2" fill="#150A22" />
     <circle cx="55" cy="58" r="3.2" fill="#150A22" />
+    </g>
     <path d="M40 66 q10 8 20 0 M40 66 q-6 -3 -9 -7 M60 66 q6 -3 9 -7" fill="none" stroke={OUT} strokeWidth="4" {...S} />
   </svg>
 );
@@ -139,9 +157,11 @@ const Zapparoo: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
     <path d="M58 10 L28 52 H46 L38 74 L74 36 H54 Z" fill="#FFD84D" stroke={OUT} strokeWidth="4" {...S} />
     <path d="M55 16 L36 44 H48" fill="none" stroke="#FFF08A" strokeWidth="3" {...S} />
+    <g className="creature-eyes">
     <circle cx="47" cy="34" r="4" fill="#150A22" />
     <circle cx="58" cy="32" r="4" fill="#150A22" />
     <circle cx="48.5" cy="32.5" r="1.4" fill="#FFF4E0" />
+    </g>
     <path d="M50 42 q6 4 11 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
     <path d="M40 72 Q32 90 50 90 Q45 82 50 74" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
     <path d="M54 68 Q64 88 78 82 L75 76 Q64 80 60 66" fill="#FF2E88" stroke={OUT} strokeWidth="4" {...S} />
@@ -154,9 +174,11 @@ const Chompolino: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
     <path d="M28 32 Q28 18 50 18 Q72 18 72 32 L66 84 Q61 74 56 84 Q51 74 46 84 Q41 74 36 84 Q31 74 34 62 Z" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
     <path d="M34 30 Q50 24 66 30" fill="none" stroke="#E7DCC2" strokeWidth="3" {...S} />
+    <g className="creature-eyes">
     <circle cx="43" cy="40" r="4.5" fill="#150A22" />
     <circle cx="58" cy="40" r="4.5" fill="#150A22" />
     <circle cx="44.5" cy="38" r="1.6" fill="#FFF4E0" />
+    </g>
     <path d="M39 52 q11 12 23 0 q-11 6 -23 0 Z" fill="#FF2E88" stroke={OUT} strokeWidth="3.5" {...S} />
     <rect x="42" y="52" width="4" height="5" fill="#FFF4E0" />
     <rect x="54" y="52" width="4" height="5" fill="#FFF4E0" />
@@ -177,9 +199,11 @@ const Gigablorf: FC<BodyProps> = ({ className }) => (
     <ellipse cx="45" cy="53" rx="5" ry="2.5" fill="#FF7AB0" />
     <circle cx="50" cy="32" r="23" fill="#FFF4E0" stroke={OUT} strokeWidth="4" {...S} />
     <circle cx="50" cy="32" r="13" fill="#00E5FF" stroke={OUT} strokeWidth="3" {...S} />
+    <g className="creature-eyes">
     <circle cx="50" cy="32" r="6" fill="#150A22" />
     <circle cx="54" cy="27" r="2.5" fill="#FFF4E0" />
     <circle cx="45" cy="36" r="1.4" fill="#FFF4E0" />
+    </g>
     <path d="M35 16 q15 -8 30 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
@@ -193,8 +217,10 @@ const Bubbo: FC<BodyProps> = ({ className }) => (
     <path d="M26 52 Q30 40 44 40" fill="none" stroke="#FF8FBF" strokeWidth="5" {...S} />
     <circle cx="40" cy="54" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
     <circle cx="58" cy="52" r="6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
     <circle cx="41" cy="55" r="2.6" fill="#150A22" />
     <circle cx="59" cy="53" r="2.6" fill="#150A22" />
+    </g>
     <circle cx="61" cy="66" r="4" fill="#7A1540" />
   </svg>
 );
@@ -210,8 +236,10 @@ const Kaktuki: FC<BodyProps> = ({ className }) => (
     <path d="M50 30 v-5 M45 40 l-3 -4 M55 40 l3 -4 M50 54 v-5" stroke="#2C7A38" strokeWidth="2.5" {...S} />
     <circle cx="50" cy="21" r="5" fill="#FF2E88" stroke={OUT} strokeWidth="2.5" />
     <circle cx="50" cy="21" r="1.8" fill="#FFD84D" />
+    <g className="creature-eyes">
     <circle cx="45" cy="47" r="3.2" fill="#150A22" />
     <circle cx="56" cy="47" r="3.2" fill="#150A22" />
+    </g>
     <path d="M45 55 q5 4 10 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
@@ -221,10 +249,12 @@ const Flamo: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
     <path d="M50 8 Q64 34 70 50 Q78 74 50 88 Q22 74 30 50 Q36 34 50 8 Z" fill="#FF6A00" stroke={OUT} strokeWidth="4" {...S} />
     <path d="M50 30 Q58 46 58 58 Q58 74 50 80 Q42 74 42 58 Q42 46 50 30 Z" fill="#FFD84D" />
+    <g className="creature-eyes">
     <circle cx="44" cy="58" r="4.5" fill="#150A22" />
     <circle cx="56" cy="58" r="4.5" fill="#150A22" />
     <circle cx="45.5" cy="56.5" r="1.5" fill="#FFF4E0" />
     <circle cx="57.5" cy="56.5" r="1.5" fill="#FFF4E0" />
+    </g>
     <path d="M45 68 q5 4 10 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
@@ -236,9 +266,11 @@ const Kristalo: FC<BodyProps> = ({ className }) => (
     <path d="M22 40 L50 90 L78 40 Z" fill="#33ECFF" opacity="0.5" />
     <path d="M36 26 L50 40 L36 40 Z" fill="#BEF9FF" opacity="0.85" />
     <path d="M22 40 L78 40 M50 12 L50 90 M50 12 L22 40 M50 12 L78 40" fill="none" stroke="#7CF3FF" strokeWidth="2.5" {...S} />
+    <g className="creature-eyes">
     <circle cx="44" cy="50" r="3.6" fill="#150A22" />
     <circle cx="57" cy="50" r="3.6" fill="#150A22" />
     <circle cx="45" cy="49" r="1.3" fill="#FFF4E0" />
+    </g>
     <path d="M45 58 q5 3 10 0" fill="none" stroke="#0A3A44" strokeWidth="2.6" {...S} />
     <path d="M71 18 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 Z" fill="#FFF4E0" />
   </svg>
@@ -255,8 +287,10 @@ const Dragapuf: FC<BodyProps> = ({ className }) => (
     <path d="M62 34 l4 -12 l-8 8 Z" fill="#FFD84D" stroke={OUT} strokeWidth="2.5" {...S} />
     <circle cx="43" cy="50" r="5" fill="#FFF4E0" stroke={OUT} strokeWidth="2.2" />
     <circle cx="58" cy="50" r="5" fill="#FFF4E0" stroke={OUT} strokeWidth="2.2" />
+    <g className="creature-eyes">
     <circle cx="44" cy="51" r="2.4" fill="#150A22" />
     <circle cx="59" cy="51" r="2.4" fill="#150A22" />
+    </g>
     <circle cx="47" cy="62" r="1.4" fill="#150A22" />
     <circle cx="54" cy="62" r="1.4" fill="#150A22" />
     <circle cx="81" cy="70" r="3" fill="#C9A6F0" opacity="0.6" />
@@ -276,8 +310,10 @@ const Galaxo: FC<BodyProps> = ({ className }) => (
     <circle cx="55" cy="44" r="1" fill="#A3FF12" />
     <circle cx="43" cy="54" r="3.4" fill="#FFF4E0" />
     <circle cx="57" cy="54" r="3.4" fill="#FFF4E0" />
+    <g className="creature-eyes">
     <circle cx="43" cy="54" r="1.6" fill="#150A22" />
     <circle cx="57" cy="54" r="1.6" fill="#150A22" />
+    </g>
   </svg>
 );
 
@@ -293,8 +329,10 @@ const Dondonu: FC<BodyProps> = ({ className }) => (
     <ellipse cx="45" cy="73" rx="5" ry="3" fill="#C6FF6E" />
     <circle cx="50" cy="52" r="17" fill="#FBEFCF" stroke={OUT} strokeWidth="4" {...S} />
     <ellipse cx="44" cy="45" rx="6" ry="3.5" fill="#FFF8E6" />
+    <g className="creature-eyes">
     <circle cx="44" cy="51" r="3" fill="#150A22" />
     <circle cx="56" cy="51" r="3" fill="#150A22" />
+    </g>
     <path d="M45 57 q5 5 10 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
     <ellipse cx="38" cy="55" rx="3.6" ry="2.4" fill="#FF7AB0" opacity="0.5" />
     <ellipse cx="62" cy="55" rx="3.6" ry="2.4" fill="#FF7AB0" opacity="0.5" />
@@ -315,8 +353,10 @@ const Romrom: FC<BodyProps> = ({ className }) => (
     <ellipse cx="43" cy="44" rx="7" ry="4" fill="#B6F5EA" />
     <circle cx="43" cy="50" r="4.8" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
     <circle cx="57" cy="50" r="4.8" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
     <circle cx="44" cy="51" r="2.4" fill="#150A22" />
     <circle cx="56" cy="51" r="2.4" fill="#150A22" />
+    </g>
     <path d="M44 59 q6 5 12 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
     <ellipse cx="33" cy="56" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.4" />
     <ellipse cx="67" cy="56" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.4" />
@@ -333,8 +373,10 @@ const Gongoni: FC<BodyProps> = ({ className }) => (
     <circle cx="50" cy="76" r="5" fill="#E0B62A" stroke={OUT} strokeWidth="3" {...S} />
     <ellipse cx="42" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
     <ellipse cx="58" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
     <circle cx="42" cy="47" r="2.2" fill="#150A22" />
     <circle cx="58" cy="47" r="2.2" fill="#150A22" />
+    </g>
     <path d="M44 55 q6 5 12 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
     <path d="M80 30 l1.6 4 l4 1.6 l-4 1.6 l-1.6 4 l-1.6 -4 l-4 -1.6 l4 -1.6 Z" fill="#00E5FF" />
   </svg>
@@ -349,8 +391,10 @@ const Mataru: FC<BodyProps> = ({ className }) => (
     <path d="M26 56 Q19 40 35 38 Q39 26 54 30 Q70 26 72 41 Q84 44 77 56 Z" fill="#CBE8FF" stroke={OUT} strokeWidth="4" {...S} />
     <ellipse cx="41" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
     <ellipse cx="59" cy="46" rx="4.6" ry="5.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
     <circle cx="41" cy="47" r="2.2" fill="#150A22" />
     <circle cx="59" cy="47" r="2.2" fill="#150A22" />
+    </g>
     <path d="M44 54 q6 5 12 0" fill="none" stroke={OUT} strokeWidth="3" {...S} />
     <ellipse cx="33" cy="52" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.45" />
     <ellipse cx="67" cy="52" rx="4" ry="2.6" fill="#FF7AB0" opacity="0.45" />
@@ -371,8 +415,10 @@ const Gefenaou: FC<BodyProps> = ({ className }) => (
     <circle cx="50" cy="52" r="12" fill="#9B5DE5" stroke={OUT} strokeWidth="3" />
     <circle cx="46" cy="49" r="3.4" fill="#FFF4E0" />
     <circle cx="56" cy="49" r="3.4" fill="#FFF4E0" />
+    <g className="creature-eyes">
     <circle cx="46" cy="50" r="1.6" fill="#150A22" />
     <circle cx="56" cy="50" r="1.6" fill="#150A22" />
+    </g>
     <path d="M46 56 q4 4 8 0" fill="none" stroke={OUT} strokeWidth="2.6" {...S} />
     <circle cx="34" cy="40" r="2" fill="#C9A6F0" />
     <circle cx="58" cy="40" r="2" fill="#C9A6F0" />
@@ -389,8 +435,10 @@ const Oziouh: FC<BodyProps> = ({ className }) => (
     <path d="M66 40 Q58 36 54 42" fill="none" stroke={OUT} strokeWidth="3" {...S} />
     <circle cx="42" cy="50" r="4.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
     <circle cx="58" cy="50" r="4.6" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
     <circle cx="43" cy="51" r="2.2" fill="#150A22" />
     <circle cx="57" cy="51" r="2.2" fill="#150A22" />
+    </g>
     <path d="M43 60 q7 5 14 0" fill="none" stroke={OUT} strokeWidth="3.2" {...S} />
     <ellipse cx="48" cy="30" rx="8" ry="4" fill="#FFC27A" />
   </svg>
@@ -406,8 +454,10 @@ const Baraku: FC<BodyProps> = ({ className }) => (
     <path d="M52 18 L40 34" stroke="#FFEDA0" strokeWidth="3" strokeLinecap="round" />
     <circle cx="46" cy="42" r="4.4" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
     <circle cx="57" cy="40" r="4.4" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
     <circle cx="47" cy="43" r="2.1" fill="#150A22" />
     <circle cx="58" cy="41" r="2.1" fill="#150A22" />
+    </g>
     <path d="M46 50 q7 4 12 -2" fill="none" stroke={OUT} strokeWidth="3" {...S} />
   </svg>
 );
