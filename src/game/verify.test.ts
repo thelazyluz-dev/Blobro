@@ -241,3 +241,51 @@ describe('rollback annotation', () => {
     expect(claimed.ratio).toBe(plain.ratio);
   });
 });
+
+describe('merge annotation (cross-device / pre-auth progress adoption)', () => {
+  // A device adopting a bigger save it earned elsewhere lands as one huge
+  // lifetimeGoo jump that reads as an impossible rate. The client marks that one
+  // push; the flag rides ALONGSIDE the rate flag (never instead), and it's the
+  // worker's barring logic that spares it — verify.ts only records the truth.
+  const prev = midGame();
+  const merged = midGame({ lifetimeGoo: prev.lifetimeGoo + 1e18 }); // a real other-device total
+
+  it('annotates a claimed merge ALONGSIDE the goo-rate flag, never instead of it', () => {
+    const v = verifySaveDelta(prev, merged, 60, { mergeClaimed: true });
+    expect(v.flags).toContain('goo-rate'); // the ratio still gets recorded for tuning
+    expect(v.flags).toContain('merge-claimed');
+    expect(v.ok).toBe(false); // still "flagged"; the bar decision lives in the worker
+  });
+
+  it('does not annotate when the client says nothing', () => {
+    expect(verifySaveDelta(prev, merged, 60).flags).not.toContain('merge-claimed');
+  });
+
+  it('does not annotate a claim on a normal push that never tripped a rate flag', () => {
+    // "merge" on an ordinary in-bounds gain must not earn a label that could
+    // later exempt it — the annotation only rides an actual rate flag.
+    const modest = midGame({ lifetimeGoo: prev.lifetimeGoo + 1_000 });
+    const v = verifySaveDelta(prev, modest, 60, { mergeClaimed: true });
+    expect(v.flags).not.toContain('goo-rate');
+    expect(v.flags).not.toContain('merge-claimed');
+    expect(v.ok).toBe(true);
+  });
+
+  it('also rides a click-rate flag when the merge bumped clicks impossibly', () => {
+    const impossible = midGame({
+      lifetimeGoo: prev.lifetimeGoo,
+      clicks: prev.clicks + maxHumanTapsPerSec * 60 * 100,
+    });
+    const v = verifySaveDelta(prev, impossible, 60, { mergeClaimed: true });
+    expect(v.flags).toContain('click-rate');
+    expect(v.flags).toContain('merge-claimed');
+  });
+
+  it('leaves the recorded ratio identical to an unannotated verdict', () => {
+    const plain = verifySaveDelta(prev, merged, 60);
+    const claimed = verifySaveDelta(prev, merged, 60, { mergeClaimed: true });
+    expect(claimed.ratio).toBe(plain.ratio);
+    expect(claimed.gooGain).toBe(plain.gooGain);
+    expect(claimed.maxGain).toBe(plain.maxGain);
+  });
+});

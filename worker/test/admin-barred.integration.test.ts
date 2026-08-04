@@ -87,6 +87,20 @@ describe('GET /admin/barred', () => {
     expect((await barredList()).some((b) => b.userId === userId)).toBe(false);
   });
 
+  it('does NOT list a goo-rate row the client marked as a cross-device merge', async () => {
+    // An honest multi-device player: the huge jump is recorded (ratio kept) but
+    // the merge-claimed annotation spares them the bar.
+    const userId = freshUserId();
+    await seedAudit(userId, 'goo-rate,merge-claimed', 0, 7232);
+    expect((await barredList()).some((b) => b.userId === userId)).toBe(false);
+  });
+
+  it('STILL lists a plain goo-rate row without the merge annotation', async () => {
+    const userId = freshUserId();
+    await seedAudit(userId, 'goo-rate', 0, 7232);
+    expect((await barredList()).some((b) => b.userId === userId)).toBe(true);
+  });
+
   it('aggregates multiple flagged writes into one row with a count', async () => {
     const userId = freshUserId();
     await seedAudit(userId, 'goo-rate', 0, 10, FLAG_TS);

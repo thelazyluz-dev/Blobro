@@ -72,19 +72,35 @@ export async function fetchCloudSave(): Promise<CloudSave | null> {
  * made from a `pagehide` handler (see store.ts), the one meant to catch a
  * kid closing the tab mid-session.
  *
- * `rollback` marks a push that deliberately lowers progress, because the
+ * `opts.rollback` marks a push that deliberately lowers progress, because the
  * player restored their other save. Without it the audit records a plain
  * "lifetime goo went down", which is its strongest cheat signal — so using a
  * button the game itself offers would look exactly like editing a save.
+ *
+ * `opts.merge` marks the one push that follows adopting a bigger save from
+ * another device / pre-auth progress (see decideMergeWinner). That lands as a
+ * single huge lifetimeGoo jump which reads as an impossible per-second rate;
+ * the flag tells the server this is a legitimate history transfer, so an honest
+ * multi-device player isn't benched. Recorded alongside the rate flag, never in
+ * place of it — the value is still bounded by MAX_GOO.
  */
-export async function pushCloudSave(baseRev: number, save: SaveState, rollback = false): Promise<PushResult> {
+export async function pushCloudSave(
+  baseRev: number,
+  save: SaveState,
+  opts: { rollback?: boolean; merge?: boolean } = {},
+): Promise<PushResult> {
   if (!hasAuthBackend()) return { ok: false, conflict: null };
   try {
     const res = await fetch(`${BASE()}/save`, {
       method: 'PUT',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rollback ? { baseRev, save, rollback: true } : { baseRev, save }),
+      body: JSON.stringify({
+        baseRev,
+        save,
+        ...(opts.rollback ? { rollback: true } : {}),
+        ...(opts.merge ? { merge: true } : {}),
+      }),
       keepalive: true,
     });
     if (res.status === 409) {

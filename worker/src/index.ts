@@ -932,7 +932,13 @@ const FIRST_SAVE_CPM_CAP = 1_500;
  */
 function barringRowSql(col: string, enforcePh: string, firstCapPh: string): string {
   const f = `',' || ${col}flags || ','`;
+  // A row the client marked as a cross-device merge (merge-claimed, alongside its
+  // rate flag) never bars — an honest device-linking event lands as one huge
+  // jump that reads like an impossible rate. It's still RECORDED (ratio kept for
+  // tuning, spoofs visible on the dashboard) and still bounded by MAX_GOO; it
+  // just doesn't bench the player. See verify.ts's merge-claimed flag.
   return `${col}ok = 0 AND ${col}created >= ${enforcePh}
+    AND ${f} NOT LIKE '%,merge-claimed,%'
     AND (${f} LIKE '%,goo-rate,%'
       OR ${f} LIKE '%,click-rate,%'
       OR ${f} LIKE '%,first-save-absurd,%'
@@ -1539,6 +1545,11 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       // because it is a claim from the same party the audit is watching.
       const verdict = verifySaveDelta(previousSave, sanitized, elapsedSeconds, {
         rollbackClaimed: b.rollback === true,
+        // The client can SAY a huge jump is a cross-device progress merge (the
+        // one push right after decideMergeWinner adopts a bigger save). Like
+        // rollback, it's a claim from the watched party — recorded alongside the
+        // rate flag, never in place of it; isBarredFromBoard is what spares it.
+        mergeClaimed: b.merge === true,
       });
       // First-save policy (see FIRST_SAVE_* above): the shared rule can't
       // judge a save with nothing before it, so the worker applies a flat cap

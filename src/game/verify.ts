@@ -137,7 +137,19 @@ export type PlausibilityFlag =
    * from "unexplained", which otherwise look identical and would poison the
    * evidence a threshold is eventually chosen from.
    */
-  | 'rollback-claimed';
+  | 'rollback-claimed'
+  /**
+   * The client says this large jump is a cross-device / pre-auth progress
+   * MERGE, not fabrication: a device adopted bigger progress it had already
+   * earned elsewhere (see decideMergeWinner), which lands as one lump and reads
+   * as an impossible per-second rate. Recorded ALONGSIDE the rate flag it
+   * accompanies, never instead of it — same philosophy as rollback-claimed: the
+   * ratio still goes on record for tuning, a spoofed claim stays visible, and it
+   * is the WORKER's barring logic (not this function) that decides a
+   * merge-annotated row does not bench the player. Still bounded server-side by
+   * MAX_GOO, exactly like a first save.
+   */
+  | 'merge-claimed';
 
 export interface PlausibilityVerdict {
   ok: boolean;
@@ -179,7 +191,7 @@ export function verifySaveDelta(
   previous: SaveState | null,
   next: SaveState,
   elapsedSeconds: number,
-  ctx: { rollbackClaimed?: boolean } = {},
+  ctx: { rollbackClaimed?: boolean; mergeClaimed?: boolean } = {},
 ): PlausibilityVerdict {
   const ceiling = plausibilityCeiling(next, elapsedSeconds);
   const maxClicks = (maxHumanTapsPerSec + autoClicksPerSec(next.upgrades.autoTap)) * ceiling.effectiveSeconds;
@@ -203,6 +215,14 @@ export function verifySaveDelta(
 
   // Annotate, never excuse. The decrease flags stay exactly as they were.
   if (ctx.rollbackClaimed && (gooGain < 0 || clickGain < 0)) flags.push('rollback-claimed');
+
+  // Same "annotate, never excuse" rule for a claimed cross-device merge: the
+  // rate flag it rode in on stays (the ratio is still recorded, a spoof is
+  // still visible); this only marks it so the worker's barring logic can spare
+  // an honest device-linking event. Bounded by MAX_GOO server-side regardless.
+  if (ctx.mergeClaimed && (flags.includes('goo-rate') || flags.includes('click-rate'))) {
+    flags.push('merge-claimed');
+  }
 
   return {
     ok: flags.length === 0,

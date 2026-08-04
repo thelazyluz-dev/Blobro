@@ -201,6 +201,29 @@ describe('save auditing (PR 5, shadow mode)', () => {
     expect(getBody.save.lifetimeGoo).toBe(500 + 1e18);
   });
 
+  it('a merge-claimed jump records goo-rate ALONGSIDE merge-claimed (honest cross-device adoption)', async () => {
+    const { cookie, userId } = await signUp();
+    await putSave(cookie, 0, sampleSave({ lifetimeGoo: 500, clicks: 42 })); // rev -> 1
+
+    // The client says: this huge jump is me adopting a bigger save from another
+    // device (see decideMergeWinner → pendingMerge). Sent as body.merge.
+    const res = await call('/save', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ baseRev: 1, save: sampleSave({ lifetimeGoo: 500 + 1e18, clicks: 42 }), merge: true }),
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await auditRowsFor(userId);
+    const flagged = rows[rows.length - 1];
+    const flags = flagged.flags.split(',');
+    // The rate flag is still on record (ratio kept for tuning) — annotate,
+    // never excuse — but the merge annotation rides alongside it.
+    expect(flags).toContain('goo-rate');
+    expect(flags).toContain('merge-claimed');
+    expect(flagged.ratio).toBeGreaterThan(1);
+  });
+
   it('lifetimeGoo going down is flagged lifetime-goo-decreased', async () => {
     const { cookie, userId } = await signUp();
     await putSave(cookie, 0, sampleSave({ lifetimeGoo: 500, clicks: 42 })); // rev -> 1

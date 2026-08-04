@@ -506,6 +506,14 @@ export const useGame = create<GameState>((set, get) => {
       const cloudSave = cloud?.save != null ? migrate(cloud.save, now) : null;
       const decision = decideMergeWinner(localSave, cloudSave ? { rev: cloud!.rev, save: cloudSave } : null);
 
+      // Local outranking an EXISTING cloud row means this device is adopting
+      // bigger progress it earned elsewhere (another device, or before sign-in).
+      // The seed push below carries that as one huge lifetimeGoo jump; mark it so
+      // the audit annotates it (merge-claimed) instead of benching an honest
+      // multi-device player. A fresh account with no cloud row yet (winner
+      // 'local', cloudSave null) is a normal first save and needs no mark.
+      pendingMerge = decision.winner === 'local' && cloudSave != null;
+
       if (decision.winner === 'cloud' && localSave) {
         // The cloud outranks what's on this device (higher lifetimeGoo) —
         // stash the local save under a separate key BEFORE it's replaced, so
@@ -1434,6 +1442,13 @@ let pushInFlight = false;
 // strongest cheat signal — so without this, pressing a button the game itself
 // offers looks identical to editing a save.
 let pendingRollback = false;
+// Set by loadGame when this device's own save (local) outranks an EXISTING cloud
+// row — i.e. it's adopting bigger progress earned on another device / before
+// sign-in. That adoption lands as one huge lifetimeGoo jump against a small
+// recent row, which the rate audit reads as impossible. This marks the single
+// push that carries it so the server annotates (not bars) it. Cleared once the
+// server has heard it, exactly like pendingRollback.
+let pendingMerge = false;
 
 /**
  * Push the current save at the last-known cloudRev. Best-effort and silent —
@@ -1466,7 +1481,8 @@ export async function pushCheckpoint(): Promise<void> {
     const now = Date.now();
     const save = snapshot(s, now);
     const rollback = pendingRollback;
-    let result = await pushCloudSave(s.cloudRev, save, rollback);
+    const merge = pendingMerge;
+    let result = await pushCloudSave(s.cloudRev, save, { rollback, merge });
 
     if (!result.ok && result.conflict) {
       const conflict = result.conflict;
@@ -1477,12 +1493,13 @@ export async function pushCheckpoint(): Promise<void> {
         useGame.setState({ cloudSynced: false });
         return;
       }
-      result = await pushCloudSave(conflict.rev, save, rollback);
+      result = await pushCloudSave(conflict.rev, save, { rollback, merge });
     }
 
     if (result.ok) {
       cloudDirty = false;
       if (rollback) pendingRollback = false; // only once the server has heard it
+      if (merge) pendingMerge = false; // ditto — one honest merge push, then normal deltas
       useGame.setState({ cloudRev: result.rev, cloudSynced: true });
     } else {
       useGame.setState({ cloudSynced: false });
