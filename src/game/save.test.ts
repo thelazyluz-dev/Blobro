@@ -155,6 +155,20 @@ describe('migrate', () => {
     });
   });
 
+  describe('v18: the boost-ad timers persist, capped against corrupted clocks', () => {
+    it('a pre-v18 save defaults both timers to 0', () => {
+      const s = migrate(v9Save, NOW);
+      expect(s.adRewardUntil).toBe(0);
+      expect(s.adCooldownUntil).toBe(0);
+    });
+
+    it('a far-future timestamp can never lock the button (or the boost) forever', () => {
+      const s = migrate({ ...v9Save, adRewardUntil: NOW * 99, adCooldownUntil: NOW * 99 }, NOW);
+      expect(s.adRewardUntil).toBeLessThanOrEqual(NOW + 60_000);
+      expect(s.adCooldownUntil).toBeLessThanOrEqual(NOW + 360_000);
+    });
+  });
+
   describe('v17: lifetimeHatches (prestige-safe hatch achievement ladder)', () => {
     it('a pre-v17 save seeds lifetimeHatches from totalHatches so ladder progress is not lost', () => {
       const s = migrate({ ...v9Save, totalHatches: 37 }, NOW);

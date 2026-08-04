@@ -4,6 +4,8 @@
 
 import {
   adEggCooldownMs,
+  adRewardCooldownMs,
+  adRewardDurationMs,
   charIncomeGrowth,
   charIncomeGrowthLegacyAdditive,
   evolveLevels,
@@ -39,7 +41,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 17 as const;
+export const CURRENT_VERSION = 18 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -83,6 +85,8 @@ export function defaultSaveState(now: number): SaveState {
     questsClaimed: [],
     questAllClaimed: false,
     adEggReadyAt: 0,
+    adRewardUntil: 0,
+    adCooldownUntil: 0,
     prestigeCrystals: 0,
     prestigeCount: 0,
     lastSeen: now,
@@ -292,6 +296,10 @@ export function migrate(raw: unknown, now: number): SaveState {
     // Capped at one full cooldown from now: a corrupted far-future timestamp
     // must never lock the button forever.
     adEggReadyAt: Math.min(nonNegInt(data.adEggReadyAt, 0), now + adEggCooldownMs),
+    // v18: boost timers, capped like adEggReadyAt so a corrupted far-future
+    // timestamp can never lock the button (or the boost) forever.
+    adRewardUntil: Math.min(nonNegInt(data.adRewardUntil, 0), now + adRewardDurationMs),
+    adCooldownUntil: Math.min(nonNegInt(data.adCooldownUntil, 0), now + adRewardCooldownMs),
     // v16 invariant: crystals can never exceed what TOTAL lifetime goo
     // justifies — an edited save claiming 9999 crystals is cut to what its
     // own history could have earned (see crystalsFor in game/prestige.ts).

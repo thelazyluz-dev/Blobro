@@ -169,6 +169,35 @@ describe('GET /rank — session-scoped', () => {
   });
 });
 
+describe('POST /ad-event — aggregate ad telemetry', () => {
+  const event = (cookie: string | undefined, body: unknown) =>
+    call('/ad-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
+      body: JSON.stringify(body),
+    });
+
+  it('rejects anonymous senders (spam resistance), but stores NO identity', async () => {
+    expect((await event(undefined, { purpose: 'boost', outcome: 'shown' })).status).toBe(401);
+    const cookie = await signUp();
+    expect((await event(cookie, { purpose: 'egg', outcome: 'no_fill' })).status).toBe(200);
+    const row = await env.DB.prepare('SELECT purpose, outcome FROM ad_events ORDER BY id DESC LIMIT 1').first<{
+      purpose: string;
+      outcome: string;
+    }>();
+    expect(row).toEqual({ purpose: 'egg', outcome: 'no_fill' });
+    // The privacy contract: the table has no user column at all.
+    const cols = await env.DB.prepare("SELECT name FROM pragma_table_info('ad_events')").all<{ name: string }>();
+    expect(cols.results.map((c) => c.name)).toEqual(['id', 'purpose', 'outcome', 'created']);
+  });
+
+  it('rejects values outside the allowlists', async () => {
+    const cookie = await signUp();
+    expect((await event(cookie, { purpose: 'banner', outcome: 'shown' })).status).toBe(400);
+    expect((await event(cookie, { purpose: 'boost', outcome: 'clicked' })).status).toBe(400);
+  });
+});
+
 describe('GET /top stays public', () => {
   it('needs no session — anyone can read the board', async () => {
     const res = await call('/top?by=goo');

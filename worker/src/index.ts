@@ -211,6 +211,7 @@ const DEFAULT_MIN_SAVE_INTERVAL_MS = 5_000;
 // enforcement threshold (PR 6), not history — a month is far more than enough
 // to characterise normal play.
 const AUDIT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const AD_EVENTS_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 // Cap on rows removed per nightly run, so housekeeping stays a short query.
 const SWEEP_BATCH = 5_000;
 
@@ -242,7 +243,8 @@ export default {
       url.pathname.startsWith('/auth/') ||
       url.pathname === '/save' ||
       url.pathname === '/submit' ||
-      url.pathname === '/rank';
+      url.pathname === '/rank' ||
+      url.pathname === '/ad-event';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -318,6 +320,11 @@ export default {
       return handleSubmit(request, env);
     }
 
+    // ── Ad telemetry (aggregate-only — see ad_events in schema.sql) ───────
+    if (url.pathname === '/ad-event' && request.method === 'POST') {
+      return handleAdEvent(request, env);
+    }
+
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
     if (url.pathname.startsWith('/auth/')) {
       return handleAuth(request, env, url);
@@ -365,6 +372,16 @@ export default {
         .run();
     } catch (err) {
       console.error('audit sweep failed', err);
+    }
+    try {
+      // Ad telemetry: trends matter, history doesn't — 90 days is plenty.
+      await env.DB.prepare(
+        'DELETE FROM ad_events WHERE id IN (SELECT id FROM ad_events WHERE created < ?1 LIMIT ?2)',
+      )
+        .bind(now - AD_EVENTS_RETENTION_MS, SWEEP_BATCH)
+        .run();
+    } catch (err) {
+      console.error('ad_events sweep failed', err);
     }
   },
 };
@@ -892,6 +909,42 @@ async function isBarredFromBoard(db: D1Database, userId: string): Promise<boolea
     .bind(userId, SUBMIT_ENFORCE_SINCE, FIRST_SAVE_CAP_BARS_SINCE)
     .first<{ x: number }>();
   return row !== null;
+}
+
+// ── Ad telemetry ────────────────────────────────────────────────────────────
+// One row per ad interaction: which surface, what happened, when. Requires a
+// session (so junk can't be sprayed anonymously) but deliberately stores NO
+// user id — the table must stay un-joinable to a child. Values are allowlisted
+// (never stored raw), and a failure here must never matter to the client: the
+// endpoint always answers quickly and the caller fires-and-forgets.
+const AD_PURPOSES = new Set(['boost', 'offline', 'egg']);
+const AD_OUTCOMES = new Set(['shown', 'reward', 'cancel', 'no_fill']);
+
+async function handleAdEvent(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const body = await readJsonObject(request);
+  const purpose = typeof body?.purpose === 'string' ? body.purpose : '';
+  const outcome = typeof body?.outcome === 'string' ? body.outcome : '';
+  if (!AD_PURPOSES.has(purpose) || !AD_OUTCOMES.has(outcome)) {
+    return authJson({ error: 'bad-event' }, 400, origin);
+  }
+  try {
+    await env.DB.prepare('INSERT INTO ad_events (purpose, outcome, created) VALUES (?1, ?2, ?3)')
+      .bind(purpose, outcome, Date.now())
+      .run();
+  } catch (err) {
+    // Same contract as save_audit: telemetry hiccups are logged, never surfaced.
+    console.error('ad_event insert failed', err);
+  }
+  return authJson({ ok: true }, 200, origin);
 }
 
 async function handleSubmit(request: Request, env: Env): Promise<Response> {

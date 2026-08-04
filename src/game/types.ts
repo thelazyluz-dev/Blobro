@@ -74,7 +74,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 17;
+  version: 18;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
@@ -107,6 +107,11 @@ export interface SaveState {
   // a session-only cooldown reset on every refresh — the owner caught players
   // (himself) re-claiming eggs by reloading.
   adEggReadyAt: number;
+  // v18: the boost button's timers, persisted for the same reason as v15 —
+  // a refresh reset the cooldown to zero, letting back-to-back rewatching
+  // break the cadence real ad networks frequency-cap against.
+  adRewardUntil: number; // ×N boost live until (epoch ms)
+  adCooldownUntil: number; // boost button recharges after (epoch ms)
   // v16: prestige ("גלגול מחדש") — data plumbing only until the mechanic
   // ships; see game/prestige.ts for the full semantics.
   prestigeCrystals: number; // 💎 owned; each is a permanent earnings bonus

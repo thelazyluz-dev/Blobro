@@ -147,3 +147,21 @@ CREATE TABLE IF NOT EXISTS save_audit (
 
 CREATE INDEX IF NOT EXISTS idx_save_audit_user_created ON save_audit (user_id, created DESC);
 CREATE INDEX IF NOT EXISTS idx_save_audit_ok ON save_audit (ok);
+
+-- ── Ad telemetry (aggregate-only, PR: monetization metrics) ────────────────
+--
+-- Deliberately NO user_id, NO device id, NO game numbers — just which rewarded
+-- surface, what happened, when. That is enough for every decision this table
+-- exists to feed (watch-rate per surface, no-fill rate, ads/day) while staying
+-- flatly outside profiling territory: rows cannot be joined back to a child.
+-- Swept after 90 days (see the scheduled handler) — trends matter, history
+-- doesn't.
+
+CREATE TABLE IF NOT EXISTS ad_events (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  purpose TEXT    NOT NULL,  -- 'boost' | 'offline' | 'egg'
+  outcome TEXT    NOT NULL,  -- 'shown' | 'reward' | 'cancel' | 'no_fill'
+  created INTEGER NOT NULL   -- ms since epoch; bucket to day in queries
+);
+
+CREATE INDEX IF NOT EXISTS idx_ad_events_created ON ad_events (created DESC);

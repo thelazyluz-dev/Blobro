@@ -86,6 +86,7 @@ import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
+import { reportAdEvent } from './net/ads';
 import { decideMergeWinner, fetchCloudSave, pushCloudSave } from './net/save';
 import { backupLocal, loadBackup, loadRaw, persist } from './persistence';
 import type {
@@ -404,6 +405,8 @@ function snapshot(s: GameState, now: number): SaveState {
     questsClaimed: s.questsClaimed,
     questAllClaimed: s.questAllClaimed,
     adEggReadyAt: s.adEggReadyAt,
+    adRewardUntil: s.adRewardUntil,
+    adCooldownUntil: s.adCooldownUntil,
     prestigeCrystals: s.prestigeCrystals,
     prestigeCount: s.prestigeCount,
     lastSeen: now,
@@ -518,6 +521,7 @@ export const useGame = create<GameState>((set, get) => {
         // Same monotonic logic for the ad-egg cooldown: the LATER recharge
         // time wins, so neither a refresh nor a stale cloud copy re-arms it.
         save.adEggReadyAt = Math.max(localSave.adEggReadyAt, cloudSave.adEggReadyAt);
+        save.adCooldownUntil = Math.max(localSave.adCooldownUntil, cloudSave.adCooldownUntil);
         save.prestigeCrystals = Math.max(localSave.prestigeCrystals, cloudSave.prestigeCrystals);
         save.prestigeCount = Math.max(localSave.prestigeCount, cloudSave.prestigeCount);
       }
@@ -573,6 +577,8 @@ export const useGame = create<GameState>((set, get) => {
         questsClaimed: save.questsClaimed,
         questAllClaimed: save.questAllClaimed,
         adEggReadyAt: save.adEggReadyAt,
+        adRewardUntil: save.adRewardUntil,
+        adCooldownUntil: save.adCooldownUntil,
         prestigeCrystals: save.prestigeCrystals,
         prestigeCount: save.prestigeCount,
         muted: save.muted,
@@ -931,23 +937,27 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       if (s.adOverlayOpen) return;
       if (Date.now() < s.adCooldownUntil) return;
+      reportAdEvent('boost', 'shown');
       set({ adOverlayOpen: true, adPurpose: 'boost' });
     },
     watchAdForOffline: () => {
       const s = get();
       if (s.adOverlayOpen || !s.offlineReport || s.offlineDoubled) return;
+      reportAdEvent('offline', 'shown');
       set({ adOverlayOpen: true, adPurpose: 'offline' });
     },
     watchAdForEgg: () => {
       const s = get();
       if (s.adOverlayOpen) return;
       if (Date.now() < s.adEggReadyAt) return;
+      reportAdEvent('egg', 'shown');
       set({ adOverlayOpen: true, adPurpose: 'egg' });
     },
     finishAd: () => {
       const s = get();
       if (!s.adOverlayOpen) return;
       const now = Date.now();
+      if (s.adPurpose) reportAdEvent(s.adPurpose, 'reward');
       if (s.adPurpose === 'offline') {
         const extra = s.offlineReport?.goo ?? 0; // grant the same amount again = ×2
         set({
@@ -1010,7 +1020,11 @@ export const useGame = create<GameState>((set, get) => {
         tone: 'pop',
       });
     },
-    cancelAd: () => set({ adOverlayOpen: false, adPurpose: null }),
+    cancelAd: () => {
+      const p = get().adPurpose;
+      if (p) reportAdEvent(p, 'cancel');
+      set({ adOverlayOpen: false, adPurpose: null });
+    },
 
     dismissHatch: () => set({ hatchResult: null }),
     dismissOffline: () => set({ offlineReport: null }),
@@ -1368,6 +1382,8 @@ export const useGame = create<GameState>((set, get) => {
         questsClaimed: restored.questsClaimed,
         questAllClaimed: restored.questAllClaimed,
         adEggReadyAt: Math.max(get().adEggReadyAt, restored.adEggReadyAt),
+        adRewardUntil: restored.adRewardUntil,
+        adCooldownUntil: Math.max(get().adCooldownUntil, restored.adCooldownUntil),
         prestigeCrystals: restored.prestigeCrystals,
         prestigeCount: restored.prestigeCount,
         muted: restored.muted,

@@ -10,6 +10,33 @@
 // Kids' app: ad requests are tagged child-directed (TFAT=1) via the script tag
 // attribute in index.html, so no personalized/interest-based ads are served.
 
+import { AUTH_API } from '../config';
+
+export type AdPurpose = 'boost' | 'offline' | 'egg';
+export type AdOutcome = 'shown' | 'reward' | 'cancel' | 'no_fill';
+
+/**
+ * Aggregate-only ad telemetry (see worker ad_events): which surface, what
+ * happened — nothing else. Fire-and-forget: never awaited by game logic,
+ * never throws, no-op without a backend. The session cookie rides along only
+ * to keep the endpoint spam-resistant; the server stores no identity.
+ */
+export function reportAdEvent(purpose: AdPurpose, outcome: AdOutcome): void {
+  const base = AUTH_API.trim().replace(/\/$/, '');
+  if (!base) return;
+  try {
+    void fetch(`${base}/ad-event`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purpose, outcome }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* telemetry must never matter */
+  }
+}
+
 interface AdBreakOptions {
   type: 'reward' | 'start' | 'pause' | 'next' | 'browse';
   name?: string;

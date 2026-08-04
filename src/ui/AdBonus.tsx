@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { adPlaceholderMs, adRewardMult } from '../game/balance';
-import { hasRewardedAds, showRewardedAd } from '../net/ads';
+import { hasRewardedAds, reportAdEvent, showRewardedAd } from '../net/ads';
 import { useGame } from '../store';
 import { useReducedMotion } from './useReducedMotion';
 
@@ -102,7 +102,11 @@ export function AdOverlay() {
     const handed = showRewardedAd({
       onReward: () => useGame.getState().finishAd(),
       onNoReward: () => useGame.getState().cancelAd(),
-      onNoFill: () => setFallback(true),
+      onNoFill: () => {
+        const p = useGame.getState().adPurpose;
+        if (p) reportAdEvent(p, 'no_fill');
+        setFallback(true);
+      },
     });
     if (!handed) return; // API vanished mid-flight — fall through to placeholder
   }, [open]);
