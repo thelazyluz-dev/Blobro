@@ -11,7 +11,10 @@ blob-report
 
 # Ad-hoc headless verification scripts (see CLAUDE.md). Written at the repo
 # root so playwright-core resolves, which means `git add -A` keeps sweeping
-# them in — this has happened twice.
+# them in — this has happened twice. Real scripts live in scripts/, so any
+# root-level .mjs is by definition a throwaway probe (playtest*/probe*/verify*
+# from playtest agents included).
 /shot.mjs
 /probe-*.ts
 /*.png
+/*.mjs
