@@ -46,3 +46,29 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  # The Worker's integration tests run against a LOCAL Miniflare D1 — no cloud
+  # credentials, no live database. They used to run only inside the manual
+  # "Deploy Worker" workflow, which meant a PR touching auth/leaderboard/
+  # anti-cheat could merge green and stay broken until someone clicked deploy.
+  # Running them here closes that gap; the deploy workflow still re-runs them
+  # as its own gate before wrangler deploy.
+  worker-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      # The Worker imports the shared game core from ../src/game, so the root
+      # install is part of its toolchain too.
+      - run: npm ci
+      - name: Install worker toolchain
+        working-directory: worker
+        run: npm ci
+      - name: Worker integration tests
+        working-directory: worker
+        run: npx vitest run

@@ -85,7 +85,7 @@ import {
 } from './auth';
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
 // — see worker/src/rules.ts for why this is never reimplemented locally.
-import { CURRENT_VERSION, isCleanNickname, maxCpm, migrate, verifySaveDelta } from './rules';
+import { CURRENT_VERSION, isCleanNickname, maxCpm, migrate, ownsImpossibleCreatures, verifySaveDelta } from './rules';
 
 export interface Env {
   DB: D1Database;
@@ -838,7 +838,20 @@ const MIN_SUBMIT_INTERVAL_MS = 10_000;
 //   npx wrangler d1 execute blorbo-leaderboard --remote \
 //     --command "DELETE FROM save_audit WHERE user_id = '<id>' AND ok = 0"
 const SUBMIT_ENFORCE_SINCE = Date.UTC(2026, 7, 3); // 2026-08-03, the day enforcement shipped
-const BARRING_FLAGS = ['goo-rate', 'click-rate', 'first-save-cap'] as const;
+// Barring flags: 'goo-rate' and 'click-rate' always; 'first-save-cap' only from
+// FIRST_SAVE_CAP_BARS_SINCE (below). Spelled out in isBarredFromBoard's SQL.
+
+// The first-save cap only BARS from this date on. Mandatory sign-in shipped
+// 2026-08-02, so the whole pre-auth player base migrates its local progress as
+// a "first save" in the following weeks — and an honest carried-over save is
+// easily past FIRST_SAVE_GOO_CAP (1e6 is literally the game's first milestone,
+// and AuthGate promises "your progress will be linked to your account").
+// Barring on it during the migration window was silently benching real
+// players. The flag is still RECORDED throughout (tuning data, and repeat
+// cheating is still caught by the rate flags); filtering at READ time also
+// retroactively releases everyone wrongly barred since Aug 3. After this date
+// every first save really is a brand-new account, and the cap arms itself.
+export const FIRST_SAVE_CAP_BARS_SINCE = Date.UTC(2026, 8, 15); // 2026-09-15
 
 /**
  * A first save has no previous row to diff against, so verifySaveDelta
@@ -858,7 +871,11 @@ const BARRING_FLAGS = ['goo-rate', 'click-rate', 'first-save-cap'] as const;
 const FIRST_SAVE_GOO_CAP = 1_000_000;
 const FIRST_SAVE_CLICK_CAP = 5_000;
 
-/** True when this account has a barring audit flag recorded since enforcement began. */
+/** True when this account has a barring audit flag recorded since enforcement began.
+ * The rate flags (goo-rate / click-rate) bar from SUBMIT_ENFORCE_SINCE; the
+ * first-save cap only bars from FIRST_SAVE_CAP_BARS_SINCE (see above) — filtering
+ * here, at read time, is what retroactively releases the migration-window
+ * false positives without touching a single audit row. */
 async function isBarredFromBoard(db: D1Database, userId: string): Promise<boolean> {
   // Exact-token match on the comma-joined flags column: wrap both sides in
   // delimiters so e.g. 'goo-rate' can never match inside another flag name.
@@ -866,10 +883,13 @@ async function isBarredFromBoard(db: D1Database, userId: string): Promise<boolea
     .prepare(
       `SELECT 1 AS x FROM save_audit
        WHERE user_id = ?1 AND ok = 0 AND created >= ?2
-         AND (${BARRING_FLAGS.map((_, i) => `',' || flags || ',' LIKE ?${i + 3}`).join(' OR ')})
+         AND (',' || flags || ',' LIKE '%,goo-rate,%'
+           OR ',' || flags || ',' LIKE '%,click-rate,%'
+           OR ',' || flags || ',' LIKE '%,first-save-absurd,%'
+           OR (',' || flags || ',' LIKE '%,first-save-cap,%' AND created >= ?3))
        LIMIT 1`,
     )
-    .bind(userId, SUBMIT_ENFORCE_SINCE, ...BARRING_FLAGS.map((f) => `%,${f},%`))
+    .bind(userId, SUBMIT_ENFORCE_SINCE, FIRST_SAVE_CAP_BARS_SINCE)
     .first<{ x: number }>();
   return row !== null;
 }
@@ -968,6 +988,16 @@ async function cachedTotalScores(env: Env): Promise<number> {
   return value;
 }
 
+// GET /rank runs the one query CLAUDE.md names as the D1-cost hot path (a
+// range COUNT that can scan most of the table), and unlike /submit and /save
+// it had no throttle at all — any signed-in account could loop it for free.
+// In-isolate limiter, same trade-off as cachedTotalScores: a cold isolate
+// simply starts fresh, so this bounds abuse without adding a single D1 write.
+// The UI only calls /rank on board-open, so 1 per 5s per account per metric is
+// far above any legitimate cadence.
+const RANK_MIN_INTERVAL_MS = 5_000;
+const rankLastCall = new Map<string, number>();
+
 async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo' | 'cpm'): Promise<Response> {
   const origin = request.headers.get('Origin');
   let user: UserRow | null;
@@ -977,6 +1007,15 @@ async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo' | 'c
     return authJson({ error: 'db' }, 500, origin);
   }
   if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const rlKey = `${user.id}:${col}`;
+  const nowMs = Date.now();
+  const last = rankLastCall.get(rlKey) ?? 0;
+  if (nowMs - last < RANK_MIN_INTERVAL_MS) return authJson({ error: 'too-fast' }, 429, origin);
+  rankLastCall.set(rlKey, nowMs);
+  // The map only ever grows while an isolate is warm — cap it so a wave of
+  // accounts can't balloon isolate memory (eviction just re-allows a call).
+  if (rankLastCall.size > 10_000) rankLastCall.clear();
 
   try {
     const code = leaderboardCodeFor(user.id);
@@ -1219,7 +1258,21 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       const flags: string[] = [...verdict.flags];
       let ok = verdict.ok;
       if (!previousRow && (sanitized.lifetimeGoo > FIRST_SAVE_GOO_CAP || sanitized.clicks > FIRST_SAVE_CLICK_CAP)) {
-        flags.push('first-save-cap');
+        // Two tiers. Beyond the game's own hard ceilings (MAX_GOO / MAX_CLICKS)
+        // no honest save can exist AT ALL — that is 'first-save-absurd' and it
+        // bars regardless of the calendar. Below them, a big first save during
+        // the sign-in migration window is indistinguishable from an honest
+        // pre-auth player's carried-over progress, so 'first-save-cap' only
+        // bars once FIRST_SAVE_CAP_BARS_SINCE arms it (see isBarredFromBoard).
+        const absurd = sanitized.lifetimeGoo > MAX_GOO || sanitized.clicks > MAX_CLICKS;
+        flags.push(absurd ? 'first-save-absurd' : 'first-save-cap');
+        ok = false;
+      }
+      // Structurally impossible ownership (creatures with zero hatches AND zero
+      // clicks behind them). Recorded as data only — deliberately NOT a barring
+      // flag until real distribution shows its false-positive rate is zero.
+      if (ownsImpossibleCreatures(sanitized)) {
+        flags.push('impossible-creatures');
         ok = false;
       }
       await env.DB.prepare(

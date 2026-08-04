@@ -11,7 +11,7 @@
 
 import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import worker from '../src/index';
+import worker, { FIRST_SAVE_CAP_BARS_SINCE } from '../src/index';
 import { maxCpm } from '../src/rules';
 
 // The email/password routes are disabled in production (Google-only sign-in).
@@ -197,12 +197,54 @@ describe('POST /submit — flagged accounts are not published', () => {
     expect(((await get.json()) as { save: { lifetimeGoo: number } }).save.lifetimeGoo).toBe(1e15);
   });
 
-  it('a fresh account cannot arrive already rich — the first save is capped', async () => {
+  it('a rich first save is always RECORDED, and bars only once the migration grace ends', async () => {
     const cookie = await signUp();
+    const userId = await userIdFor(cookie);
     // No history to diff against, so verifySaveDelta alone would call this
-    // clean. The worker's first-save cap is what stands in the way.
+    // clean. The worker's first-save cap records it either way.
     expect((await putSave(cookie, 0, save({ lifetimeGoo: 5e9, clicks: 300 }))).status).toBe(200);
+    const row = await env.DB.prepare(
+      `SELECT flags, ok FROM save_audit WHERE user_id = ?1 ORDER BY created DESC LIMIT 1`,
+    )
+      .bind(userId)
+      .first<{ flags: string; ok: number }>();
+    expect(row?.flags).toContain('first-save-cap');
+    expect(row?.ok).toBe(0);
+    // Whether it BARS depends on the calendar: during the sign-in migration
+    // window an honest pre-auth player's carried-over local save looks exactly
+    // like this, so the flag is data, not a verdict. After the grace date every
+    // first save really is a brand-new account and the cap arms itself.
+    const expected = Date.now() >= FIRST_SAVE_CAP_BARS_SINCE ? 403 : 200;
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(expected);
+  });
+
+  it('the first-save cap re-arms after the grace date (synthetic post-grace flag bars)', async () => {
+    const cookie = await signUp();
+    const userId = await userIdFor(cookie);
+    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    await env.DB.prepare(
+      `INSERT INTO save_audit (user_id, rev, created, elapsed_sec, goo_gain, max_gain, ratio, click_gain, flags, ok)
+       VALUES (?1, 1, ?2, 0, 5e9, 0, 0, 0, 'first-save-cap', 0)`,
+    )
+      .bind(userId, FIRST_SAVE_CAP_BARS_SINCE + 86_400_000) // one day after the cap arms
+      .run();
     expect((await submit(cookie, { name: 'רן' })).status).toBe(403);
+  });
+
+  it('a migration-window first-save flag does NOT bar — retroactive release included', async () => {
+    const cookie = await signUp();
+    const userId = await userIdFor(cookie);
+    await putSave(cookie, 0, save({ lifetimeGoo: 5_000, clicks: 300 }));
+    // Exactly the rows the Aug-3..grace window wrote for honest pre-auth
+    // players: enforcement-era created, first-save-cap only. Read-time
+    // filtering means these release without any manual D1 surgery.
+    await env.DB.prepare(
+      `INSERT INTO save_audit (user_id, rev, created, elapsed_sec, goo_gain, max_gain, ratio, click_gain, flags, ok)
+       VALUES (?1, 1, ?2, 0, 5e9, 0, 0, 0, 'first-save-cap', 0)`,
+    )
+      .bind(userId, Date.UTC(2026, 7, 3) + 3_600_000) // an hour into enforcement day
+      .run();
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(200);
   });
 
   it('a deliberate restore (decrease) does NOT bar — that is the button we gave players', async () => {
@@ -288,8 +330,12 @@ describe('the cpm board and the held-goo board', () => {
     const cookie = await signUp();
     // The attack: a fortune in `goo` next to a small, audit-clean lifetime.
     // migrate() raises lifetime to match, which makes the fortune a lifetime
-    // JUMP — and on a first save that trips the first-save cap.
+    // JUMP — and on a first save that trips the first-save cap. 1e15 is below
+    // the game's hard ceilings, so during the sign-in migration grace it is
+    // indistinguishable from an honest carried-over save and publishes; once
+    // the cap arms (FIRST_SAVE_CAP_BARS_SINCE) it bars.
     await putSave(cookie, 0, save({ goo: 1e15, lifetimeGoo: 50 }));
-    expect((await submit(cookie, { name: 'רן' })).status).toBe(403);
+    const expected = Date.now() >= FIRST_SAVE_CAP_BARS_SINCE ? 403 : 200;
+    expect((await submit(cookie, { name: 'רן' })).status).toBe(expected);
   });
 });
