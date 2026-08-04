@@ -577,3 +577,25 @@ body {
     animation: none !important;
   }
 }
+
+/* Evolution auras: a golden glow that escalates per stage, so an evolved
+   creature finally LOOKS evolved (the body itself never changes). Stage 4
+   slowly cycles hue — the "maxed" flex. Size-agnostic: drop-shadow scales
+   with the rendered svg, from an 11px tile to the 252px main creature. */
+.evo-aura-1 > svg { filter: drop-shadow(0 0 3px rgba(255, 216, 77, 0.55)); }
+.evo-aura-2 > svg { filter: drop-shadow(0 0 5px rgba(255, 216, 77, 0.8)); }
+.evo-aura-3 > svg {
+  filter: drop-shadow(0 0 6px rgba(255, 216, 77, 0.95)) drop-shadow(0 0 16px rgba(255, 216, 77, 0.45));
+}
+@keyframes blorbo-evo4-hue {
+  0% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) hue-rotate(0deg); }
+  50% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(0, 229, 255, 0.55)) hue-rotate(12deg); }
+  100% { filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55)) hue-rotate(0deg); }
+}
+.evo-aura-4 > svg { animation: blorbo-evo4-hue 3.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .evo-aura-4 > svg {
+    animation: none;
+    filter: drop-shadow(0 0 7px #ffd84d) drop-shadow(0 0 20px rgba(255, 216, 77, 0.55));
+  }
+}

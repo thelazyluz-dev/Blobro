@@ -218,7 +218,7 @@ export function CollectionScreen() {
                       {evolved && (
                         <span className="absolute end-1 top-1 text-sm">✨{stage}</span>
                       )}
-                      <CharacterBody id={id} className="h-12 w-12" />
+                      <CharacterBody id={id} className="h-12 w-12" evolution={stage} />
                       <span
                         className={`mt-1 max-w-full truncate px-1 text-[10px] ${evolved ? 'text-pop' : 'text-bone/80'}`}
                       >
@@ -391,7 +391,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           style={{ background: rarityBackground(def.rarity), boxShadow: `0 0 40px -8px ${ringColor}` }}
         >
           {evolved && <span className="absolute -end-1 -top-1 text-2xl">✨</span>}
-          <CharacterBody id={id} className="h-24 w-24" />
+          <CharacterBody id={id} className="h-24 w-24" evolution={stage} />
           <span className="absolute -bottom-1 -start-1 flex h-7 w-7 items-center justify-center rounded-full bg-void/80 text-sm ring-1 ring-bone/25">
             🔊
           </span>

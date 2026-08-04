@@ -84,6 +84,7 @@ export function ClickScreen() {
   // The chosen main creature — shown only if the player actually owns it,
   // otherwise we fall back to the classic green blob.
   const mainCreature = useGame((s) => (s.equippedMain && s.characters[s.equippedMain] ? s.equippedMain : null));
+  const mainEvolution = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.evolution ?? 0) : 0));
   const reduced = useReducedMotion();
 
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -527,7 +528,7 @@ export function ClickScreen() {
             {mainCreature ? (
               // Creature on the main screen — the worn accessory layers on top.
               <span className="relative block h-[252px] w-[252px]">
-                <CharacterBody id={mainCreature} className="h-full w-full" />
+                <CharacterBody id={mainCreature} className="h-full w-full" evolution={mainEvolution} />
                 {/* Creatures sit lower in their box than the classic blob does,
                     so the accessory is nudged down and in a touch — otherwise a
                     tall hat pokes out above the creature and hits the counter. */}
