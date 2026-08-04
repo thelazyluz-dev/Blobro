@@ -145,7 +145,7 @@ export function AdOverlay() {
           type="button"
           onClick={cancel}
           aria-label="סגור"
-          className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-xl text-bone active:scale-90"
+          className="absolute end-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-xl text-bone active:scale-90"
         >
           ✕
         </button>
