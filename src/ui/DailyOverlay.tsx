@@ -16,6 +16,7 @@ import {
   questStateFor,
   questsForDay,
 } from '../game/daily';
+import { playAchievement, playBonus } from '../audio/sfx';
 import { dailyGiftDay7Eggs } from '../game/balance';
 import { formatGoo } from '../game/format';
 import { gooPerSec } from '../game/economy';
@@ -130,7 +131,11 @@ export function DailyOverlay() {
           <button
             type="button"
             disabled={!giftReady}
-            onClick={claimDailyGift}
+            onClick={() => {
+              // The week's ritual moment was silent (sound audit) — give it a chime.
+              playBonus(useGame.getState().muted);
+              claimDailyGift();
+            }}
             className={`h-12 w-full rounded-full font-display text-lg ${
               giftReady ? 'bg-goo text-void active:scale-95' : 'bg-black/30 text-bone/40'
             }`}
@@ -165,7 +170,10 @@ export function DailyOverlay() {
                     ) : done ? (
                       <button
                         type="button"
-                        onClick={() => claimQuest(def.id)}
+                        onClick={() => {
+                          playAchievement(useGame.getState().muted);
+                          claimQuest(def.id);
+                        }}
                         className="h-9 shrink-0 rounded-full bg-goo px-4 text-sm font-bold text-void active:scale-95"
                       >
                         לָקַחַת +{formatGoo(questPays)}

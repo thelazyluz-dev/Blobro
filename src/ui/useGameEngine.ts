@@ -79,6 +79,13 @@ export function useGameEngine(): boolean {
 
       const crossed = milestonesCrossed(before, next);
       const muted = useGame.getState().muted;
+      // Whether a milestone reveal actually fired this tick — it owns the
+      // moment when it does. It must NOT swallow the magnitude bookkeeping
+      // below: milestones sit on exact round numbers (1e6, 1e9, 1e12, 1e21…),
+      // so an early return here deterministically killed the burst AND the
+      // one-time Hebrew scale-name toast on exactly the crossings that matter
+      // most (playtest-verified: "סֶקְסְטִילְיוֹן" could never fire at all).
+      let milestoneFired = false;
       if (crossed.length > 0) {
         // Each fact is celebrated only ONCE, ever (persisted) — spending and
         // re-earning across sessions never repeats a milestone.
@@ -93,16 +100,21 @@ export function useGameEngine(): boolean {
             playMilestone(muted);
             useGame.getState().triggerConfetti('rainbow');
             speakCompliment(muted);
+            milestoneFired = true;
           }
         }
-        return;
       }
 
       const beforeMag = Math.floor(Math.log10(Math.max(1, before)));
       const nextMag = Math.floor(Math.log10(Math.max(1, next)));
       if (nextMag > beforeMag && nextMag >= 2) {
-        playMagnitude(muted, nextMag);
-        useGame.getState().pulseMagnitude(nextMag);
+        // When a milestone reveal fired this tick, its full-screen takeover is
+        // the celebration — skip the burst and its sound (they'd be buried
+        // under the overlay and stack audio), but never skip the toast below.
+        if (!milestoneFired) {
+          playMagnitude(muted, nextMag);
+          useGame.getState().pulseMagnitude(nextMag);
+        }
         // The first time a session reaches a hard-to-read big scale (quadrillion
         // and up, where the HUD shows "1Qa"), name it in Hebrew so the number
         // means something — reusing the toast the rest of the game celebrates in.

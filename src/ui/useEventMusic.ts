@@ -16,7 +16,7 @@ export function useEventMusic(): void {
         step = 0; // restart the loop cleanly next time a music event begins
         return;
       }
-      playMusicStep(false, step);
+      playMusicStep(muted, step);
       step += 1;
     }, MUSIC_STEP_MS);
     return () => window.clearInterval(iv);

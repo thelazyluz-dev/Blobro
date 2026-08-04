@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { pityLegendaryThreshold, pityRareThreshold } from '../../game/balance';
+import { hatchableByRarity } from '../../game/characters';
 import { formatGoo } from '../../game/format';
 import { isLegendaryOwned } from '../../game/hatching';
 import { selectEggCost, useGame } from '../../store';
@@ -37,6 +38,12 @@ export function HatchScreen() {
     return () => window.clearInterval(iv);
   }, [adEggReadyAt]);
   const adEggReady = adEggReadyAt <= nowTs;
+
+  // Egg-collection progress: only the hatchable roster counts here (the
+  // click-unlock creatures have their own path on the click screen).
+  const hatchable = Object.values(hatchableByRarity).flat();
+  const hatchableTotal = hatchable.length;
+  const hatchableOwned = hatchable.filter((c) => characters[c.id]).length;
   const adEggWaitMin = Math.ceil(Math.max(0, adEggReadyAt - nowTs) / 60000);
 
   const canAfford = goo >= cost;
@@ -75,6 +82,11 @@ export function HatchScreen() {
       <header className="text-center">
         <h1 className="font-display text-4xl text-bone">בְּקִיעָה</h1>
         <p className="mt-1 text-sm text-bone/60">קוֹנִים בֵּיצִים — פּוֹתְחִים וּמְגַלִּים יְצוּרִים!</p>
+        {/* The chase's scoreboard — how much of the egg collection is still out
+            there (game-design audit: the tab never showed collection progress). */}
+        <p className="mt-1 text-xs text-goo tabular">
+          נֶאֶסְפוּ {hatchableOwned} מִתּוֹךְ {hatchableTotal} יְצוּרֵי בֵּיצָה 🥚
+        </p>
       </header>
 
       {/* pity meter */}
@@ -139,6 +151,24 @@ export function HatchScreen() {
           </button>
         )}
 
+        {/* Rewarded placement (opt-in, like every ad here): one free egg for
+            one ad, on a cooldown so it stays a treat. ABOVE the buy controls —
+            it used to sit below the fold on small phones, invisible exactly at
+            the game's most exciting moment (monetization audit). */}
+        <button
+          type="button"
+          onClick={watchAdForEgg}
+          disabled={!adEggReady}
+          className={`btn mb-2 w-full py-3 text-base ${
+            adEggReady ? 'bg-pop text-void glow-pop' : 'bg-surface text-bone/35 ring-hairline'
+          }`}
+        >
+          {adEggReady ? '🎬 סִרְטוֹן = בֵּיצַת מַזָּל!' : `🎬 בֵּיצַת מַזָּל נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
+        </button>
+        {adEggReady && (
+          <p className="-mt-1 mb-2 text-xs text-pop">סִכּוּי מֻגְדָּל פִּי 10 לְאַגָּדִי! ✨</p>
+        )}
+
         {/* Buy controls. */}
         <div className="mb-2 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-pop tabular ring-hairline">
           מְחִיר בֵּיצָה: {formatGoo(cost)} גּוּ
@@ -162,23 +192,6 @@ export function HatchScreen() {
           </button>
         </div>
         {!canAfford && <p className="mt-3 text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>}
-
-        {/* Rewarded placement (opt-in, like every ad here): one free egg for
-            one ad, on a cooldown so it stays a treat. Ads and the game's most
-            exciting moment, in the same button. */}
-        <button
-          type="button"
-          onClick={watchAdForEgg}
-          disabled={!adEggReady}
-          className={`btn mt-2 w-full py-3 text-base ${
-            adEggReady ? 'bg-pop text-void glow-pop' : 'bg-surface text-bone/35 ring-hairline'
-          }`}
-        >
-          {adEggReady ? '🎬 סִרְטוֹן = בֵּיצַת מַזָּל!' : `🎬 בֵּיצַת מַזָּל נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
-        </button>
-        {adEggReady && (
-          <p className="mt-1 text-xs text-pop">סִכּוּי מֻגְדָּל פִּי 10 לְאַגָּדִי! ✨</p>
-        )}
       </div>
     </div>
   );

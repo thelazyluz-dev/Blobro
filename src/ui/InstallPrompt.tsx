@@ -108,7 +108,10 @@ export function InstallPrompt() {
   if (!mode) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center p-3" role="dialog" aria-modal="false">
+    // bottom-24 (not bottom-0): sits ABOVE the bottom nav — measured at 360x640
+    // the prompt used to fully cover the tab bar, trapping early tab exploration
+    // (which is exactly when the invested-gate now fires it).
+    <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center p-3" role="dialog" aria-modal="false">
       <div
         className="anim-drop-in w-full max-w-md rounded-3xl bg-surface p-4 ring-1 ring-bone/15"
         style={{ boxShadow: '0 -10px 40px -12px #000, 0 0 0 2px #A3FF12' }}

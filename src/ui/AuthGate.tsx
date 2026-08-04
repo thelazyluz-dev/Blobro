@@ -29,17 +29,32 @@ export function AuthGate() {
   const [question, setQuestion] = useState(pickParentQuestion);
   const [answer, setAnswer] = useState('');
   const [wrong, setWrong] = useState(false);
+  const [misses, setMisses] = useState(0);
+  const [locked, setLocked] = useState(false);
 
   const check = () => {
+    if (locked) return;
     if (Number(answer.trim()) === question.answer) {
       rememberParentGate();
       setStep('open');
       return;
     }
-    // A fresh question on every miss, so mashing numbers doesn't converge.
+    // A fresh question on every miss, so mashing numbers doesn't converge —
+    // and after three misses, a calm 30s pause (the answers span only ~7
+    // values, so an unthrottled patient guesser would brute-force through).
     setWrong(true);
     setAnswer('');
     setQuestion(pickParentQuestion());
+    const n = misses + 1;
+    setMisses(n);
+    if (n >= 3) {
+      setLocked(true);
+      window.setTimeout(() => {
+        setLocked(false);
+        setMisses(0);
+        setWrong(false);
+      }, 30_000);
+    }
   };
 
   return (
@@ -94,8 +109,17 @@ export function AuthGate() {
               aria-label="תשובה לשאלת ההורים"
               className="mt-3 w-full rounded-2xl bg-black/40 px-4 py-3 text-center font-display text-xl text-bone ring-1 ring-hairline focus:outline-none focus:ring-cy"
             />
-            {wrong && <p className="mt-2 text-xs text-hot">לֹא מְדֻיָּק — נַסּוּ שׁוּב</p>}
-            <button type="button" onClick={check} className="btn mt-3 w-full bg-cy py-3 text-base text-void">
+            {locked ? (
+              <p className="mt-2 text-xs text-cy">⏳ רֶגַע שֶׁל הַפְסָקָה — חַכּוּ שֶׁהַהוֹרֶה יָבוֹא, וְנַסּוּ שׁוּב עוֹד חֲצִי דַּקָּה</p>
+            ) : (
+              wrong && <p className="mt-2 text-xs text-hot">לֹא מְדֻיָּק — נַסּוּ שׁוּב</p>
+            )}
+            <button
+              type="button"
+              onClick={check}
+              disabled={locked}
+              className="btn mt-3 w-full bg-cy py-3 text-base text-void disabled:opacity-40"
+            >
               בְּדִיקָה
             </button>
           </>

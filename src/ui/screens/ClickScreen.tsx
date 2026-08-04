@@ -24,7 +24,7 @@ import {
   rainIntervalMaxMs,
   rainIntervalMinMs,
 } from '../../game/balance';
-import { formatExact, formatGoo, formatGooHero } from '../../game/format';
+import { bigScaleNameHe, formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { autoClicksPerSec } from '../../game/economy';
 import { prestigeCrystalBonus } from '../../game/balance';
 import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
@@ -396,6 +396,11 @@ export function ClickScreen() {
           <div className="font-display text-6xl text-goo text-glow-pop">
             🚀 {formatGoo(Math.pow(10, magBanner.exp))}!
           </div>
+          {/* From 1e15 up the suffix is letter-soup (Qa/Qi/Sx) for a kid — name
+              the scale in Hebrew right on the banner, every crossing. */}
+          {bigScaleNameHe(magBanner.exp) && (
+            <div className="mt-1 font-display text-3xl text-cy">{bigScaleNameHe(magBanner.exp)}!</div>
+          )}
         </div>
       )}
 

@@ -112,7 +112,9 @@ export function HatchReveal() {
   return (
     <div
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden p-6 ${
-        showBurst && !reduced ? 'anim-screen-shake' : ''
+        // Screen-shake only for rare+ (art audit): shaking on every common —
+        // the game's most frequent action — dilutes the big moments to noise.
+        showBurst && !reduced && isShareworthy(rarity) ? 'anim-screen-shake' : ''
       }`}
       style={{ backgroundColor: 'rgba(6,2,14,0.94)' }}
     >

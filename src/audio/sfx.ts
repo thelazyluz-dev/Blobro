@@ -4,6 +4,25 @@
 
 import { getAudioContext } from './synth';
 
+// One shared output bus with a gentle compressor. Every sfx voice used to
+// connect straight to ctx.destination with nothing capping the SUM — a frenzy
+// arpeggio + rain drops + a crit + a magnitude launch landing in the same
+// ~50ms window could stack gains well past clipping on a phone speaker. The
+// compressor only bites on those pile-ups; a single voice passes untouched.
+let sfxBus: DynamicsCompressorNode | null = null;
+function busFor(ctx: AudioContext): DynamicsCompressorNode {
+  if (!sfxBus || sfxBus.context !== ctx) {
+    sfxBus = ctx.createDynamicsCompressor();
+    sfxBus.threshold.value = -18;
+    sfxBus.knee.value = 12;
+    sfxBus.ratio.value = 4;
+    sfxBus.attack.value = 0.003;
+    sfxBus.release.value = 0.25;
+    sfxBus.connect(ctx.destination);
+  }
+  return sfxBus;
+}
+
 interface VoiceOpts {
   type?: OscillatorType;
   gain?: number;
@@ -33,7 +52,7 @@ function voice(
 
   osc.connect(env);
   env.connect(lp);
-  lp.connect(ctx.destination);
+  lp.connect(busFor(ctx));
 
   osc.start(start);
   osc.stop(start + dur + decay);
@@ -82,7 +101,7 @@ function critAccent(ctx: AudioContext, freq: number, when: number): void {
 
 /** The original standalone crit zap — still used when no melody is playing. */
 function critTone(ctx: AudioContext, now: number): void {
-  voice(ctx, 1500, now, 0.05, { type: 'sawtooth', gain: 0.2, filter: 7000, decay: 0.06 });
+  voice(ctx, 1500, now, 0.05, { type: 'sawtooth', gain: 0.14, filter: 5000, decay: 0.06 });
   voice(ctx, 500, now + 0.03, 0.08, { type: 'square', gain: 0.2, filter: 4000, decay: 0.1 });
   voice(ctx, 1000, now + 0.03, 0.08, { type: 'sine', gain: 0.1, filter: 8000, decay: 0.1 });
 }
@@ -207,7 +226,7 @@ export function playBonus(muted: boolean): void {
   if (!ctx) return;
   const now = ctx.currentTime;
   voice(ctx, 160, now, 0.14, { type: 'square', gain: 0.2, filter: 1200, decay: 0.16 });
-  [1200, 1600, 2100, 2600].forEach((f, i) =>
+  [1319, 1568, 2093, 2637].forEach((f, i) =>
     voice(ctx, f, now + 0.04 + i * 0.05, 0.05, { type: 'sine', gain: 0.12, filter: 8000, decay: 0.08 }),
   );
 }
@@ -215,51 +234,6 @@ export function playBonus(muted: boolean): void {
 /** Soft descending buzz when something can't be afforded. */
 export function playError(muted: boolean): void {
   sequence(muted, [220, 165], 0.09, 0.1, { type: 'sawtooth', gain: 0.1, filter: 1400, decay: 0.06 });
-}
-
-/**
- * A rising "charge" sweep for the egg-shake suspense. Pitch and length grow
- * with rarityLevel (0..3) so a legendary buildup sounds bigger. Returns a stop
- * function for cleanup.
- */
-export function playCharge(muted: boolean, durationMs: number, rarityLevel: number): () => void {
-  if (muted) return () => {};
-  const ctx = getAudioContext();
-  if (!ctx) return () => {};
-  const now = ctx.currentTime;
-  const dur = durationMs / 1000;
-  const top = 300 + rarityLevel * 260;
-
-  const osc = ctx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(90, now);
-  osc.frequency.exponentialRampToValueAtTime(top, now + dur);
-
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.setValueAtTime(500, now);
-  lp.frequency.exponentialRampToValueAtTime(4000, now + dur);
-
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, now);
-  env.gain.exponentialRampToValueAtTime(0.12, now + dur * 0.8);
-  env.gain.exponentialRampToValueAtTime(0.22, now + dur);
-
-  osc.connect(lp);
-  lp.connect(env);
-  env.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + dur + 0.05);
-
-  return () => {
-    try {
-      env.gain.cancelScheduledValues(ctx.currentTime);
-      env.gain.setValueAtTime(0.0001, ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.02);
-    } catch {
-      /* already stopped */
-    }
-  };
 }
 
 /** A big impact when the egg finally cracks open. */
@@ -332,7 +306,7 @@ export function playMagnitude(muted: boolean, exponent: number): void {
   nbp.Q.value = 0.8;
   noise.connect(nbp);
   nbp.connect(nGain);
-  nGain.connect(ctx.destination);
+  nGain.connect(busFor(ctx));
   noise.start(now);
   noise.stop(now + dur);
 
@@ -351,7 +325,7 @@ export function playMagnitude(muted: boolean, exponent: number): void {
   olp.frequency.exponentialRampToValueAtTime(7000, now + dur * 0.8);
   osc.connect(olp);
   olp.connect(oGain);
-  oGain.connect(ctx.destination);
+  oGain.connect(busFor(ctx));
   osc.start(now);
   osc.stop(now + dur);
 

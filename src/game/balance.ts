@@ -123,7 +123,12 @@ export const upgradeConfig: Record<UpgradeId, UpgradeConfig> = {
   // +3% chance for a critical tap per level.
   crit: { costBase: 800, costGrowth: 2.15, effectPerLevel: 0.03 },
   // shifts hatch odds toward rare/legendary per level.
-  luck: { costBase: 1200, costGrowth: 2.25, effectPerLevel: 0.02 },
+  // costGrowth 2.25 → 1.9 (gacha audit): luck is the biggest lever on the
+  // collection chase (~12x fewer hatches to full at cap, per simulation), but
+  // at 2.25 maxing it cost ~2.1B goo — affordable only once the player is
+  // already circling prestige, i.e. AFTER the chase it exists to accelerate.
+  // At 1.9 max-luck lands near ~300M, inside the actual collection window.
+  luck: { costBase: 1200, costGrowth: 1.9, effectPerLevel: 0.02 },
 };
 
 // --- Critical taps -----------------------------------------------------------

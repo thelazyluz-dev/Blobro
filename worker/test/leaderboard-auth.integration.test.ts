@@ -146,6 +146,17 @@ describe('GET /rank — session-scoped', () => {
     expect((await call('/rank?by=goo')).status).toBe(401);
   });
 
+  it('is rate-limited per account per metric — the D1-cost hot path cannot be looped', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ goo: 9, lifetimeGoo: 9 }));
+    await submit(cookie, { name: 'רן' });
+    expect((await call('/rank?by=goo', { headers: { Cookie: cookie } })).status).toBe(200);
+    // Immediate repeat on the SAME metric → throttled.
+    expect((await call('/rank?by=goo', { headers: { Cookie: cookie } })).status).toBe(429);
+    // A different metric has its own key and still answers.
+    expect((await call('/rank?by=clicks', { headers: { Cookie: cookie } })).status).toBe(200);
+  });
+
   it('returns this account row, with no code in the URL', async () => {
     const cookie = await signUp();
     await putSave(cookie, 0, save({ goo: 9_876, lifetimeGoo: 9_876 }));

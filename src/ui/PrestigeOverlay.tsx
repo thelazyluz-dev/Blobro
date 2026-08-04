@@ -6,6 +6,7 @@
 // reset is the biggest button in the game and a mistaken tap must be both
 // hard to make and fully undoable (the roll stashes a backup first).
 
+import { playMilestone } from '../audio/sfx';
 import {
   canPrestige,
   crystalsGained,
@@ -90,7 +91,7 @@ export function PrestigeOverlay() {
         <div className="rounded-2xl bg-black/30 p-3 text-sm ring-1 ring-hairline">
           <div className="mb-1 font-bold text-hot">מָה מִתְאַפֵּס:</div>
           <div className="mb-1 text-xs text-bone/60">
-            כָּרֶגַע אַתָּה מַרְוִיחַ <span className="tabular text-bone">{formatGoo(gps)}</span> גּוּ בְּשְׁנִיָּה — וְתַתְחִיל שׁוּב מֵאֶפֶס.
+            כָּרֶגַע אַתָּה מַרְוִיחַ <span className="tabular text-bone">{formatGoo(gps)}</span> גּוּ לְשְׁנִיָּה — וְתַתְחִיל שׁוּב מֵאֶפֶס.
           </div>
           <ul className="ms-4 list-disc text-bone/75">
             <li>הַגּוּ שֶׁבַּיָּד וְכָל הַיְּצוּרִים</li>
@@ -113,7 +114,11 @@ export function PrestigeOverlay() {
         <button
           type="button"
           disabled={!ready}
-          onClick={() => void roll()}
+          onClick={() => {
+            // The game's biggest decision was silent (sound audit) — fanfare it.
+            playMilestone(useGame.getState().muted);
+            void roll();
+          }}
           className="btn mt-4 w-full bg-cy py-3 font-display text-xl text-void"
         >
           כֵּן, מְגַלְגְּלִים! 💎
