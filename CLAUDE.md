@@ -96,13 +96,18 @@ unverified work. Report failures honestly, with the output.
 - `src/net/*` — leaderboard client and the H5 rewarded-ads wrapper. Both degrade
   gracefully to no-ops when the backend/API is unavailable.
 - `worker/` — Cloudflare Worker + D1. **Outside** the app tsconfig on purpose.
-  - Leaderboard: each player's **rank is computed LIVE and exact** on every board
-    open, but the shared **"total players" number is cached in-isolate for 60s**
-    (`cachedTotalScores` in `index.ts`). It used to run `SELECT COUNT(*) FROM
-    scores` — a full-table scan — on *every* open, which was the single biggest
-    source of D1 rows-read. A cold isolate simply does the old scan, so the cache
-    can only help; it adds **zero writes**. Player-visible effect: none, beyond the
-    total being up to 60s stale. If you ever need it exact/global, move it to KV.
+  - Leaderboard: each player's **rank is APPROXIMATE, from a once-a-minute score
+    histogram** (`approxRank`/`scoreHistogram` in `index.ts`), and the shared
+    **"total players" number is cached in-isolate for 60s** (`cachedTotalScores`).
+    Both used to be full/range `COUNT` scans on *every* board open — the single
+    biggest source of D1 rows-read. Now each board's scores are bucketed by
+    base-10 magnitude (`CAST(log(col)*20 AS INTEGER)` — D1's `log()` is base-10;
+    `log10` isn't authorized) in one grouped scan per 60s, cached in-isolate; a
+    rank is then a lookup costing **zero** extra reads between refreshes, and adds
+    **zero writes** (the ~$600/mo trap was per-minute rank *writes* — we don't do
+    that). Ranks read as "~#1,234" and equal the old exact rank whenever
+    neighbours land in separate buckets. TTL override: `RANK_HISTOGRAM_TTL_MS`
+    (tests set `0`). A cold isolate simply does the grouped scan, so it only helps.
 - Save migrations: bump `CURRENT_VERSION` in `game/save.ts`, default the new
   field in `defaultSaveState` **and** `migrate`, and add a test. Never drop a
   player's progress.
@@ -169,10 +174,14 @@ they move with the cadences and the assumptions written at the top of that file.
   Workers Paid covers you comfortably to ~25k DAU.
 - **Runs smoothly at 20k:** edge Workers + a SW-cached static PWA mean peak is
   ~tens of requests/sec and ~10GB/mo Pages egress — nowhere near any limit.
-- **The one thing to fix before ~25–30k DAU:** the per-player rank `COUNT`s (still
-  live) become the hot path. Approximate ranks from a **once-a-minute score
-  histogram** (cheap reads, tiny writes). Do **NOT** recompute-and-write every
-  player's rank each minute — that's ~650M writes/mo ≈ **$600/mo**, a trap.
+- **~~The one thing to fix before ~25–30k DAU~~ — DONE:** the per-player rank
+  `COUNT`s were the hot path; they're now a **once-a-minute score histogram**
+  (`approxRank` in `index.ts`, see Architecture above) — reads only, zero writes.
+  The trap we deliberately avoided: recompute-and-write every player's rank each
+  minute (~650M writes/mo ≈ **$600/mo**). NB: the load numbers above predate this
+  fix (the sim still models `rankPayload` as range `COUNT`s), so real D1
+  rows-read at scale are now **well below** the ~20B/mo quoted — re-derive with
+  the histogram if you need a current figure.
 - Reminder: D1 bills **rows read** = rows a query *scans*. `COUNT(*)` over the
   board scans the whole table — which is exactly why the total is cached (above).
 
