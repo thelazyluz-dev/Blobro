@@ -22,6 +22,7 @@ import { maxCpm } from '../src/rules';
 
 (env as { MIN_SAVE_INTERVAL_MS?: string }).MIN_SAVE_INTERVAL_MS = '0';
 (env as { RANK_HISTOGRAM_TTL_MS?: string }).RANK_HISTOGRAM_TTL_MS = '0';
+(env as { ADMIN_TOKEN?: string }).ADMIN_TOKEN = 'test-admin-token';
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const request = new Request(`http://worker.example${path}`, init);
@@ -206,6 +207,39 @@ describe('POST /ad-event — aggregate ad telemetry', () => {
     expect((await event(cookie, { purpose: 'boost', outcome: 'reward' })).status).toBe(200);
     const after = (await env.DB.prepare('SELECT COUNT(*) AS c FROM ad_events').first<{ c: number }>())!.c;
     expect(after - before).toBe(1);
+  });
+});
+
+describe('GET /admin/stats — owner dashboard, bearer-gated & aggregate-only', () => {
+  const stats = (token?: string) =>
+    call('/admin/stats', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  it('rejects a missing or wrong token', async () => {
+    expect((await stats()).status).toBe(401);
+    expect((await stats('nope')).status).toBe(401);
+  });
+
+  it('returns aggregate stats with the right token — no per-user PII', async () => {
+    // Seed one player so the counts are non-trivial.
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ goo: 4242, lifetimeGoo: 4242 }));
+    await submit(cookie, { name: 'רן' });
+
+    const res = await stats('test-admin-token');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    for (const k of ['accounts', 'activeNow', 'active24h', 'newAccounts7d', 'boardSize', 'topGoo', 'topClicks', 'ads']) {
+      expect(body).toHaveProperty(k);
+    }
+    expect(body.accounts as number).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(body.topGoo)).toBe(true);
+    // The privacy contract: leaderboard rows carry a nickname + score, never an
+    // email/id, and there is no user list anywhere in the payload.
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain('@example.com');
+    for (const row of body.topGoo as Array<Record<string, unknown>>) {
+      expect(Object.keys(row).sort()).toEqual(['name', 'score']);
+    }
   });
 });
 

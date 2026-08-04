@@ -81,6 +81,7 @@ import {
   parseCookieValues,
   parseCookies,
   sessionExpiresAt,
+  timingSafeEqual,
   verifyPassword,
 } from './auth';
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
@@ -99,6 +100,9 @@ export interface Env {
   MIN_SAVE_INTERVAL_MS?: string; // default 5000 — see DEFAULT_MIN_SAVE_INTERVAL_MS
   // Password sign-up/sign-in. OFF unless explicitly "1" — see passwordAuthEnabled.
   ALLOW_PASSWORD_AUTH?: string;
+  // Owner dashboard bearer token (GET /admin/stats). A SECRET — set once via
+  // `wrangler secret put ADMIN_TOKEN`. Absent → the endpoint answers 401 to all.
+  ADMIN_TOKEN?: string;
 }
 
 const CORS: Record<string, string> = {
@@ -145,7 +149,7 @@ function resolveAllowedOrigins(env: Env): void {
 function authCorsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
     Vary: 'Origin',
   };
@@ -244,7 +248,8 @@ export default {
       url.pathname === '/save' ||
       url.pathname === '/submit' ||
       url.pathname === '/rank' ||
-      url.pathname === '/ad-event';
+      url.pathname === '/ad-event' ||
+      url.pathname === '/admin/stats';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -323,6 +328,11 @@ export default {
     // ── Ad telemetry (aggregate-only — see ad_events in schema.sql) ───────
     if (url.pathname === '/ad-event' && request.method === 'POST') {
       return handleAdEvent(request, env);
+    }
+
+    // ── Owner dashboard (bearer-token, aggregate stats only) ──────────────
+    if (url.pathname === '/admin/stats' && request.method === 'GET') {
+      return handleAdminStats(request, env);
     }
 
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
@@ -974,6 +984,52 @@ async function handleAdEvent(request: Request, env: Env): Promise<Response> {
     console.error('ad_event insert failed', err);
   }
   return authJson({ ok: true }, 200, origin);
+}
+
+// GET /admin/stats — the owner's private dashboard feed. Bearer-token gated
+// (ADMIN_TOKEN secret, compared constant-time), and deliberately AGGREGATE-ONLY:
+// counts, leaderboard nicknames and ad-outcome tallies — never an email, id, or
+// any per-child row, so the dashboard can't become a PII surface even if the
+// token leaks. "Active now" is approximated from saves touched in the last 5
+// minutes (checkpoints run every 60s), costing zero extra writes.
+async function handleAdminStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  const expected = (env.ADMIN_TOKEN ?? '').trim();
+  const header = request.headers.get('Authorization') ?? '';
+  const provided = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  const enc = new TextEncoder();
+  const authed =
+    expected.length > 0 && provided.length > 0 && timingSafeEqual(enc.encode(provided), enc.encode(expected));
+  if (!authed) return authJson({ error: 'unauthorized' }, 401, origin);
+
+  try {
+    const now = Date.now();
+    const count = async (sql: string, ...binds: number[]) =>
+      (await env.DB.prepare(sql).bind(...binds).first<{ c: number }>())?.c ?? 0;
+    const rows = async (sql: string, ...binds: number[]) =>
+      (await env.DB.prepare(sql).bind(...binds).all()).results ?? [];
+
+    const [accounts, activeNow, active24h, newAccounts7d, boardSize] = await Promise.all([
+      count('SELECT COUNT(*) AS c FROM users'),
+      count('SELECT COUNT(*) AS c FROM saves WHERE updated >= ?1', now - 5 * 60_000),
+      count('SELECT COUNT(*) AS c FROM saves WHERE updated >= ?1', now - 86_400_000),
+      count('SELECT COUNT(*) AS c FROM users WHERE created >= ?1', now - 7 * 86_400_000),
+      count('SELECT COUNT(*) AS c FROM scores'),
+    ]);
+    const [topGoo, topClicks, ads] = await Promise.all([
+      rows('SELECT name, goo AS score FROM scores ORDER BY goo DESC, updated ASC LIMIT 10'),
+      rows('SELECT name, clicks AS score FROM scores ORDER BY clicks DESC, updated ASC LIMIT 10'),
+      rows('SELECT purpose, outcome, COUNT(*) AS count FROM ad_events WHERE created >= ?1 GROUP BY purpose, outcome', now - 7 * 86_400_000),
+    ]);
+
+    return authJson(
+      { generatedAt: now, accounts, activeNow, active24h, newAccounts7d, boardSize, topGoo, topClicks, ads },
+      200,
+      origin,
+    );
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
 }
 
 async function handleSubmit(request: Request, env: Env): Promise<Response> {

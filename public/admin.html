@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>בלורבו — דשבורד</title>
+    <style>
+      :root {
+        --void: #0c0819; --panel: #16112c; --panel2: #1e1740;
+        --hair: rgba(255,255,255,.1); --ink: #f2edff; --muted: #a79dc4; --faint: #7c749b;
+        --goo: #a3ff12; --gold: #ffd84d; --cy: #33e1ff; --hot: #ff6b8a;
+        --sans: system-ui, -apple-system, 'Segoe UI', Rubik, Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--void); color: var(--ink); font-family: var(--sans);
+        line-height: 1.5; -webkit-text-size-adjust: 100%;
+        font-variant-numeric: tabular-nums;
+        background-image: radial-gradient(900px 500px at 85% -10%, rgba(51,225,255,.1), transparent 60%);
+        background-attachment: fixed; min-height: 100vh;
+      }
+      .wrap { max-width: 940px; margin: 0 auto; padding: 24px 16px 60px; }
+      h1 { font-size: 1.5rem; margin: 0; font-weight: 800; }
+      .sub { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      button, input {
+        font-family: inherit; font-size: 1rem; border-radius: 12px; border: 1px solid var(--hair);
+        background: var(--panel2); color: var(--ink); padding: 10px 14px;
+      }
+      button { cursor: pointer; font-weight: 700; }
+      button.primary { background: var(--cy); color: #04121a; border-color: transparent; }
+      button.ghost { background: var(--panel); color: var(--muted); }
+      .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 16px; }
+      /* login */
+      #login { max-width: 360px; margin: 12vh auto 0; text-align: center; }
+      #login h1 { margin-bottom: 4px; }
+      #login .card { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+      #login input { text-align: center; }
+      .err { color: var(--hot); font-size: .85rem; min-height: 1.2em; }
+      /* dashboard */
+      #dash { display: none; }
+      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
+      .kpi { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 14px 16px; }
+      .kpi .l { font-size: .76rem; color: var(--muted); font-weight: 600; }
+      .kpi .v { font-size: 1.8rem; font-weight: 800; margin-top: 4px; }
+      .kpi.now .v { color: var(--goo); } .kpi.gold .v { color: var(--gold); } .kpi.cy .v { color: var(--cy); }
+      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+      h2 { font-size: 1rem; margin: 0 0 10px; }
+      table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+      th, td { text-align: start; padding: 7px 8px; border-bottom: 1px solid var(--hair); }
+      th { color: var(--muted); font-size: .75rem; font-weight: 700; }
+      td.n { text-align: end; font-weight: 700; }
+      .rank { color: var(--faint); width: 1.5em; }
+      .empty { color: var(--faint); font-size: .85rem; padding: 8px; }
+      .foot { color: var(--faint); font-size: .75rem; margin-top: 20px; text-align: center; }
+      .pill { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; background: var(--panel2); color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- LOGIN -->
+      <section id="login">
+        <h1>🫧 דשבורד בלורבו</h1>
+        <div class="sub">כניסת מנהל</div>
+        <div class="card">
+          <input id="token" type="password" placeholder="סיסמת מנהל" autocomplete="current-password" />
+          <button class="primary" id="enter">כניסה</button>
+          <div class="err" id="loginErr"></div>
+        </div>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section id="dash">
+        <div class="row">
+          <div>
+            <h1>🫧 דשבורד בלורבו</h1>
+            <div class="sub" id="stamp">—</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost" id="refresh">רענון</button>
+            <button class="ghost" id="logout">יציאה</button>
+          </div>
+        </div>
+
+        <div class="kpis" id="kpis"></div>
+
+        <div class="grid2">
+          <div class="card">
+            <h2>🏆 מובילים — גו</h2>
+            <table><thead><tr><th class="rank">#</th><th>כינוי</th><th class="n">גו</th></tr></thead><tbody id="topGoo"></tbody></table>
+          </div>
+          <div class="card">
+            <h2>👆 מובילים — לחיצות</h2>
+            <table><thead><tr><th class="rank">#</th><th>כינוי</th><th class="n">לחיצות</th></tr></thead><tbody id="topClicks"></tbody></table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <h2>🎬 פרסומות — 7 ימים אחרונים <span class="pill">מצרפי, ללא זיהוי</span></h2>
+          <table><thead><tr><th>מטרה</th><th>תוצאה</th><th class="n">כמות</th></tr></thead><tbody id="ads"></tbody></table>
+        </div>
+
+        <div class="foot" id="foot"></div>
+      </section>
+    </div>
+
+    <script>
+      // API base: the Worker. Override with ?api=... for local testing.
+      const API = new URLSearchParams(location.search).get('api') || 'https://api.bl-or-bo.com';
+      const KEY = 'blorbo-admin-token';
+      const $ = (id) => document.getElementById(id);
+      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
+      const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+      let timer = 0;
+
+      async function load(token) {
+        const res = await fetch(`${API}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401) throw new Error('סיסמה שגויה');
+        if (!res.ok) throw new Error('שגיאת שרת (' + res.status + ')');
+        return res.json();
+      }
+
+      function kpi(cls, label, value) {
+        return `<div class="kpi ${cls}"><div class="l">${label}</div><div class="v">${fmt(value)}</div></div>`;
+      }
+
+      function render(d) {
+        $('kpis').innerHTML =
+          kpi('now', 'פעילים עכשיו', d.activeNow) +
+          kpi('cy', 'פעילים ב-24ש׳', d.active24h) +
+          kpi('', 'חשבונות', d.accounts) +
+          kpi('gold', 'חדשים (7ימים)', d.newAccounts7d) +
+          kpi('', 'בטבלת המובילים', d.boardSize);
+
+        const list = (rows) =>
+          rows && rows.length
+            ? rows.map((r, i) => `<tr><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td class="n">${fmt(r.score)}</td></tr>`).join('')
+            : '';
+        $('topGoo').innerHTML = list(d.topGoo) || '<tr><td colspan="3" class="empty">אין נתונים עדיין</td></tr>';
+        $('topClicks').innerHTML = list(d.topClicks) || '<tr><td colspan="3" class="empty">אין נתונים עדיין</td></tr>';
+
+        $('ads').innerHTML =
+          d.ads && d.ads.length
+            ? d.ads.map((a) => `<tr><td>${esc(a.purpose)}</td><td>${esc(a.outcome)}</td><td class="n">${fmt(a.count)}</td></tr>`).join('')
+            : '<tr><td colspan="3" class="empty">אין אירועי פרסומת עדיין (הפרסומות עוד לא פעילות)</td></tr>';
+
+        $('stamp').textContent = 'עודכן ' + new Date(d.generatedAt).toLocaleString('he-IL');
+      }
+
+      function showDash() {
+        $('login').style.display = 'none';
+        $('dash').style.display = 'block';
+      }
+      function showLogin(msg) {
+        $('dash').style.display = 'none';
+        $('login').style.display = 'block';
+        $('loginErr').textContent = msg || '';
+        if (timer) clearInterval(timer);
+      }
+
+      async function refresh() {
+        const token = sessionStorage.getItem(KEY);
+        if (!token) return showLogin();
+        try {
+          render(await load(token));
+        } catch (e) {
+          if (String(e.message).includes('שגויה')) {
+            sessionStorage.removeItem(KEY);
+            showLogin(e.message);
+          } else {
+            $('foot').textContent = e.message;
+          }
+        }
+      }
+
+      $('enter').onclick = async () => {
+        const token = $('token').value.trim();
+        if (!token) return;
+        try {
+          const d = await load(token);
+          sessionStorage.setItem(KEY, token);
+          showDash();
+          render(d);
+          if (timer) clearInterval(timer);
+          timer = setInterval(refresh, 30_000); // live-ish
+        } catch (e) {
+          $('loginErr').textContent = e.message;
+        }
+      };
+      $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('enter').click(); });
+      $('refresh').onclick = refresh;
+      $('logout').onclick = () => { sessionStorage.removeItem(KEY); showLogin(); };
+
+      // Resume a session token on reload.
+      if (sessionStorage.getItem(KEY)) {
+        showDash();
+        refresh();
+        timer = setInterval(refresh, 30_000);
+      }
+    </script>
+  </body>
+</html>
