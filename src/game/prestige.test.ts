@@ -22,8 +22,9 @@ describe('crystalsFor — the log curve', () => {
     expect(crystalsFor(prestigeFirstCrystalGoo)).toBe(1);
     expect(crystalsFor(prestigeFirstCrystalGoo * 10)).toBe(prestigeCrystalsPerDecade + 1);
     expect(crystalsFor(prestigeFirstCrystalGoo * 100)).toBe(prestigeCrystalsPerDecade * 2 + 1);
-    // The real anchor from the calibration table: 1e15 → 31 crystals.
-    expect(crystalsFor(1e15)).toBe(31);
+    // Anchor from the calibration table, at the raised 1e10 threshold:
+    // 1e15 = five decades above 1e10 → 5×5 + 1 = 26 crystals.
+    expect(crystalsFor(1e15)).toBe(26);
   });
 
   it('is monotonic — more lifetime never means fewer crystals', () => {

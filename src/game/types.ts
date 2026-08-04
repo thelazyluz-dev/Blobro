@@ -74,14 +74,15 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 16;
+  version: 17;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
   upgrades: Upgrades;
   characters: OwnedCharacters;
   eggs: number; // unopened eggs in the player's inventory
-  totalHatches: number;
+  totalHatches: number; // resets on prestige — drives the egg price curve + pity
+  lifetimeHatches: number; // never resets — the hatch achievement ladder reads this
   sinceRare: number;
   bonusesCollected: number;
   clicks: number; // manual taps by the current player (for the leaderboard)

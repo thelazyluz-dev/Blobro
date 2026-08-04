@@ -46,10 +46,12 @@ export function gooToNextCrystal(save: Pick<SaveState, 'lifetimeGoo' | 'prestige
  *
  * RESET (the fresh run): held goo, creatures, upgrades, egg inventory, the
  * egg price curve (totalHatches) and the pity streak.
- * KEPT (forever): lifetime goo (see header), clicks + bestCpm (leaderboard
- * records), achievements and their bonus, all cosmetics, milestones already
- * celebrated (each fact shows once, ever — product rule), the daily loop,
- * the ad-egg cooldown, the local leaderboard, and the rng stream.
+ * KEPT (forever): lifetime goo (see header), lifetimeHatches (so the hatch
+ * achievement ladder never rewinds — only the egg-price totalHatches resets),
+ * clicks + bestCpm (leaderboard records), achievements and their bonus, all
+ * cosmetics, milestones already celebrated (each fact shows once, ever —
+ * product rule), the daily loop, the ad-egg cooldown, the local leaderboard,
+ * and the rng stream.
  */
 export function applyPrestige(save: SaveState, _now: number): SaveState {
   return {

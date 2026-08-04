@@ -103,12 +103,13 @@ describe('migrate', () => {
       // lifetimeGoo below the first-crystal threshold → zero crystals possible.
       const cheat = migrate({ ...v9Save, prestigeCrystals: 9_999 }, NOW);
       expect(cheat.prestigeCrystals).toBe(0);
-      // 1e10 lifetime justifies 6 on the log curve; a claim of 5 is kept…
-      const ok = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 5 }, NOW);
+      // 1e12 lifetime justifies 11 on the log curve (2 decades above the 1e10
+      // threshold, ×5 +1); a claim of 5 is kept…
+      const ok = migrate({ ...v9Save, lifetimeGoo: 1e12, prestigeCrystals: 5 }, NOW);
       expect(ok.prestigeCrystals).toBe(5);
-      // …and a claim of 50 is cut to the justified 6.
-      const cut = migrate({ ...v9Save, lifetimeGoo: 1e10, prestigeCrystals: 50 }, NOW);
-      expect(cut.prestigeCrystals).toBe(6);
+      // …and a claim of 50 is cut to the justified 11.
+      const cut = migrate({ ...v9Save, lifetimeGoo: 1e12, prestigeCrystals: 50 }, NOW);
+      expect(cut.prestigeCrystals).toBe(11);
     });
   });
 
@@ -142,6 +143,19 @@ describe('migrate', () => {
       );
       expect(s.questProgress).toEqual({ taps: 800 }); // capped at the taps target
       expect(s.questsClaimed).toEqual(['taps']); // deduped, unknown ids dropped
+    });
+  });
+
+  describe('v17: lifetimeHatches (prestige-safe hatch achievement ladder)', () => {
+    it('a pre-v17 save seeds lifetimeHatches from totalHatches so ladder progress is not lost', () => {
+      const s = migrate({ ...v9Save, totalHatches: 37 }, NOW);
+      expect(s.lifetimeHatches).toBe(37);
+    });
+
+    it('keeps the larger of a stored lifetimeHatches vs totalHatches (never rewinds)', () => {
+      // A post-prestige save: totalHatches was reset low, lifetime is the real total.
+      const s = migrate({ ...v9Save, totalHatches: 2, lifetimeHatches: 500 }, NOW);
+      expect(s.lifetimeHatches).toBe(500);
     });
   });
 

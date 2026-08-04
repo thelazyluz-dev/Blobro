@@ -24,7 +24,11 @@ export const prestigeCrystalBonus = 0.05; // +5% income AND taps per crystal, fo
 // polynomial curve explodes under orders-of-magnitude-per-day growth).
 // Crystals per ORDER OF MAGNITUDE of total lifetime goo: steady, never
 // runaway, always a next crystal within reach (~×1.6 growth apart).
-export const prestigeFirstCrystalGoo = 1e9; // first roll ≈ end of a good first day
+// Raised 1e9 → 1e10 (playtest): at 1e9 the roll button lit up ~end of day 1 for
+// a single +5% crystal, inviting a curious kid to reset their whole build for a
+// trivial gain. One decade later the FIRST roll is already worth ~5-6 crystals,
+// so the mechanic's debut is a real reward, not a trap. (owner-tunable)
+export const prestigeFirstCrystalGoo = 1e10;
 export const prestigeCrystalsPerDecade = 5; // +25% per ×10 lifetime growth
 
 // --- Clicking ----------------------------------------------------------------

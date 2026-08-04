@@ -121,6 +121,7 @@ interface GameState {
   characters: OwnedCharacters;
   eggs: number;
   totalHatches: number;
+  lifetimeHatches: number;
   sinceRare: number;
   bonusesCollected: number;
   clicks: number;
@@ -333,7 +334,7 @@ function equipPatch(kind: CosmeticKind, id: string): Partial<GameState> {
 function achContextOf(s: {
   characters: OwnedCharacters;
   lifetimeGoo: number;
-  totalHatches: number;
+  lifetimeHatches: number;
   clicks: number;
   bonusesCollected: number;
 }): AchievementContext {
@@ -341,7 +342,10 @@ function achContextOf(s: {
     collectionCount: Object.keys(s.characters).length,
     shinyCount: Object.values(s.characters).filter((c) => (c?.evolution ?? 0) > 0).length,
     lifetimeGoo: s.lifetimeGoo,
-    totalHatches: s.totalHatches,
+    // The hatch ladder reads LIFETIME hatches, not totalHatches — the latter
+    // resets on prestige (egg price curve), and an achievement must never
+    // rewind, exactly as the prestige dialog promises the player.
+    totalHatches: s.lifetimeHatches,
     clicks: s.clicks,
     bonusesCollected: s.bonusesCollected,
   };
@@ -377,6 +381,7 @@ function snapshot(s: GameState, now: number): SaveState {
     characters: s.characters,
     eggs: s.eggs,
     totalHatches: s.totalHatches,
+    lifetimeHatches: s.lifetimeHatches,
     sinceRare: s.sinceRare,
     bonusesCollected: s.bonusesCollected,
     clicks: s.clicks,
@@ -416,6 +421,7 @@ export const useGame = create<GameState>((set, get) => {
     characters: {},
     eggs: 0,
     totalHatches: 0,
+    lifetimeHatches: 0,
     sinceRare: 0,
     bonusesCollected: 0,
     clicks: 0,
@@ -544,6 +550,7 @@ export const useGame = create<GameState>((set, get) => {
         characters,
         eggs: save.eggs,
         totalHatches: save.totalHatches,
+        lifetimeHatches: save.lifetimeHatches,
         sinceRare: save.sinceRare,
         bonusesCollected: save.bonusesCollected,
         clicks: save.clicks,
@@ -694,6 +701,7 @@ export const useGame = create<GameState>((set, get) => {
         lifetimeGoo: s.lifetimeGoo + outcome.gooReward,
         characters,
         totalHatches: outcome.nextTotalHatches,
+        lifetimeHatches: s.lifetimeHatches + 1,
         sinceRare: outcome.nextSinceRare,
         hatchResult: outcome,
         rng: rng.state(),
@@ -721,6 +729,7 @@ export const useGame = create<GameState>((set, get) => {
         lifetimeGoo: s.lifetimeGoo + result.gooFromDupes,
         characters: result.owned,
         totalHatches: result.totalHatches,
+        lifetimeHatches: s.lifetimeHatches + result.count,
         sinceRare: result.sinceRare,
         multiHatchResult: result,
         rng: rng.state(),
@@ -976,6 +985,7 @@ export const useGame = create<GameState>((set, get) => {
           adEggReadyAt: now + adEggCooldownMs,
           characters,
           totalHatches: outcome.nextTotalHatches,
+          lifetimeHatches: s.lifetimeHatches + 1,
           sinceRare: outcome.nextSinceRare,
           hatchResult: outcome,
           rng: rng.state(),
@@ -1055,6 +1065,7 @@ export const useGame = create<GameState>((set, get) => {
         upgrades: { ...rolled.upgrades },
         eggs: rolled.eggs,
         totalHatches: rolled.totalHatches,
+        lifetimeHatches: rolled.lifetimeHatches,
         sinceRare: rolled.sinceRare,
         equippedMain: rolled.equippedMain,
         prestigeCrystals: rolled.prestigeCrystals,
@@ -1217,6 +1228,7 @@ export const useGame = create<GameState>((set, get) => {
         characters: {},
         eggs: 0,
         totalHatches: 0,
+        lifetimeHatches: 0,
         sinceRare: 0,
         bonusesCollected: 0,
         clicks: 0,
@@ -1331,6 +1343,7 @@ export const useGame = create<GameState>((set, get) => {
         characters: restored.characters,
         eggs: restored.eggs,
         totalHatches: restored.totalHatches,
+        lifetimeHatches: restored.lifetimeHatches,
         sinceRare: restored.sinceRare,
         bonusesCollected: restored.bonusesCollected,
         clicks: restored.clicks,

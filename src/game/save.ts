@@ -39,7 +39,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 16 as const;
+export const CURRENT_VERSION = 17 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -63,6 +63,7 @@ export function defaultSaveState(now: number): SaveState {
     characters: {},
     eggs: 0,
     totalHatches: 0,
+    lifetimeHatches: 0,
     sinceRare: 0,
     bonusesCollected: 0,
     clicks: 0,
@@ -261,6 +262,10 @@ export function migrate(raw: unknown, now: number): SaveState {
     characters: sanitizeCharacters(data.characters, remapLegacy),
     eggs: nonNegInt(data.eggs, 0),
     totalHatches: nonNegInt(data.totalHatches, 0),
+    // v17: hatches that survive prestige, for the hatch achievement ladder
+    // (totalHatches resets on prestige to reset the egg price curve). Seeded
+    // from totalHatches so a pre-v17 player keeps the ladder progress they had.
+    lifetimeHatches: Math.max(nonNegInt(data.lifetimeHatches, 0), nonNegInt(data.totalHatches, 0)),
     sinceRare: nonNegInt(data.sinceRare, 0),
     bonusesCollected: nonNegInt(data.bonusesCollected, 0),
     clicks: nonNegInt(data.clicks, 0),

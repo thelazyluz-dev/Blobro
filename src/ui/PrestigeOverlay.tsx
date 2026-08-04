@@ -13,7 +13,7 @@ import {
   prestigeMultiplierFor,
 } from '../game/prestige';
 import { formatGoo } from '../game/format';
-import { useGame } from '../store';
+import { selectGooPerSec, useGame } from '../store';
 
 function usePrestige() {
   const lifetimeGoo = useGame((s) => s.lifetimeGoo);
@@ -67,6 +67,7 @@ export function PrestigeOverlay() {
   const open = useGame((s) => s.prestigeOpen);
   const setOpen = useGame((s) => s.setPrestigeOpen);
   const roll = useGame((s) => s.prestigeRoll);
+  const gps = useGame(selectGooPerSec);
   const { ready, gained, bonusPct } = usePrestige();
 
   if (!open) return null;
@@ -88,6 +89,9 @@ export function PrestigeOverlay() {
 
         <div className="rounded-2xl bg-black/30 p-3 text-sm ring-1 ring-hairline">
           <div className="mb-1 font-bold text-hot">מָה מִתְאַפֵּס:</div>
+          <div className="mb-1 text-xs text-bone/60">
+            כָּרֶגַע אַתָּה מַרְוִיחַ <span className="tabular text-bone">{formatGoo(gps)}</span> גּוּ בְּשְׁנִיָּה — וְתַתְחִיל שׁוּב מֵאֶפֶס.
+          </div>
           <ul className="ms-4 list-disc text-bone/75">
             <li>הַגּוּ שֶׁבַּיָּד וְכָל הַיְּצוּרִים</li>
             <li>הַשִּׁדְרוּגִים וְהַבֵּיצִים</li>
