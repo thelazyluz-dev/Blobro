@@ -15,7 +15,7 @@ import type { AchievementId } from './types';
 
 const TOTAL_CREATURES = collectionOrder.length;
 
-export type AchievementKind = 'collection' | 'shinies' | 'lifetime' | 'hatches' | 'clicks' | 'bonuses';
+export type AchievementKind = 'collection' | 'shinies' | 'lifetime' | 'hatches' | 'clicks' | 'bonuses' | 'maxevolved';
 
 export interface AchievementDef {
   id: AchievementId;
@@ -40,6 +40,9 @@ export interface AchievementContext {
   totalHatches: number;
   clicks: number;
   bonusesCollected: number;
+  // Creatures at MAX evolution (stage 4 == level 100). Optional so the many
+  // existing context literals default it to 0; only achContextOf supplies it.
+  maxEvolvedCount?: number;
 }
 
 function shortNum(n: number): string {
@@ -57,6 +60,7 @@ const ICON: Record<AchievementKind, string> = {
   hatches: '🥚',
   clicks: '👆',
   bonuses: '⭐',
+  maxevolved: '👑',
 };
 
 function nameFor(kind: AchievementKind, goal: number): string {
@@ -73,6 +77,8 @@ function nameFor(kind: AchievementKind, goal: number): string {
       return `${shortNum(goal)} לְחִיצוֹת`;
     case 'bonuses':
       return `אָסַפְתָּ ${goal} בּוֹנוּסִים`;
+    case 'maxevolved':
+      return goal >= TOTAL_CREATURES ? 'כָּל הַיְּצוּרִים בַּשִּׂיא!' : `${goal} יְצוּרִים בַּשִּׂיא`;
   }
 }
 
@@ -101,6 +107,7 @@ export const achievements: AchievementDef[] = [
   ...build('hatches'),
   ...build('clicks'),
   ...build('bonuses'),
+  ...build('maxevolved'),
 ];
 
 const byId = new Map(achievements.map((a) => [a.id, a]));
@@ -119,6 +126,8 @@ export function progressValue(def: AchievementDef, ctx: AchievementContext): num
       return ctx.clicks;
     case 'bonuses':
       return ctx.bonusesCollected;
+    case 'maxevolved':
+      return ctx.maxEvolvedCount ?? 0;
   }
 }
 

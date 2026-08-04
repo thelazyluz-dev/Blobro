@@ -436,6 +436,8 @@ const isCompleteCases = [
   { id: 'hatches-10', ctx: { collectionCount: 0, shinyCount: 0, lifetimeGoo: 0, totalHatches: 9, clicks: 0, bonusesCollected: 0 } },
   { id: 'clicks-100', ctx: { collectionCount: 0, shinyCount: 0, lifetimeGoo: 0, totalHatches: 0, clicks: 100, bonusesCollected: 0 } },
   { id: 'bonuses-5', ctx: { collectionCount: 0, shinyCount: 0, lifetimeGoo: 0, totalHatches: 0, clicks: 0, bonusesCollected: 4 } },
+  { id: 'maxevolved-1', ctx: { collectionCount: 0, shinyCount: 0, lifetimeGoo: 0, totalHatches: 0, clicks: 0, bonusesCollected: 0, maxEvolvedCount: 0 } },
+  { id: 'maxevolved-1', ctx: { collectionCount: 0, shinyCount: 0, lifetimeGoo: 0, totalHatches: 0, clicks: 0, bonusesCollected: 0, maxEvolvedCount: 1 } },
 ].map((c) => {
   const def = achievements.find((a) => a.id === c.id);
   if (!def) throw new Error(`unknown achievement id in golden generator: ${c.id}`);

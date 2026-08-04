@@ -307,6 +307,10 @@ export const achievementGoals = {
   // always reaches beyond the shop.
   clicks: [100, 300, 700, 1500, 3000, 5500, 9000, 14000, 22000, 35000, 60000, 100000, 200000, 400000, 700000, 1500000],
   bonuses: [5, 15, 30, 50, 80, 120, 180, 280, 450, 700],
+  // Creatures taken to MAX evolution (stage 4 == level 100) — the single
+  // hardest per-creature grind, which the binary "shiny" flag couldn't see.
+  // A goo (grind) ladder, not a star, so it doesn't inflate the permanent bonus.
+  maxevolved: [1, 3, 6, 12, 24],
 } as const;
 
 // --- Offline income ----------------------------------------------------------

@@ -42,6 +42,8 @@ describe('progressValue reads the matching context field', () => {
     expect(progressValue(byKind('hatches'), { ...zero, totalHatches: 42 })).toBe(42);
     expect(progressValue(byKind('clicks'), { ...zero, clicks: 99 })).toBe(99);
     expect(progressValue(byKind('bonuses'), { ...zero, bonusesCollected: 12 })).toBe(12);
+    // maxevolved reads maxEvolvedCount (creatures at stage 4) — the level-100 grind.
+    expect(progressValue(byKind('maxevolved'), { ...zero, maxEvolvedCount: 5 })).toBe(5);
   });
 });
 

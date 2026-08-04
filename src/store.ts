@@ -343,6 +343,7 @@ function achContextOf(s: {
   return {
     collectionCount: Object.keys(s.characters).length,
     shinyCount: Object.values(s.characters).filter((c) => (c?.evolution ?? 0) > 0).length,
+    maxEvolvedCount: Object.values(s.characters).filter((c) => (c?.evolution ?? 0) >= maxEvolution).length,
     lifetimeGoo: s.lifetimeGoo,
     // The hatch ladder reads LIFETIME hatches, not totalHatches — the latter
     // resets on prestige (egg price curve), and an achievement must never
