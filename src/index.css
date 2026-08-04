@@ -520,18 +520,6 @@ body {
   animation: blorbo-shell-fall 0.8s ease-in forwards;
 }
 
-/* The eyes peeking from inside a cracking egg blink now and then — the tell
-   that something alive is in there, without revealing what. */
-@keyframes blorbo-peek-blink {
-  0%, 90%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.12); }
-}
-.hatch-peek-eyes {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: blorbo-peek-blink 3.2s ease-in-out infinite;
-}
-
 /* Evolution stars: each twinkles in place (scale + fade). The count of stars
    is set in CharacterBody by the creature's stage, so an evolved creature reads
    at a glance. Under reduced-motion they stay lit but still (see below). */
@@ -601,7 +589,6 @@ body {
   .creature-eyes,
   .evo-spark,
   .anim-shell-fall,
-  .hatch-peek-eyes,
   .anim-evolve-glow,
   .anim-mag-flash,
   .anim-warp,

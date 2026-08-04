@@ -195,10 +195,28 @@ export function HatchReveal() {
               spotColor={rarityColor[rarity]}
               crackColor={rarityColor[rarity]}
               cracks={taps}
-              peek={Math.min(1, taps / tapsNeeded)}
               className={`relative h-[220px] w-[176px] glow-goo ${reduced || taps > 0 ? '' : 'anim-egg-shake'}`}
               style={reduced ? undefined : { animationDuration: `${Math.max(0.14, 0.28 - rarityLevel * 0.04)}s` }}
             />
+            {/* The creature's silhouette, revealed slowly: a pure-black shape that
+                grows and fades in through the cracking shell as you tap. It gives
+                the SHAPE away (star? banana?) but never the colour or name — those
+                are still the burst's payoff. */}
+            {taps > 0 && (
+              <span className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
+                <span
+                  className="block"
+                  style={{
+                    filter: 'brightness(0)',
+                    opacity: Math.min(0.9, (taps / tapsNeeded) * 1.05),
+                    transform: `translateY(7%) scale(${0.6 + 0.34 * Math.min(1, taps / tapsNeeded)})`,
+                    transition: 'opacity 130ms ease-out, transform 130ms ease-out',
+                  }}
+                >
+                  <CharacterBody id={outcome.charId} className="h-[116px] w-[116px]" />
+                </span>
+              </span>
+            )}
             {shards.map((sh) => (
               <span
                 key={sh.id}
