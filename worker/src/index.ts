@@ -251,7 +251,9 @@ export default {
       url.pathname === '/submit' ||
       url.pathname === '/rank' ||
       url.pathname === '/ad-event' ||
-      url.pathname === '/admin/stats';
+      url.pathname === '/admin/stats' ||
+      url.pathname === '/admin/barred' ||
+      url.pathname === '/admin/release';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -332,9 +334,18 @@ export default {
       return handleAdEvent(request, env);
     }
 
-    // ── Owner dashboard (bearer-token, aggregate stats only) ──────────────
+    // ── Owner dashboard (bearer-token) ────────────────────────────────────
     if (url.pathname === '/admin/stats' && request.method === 'GET') {
       return handleAdminStats(request, env);
+    }
+    // The barred-players moderation surface: list who's off the board and why,
+    // and release a wrongly-barred account (the owner's one-tap version of the
+    // documented `DELETE FROM save_audit … ok = 0` one-liner).
+    if (url.pathname === '/admin/barred' && request.method === 'GET') {
+      return handleAdminBarred(request, env);
+    }
+    if (url.pathname === '/admin/release' && request.method === 'POST') {
+      return handleAdminRelease(request, env);
     }
 
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
@@ -909,24 +920,33 @@ const FIRST_SAVE_CLICK_CAP = 5_000;
 // and well below a fabricated max. Bars on the same date as the other caps.
 const FIRST_SAVE_CPM_CAP = 1_500;
 
+/**
+ * The SQL predicate that makes a save_audit row a BARRING one — extracted so the
+ * live enforcement (isBarredFromBoard) and the dashboard's barred-list query it
+ * from ONE source and can never silently drift when a boundary date changes.
+ * `col` prefixes the columns (e.g. 'sa.' for a joined query, '' for a bare one);
+ * `enforcePh`/`firstCapPh` are the bind placeholders for SUBMIT_ENFORCE_SINCE and
+ * FIRST_SAVE_CAP_BARS_SINCE. Exact-token match on the comma-joined flags column:
+ * both sides are wrapped in delimiters so e.g. 'goo-rate' can't match inside a
+ * longer flag name.
+ */
+function barringRowSql(col: string, enforcePh: string, firstCapPh: string): string {
+  const f = `',' || ${col}flags || ','`;
+  return `${col}ok = 0 AND ${col}created >= ${enforcePh}
+    AND (${f} LIKE '%,goo-rate,%'
+      OR ${f} LIKE '%,click-rate,%'
+      OR ${f} LIKE '%,first-save-absurd,%'
+      OR (${f} LIKE '%,first-save-cap,%' AND ${col}created >= ${firstCapPh}))`;
+}
+
 /** True when this account has a barring audit flag recorded since enforcement began.
  * The rate flags (goo-rate / click-rate) bar from SUBMIT_ENFORCE_SINCE; the
  * first-save cap only bars from FIRST_SAVE_CAP_BARS_SINCE (see above) — filtering
  * here, at read time, is what retroactively releases the migration-window
  * false positives without touching a single audit row. */
 async function isBarredFromBoard(db: D1Database, userId: string): Promise<boolean> {
-  // Exact-token match on the comma-joined flags column: wrap both sides in
-  // delimiters so e.g. 'goo-rate' can never match inside another flag name.
   const row = await db
-    .prepare(
-      `SELECT 1 AS x FROM save_audit
-       WHERE user_id = ?1 AND ok = 0 AND created >= ?2
-         AND (',' || flags || ',' LIKE '%,goo-rate,%'
-           OR ',' || flags || ',' LIKE '%,click-rate,%'
-           OR ',' || flags || ',' LIKE '%,first-save-absurd,%'
-           OR (',' || flags || ',' LIKE '%,first-save-cap,%' AND created >= ?3))
-       LIMIT 1`,
-    )
+    .prepare(`SELECT 1 AS x FROM save_audit WHERE user_id = ?1 AND ${barringRowSql('', '?2', '?3')} LIMIT 1`)
     .bind(userId, SUBMIT_ENFORCE_SINCE, FIRST_SAVE_CAP_BARS_SINCE)
     .first<{ x: number }>();
   return row !== null;
@@ -994,15 +1014,18 @@ async function handleAdEvent(request: Request, env: Env): Promise<Response> {
 // any per-child row, so the dashboard can't become a PII surface even if the
 // token leaks. "Active now" is approximated from saves touched in the last 5
 // minutes (checkpoints run every 60s), costing zero extra writes.
-async function handleAdminStats(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get('Origin');
+/** Constant-time bearer check against ADMIN_TOKEN — shared by every /admin route. */
+function isAdmin(request: Request, env: Env): boolean {
   const expected = (env.ADMIN_TOKEN ?? '').trim();
   const header = request.headers.get('Authorization') ?? '';
   const provided = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   const enc = new TextEncoder();
-  const authed =
-    expected.length > 0 && provided.length > 0 && timingSafeEqual(enc.encode(provided), enc.encode(expected));
-  if (!authed) return authJson({ error: 'unauthorized' }, 401, origin);
+  return expected.length > 0 && provided.length > 0 && timingSafeEqual(enc.encode(provided), enc.encode(expected));
+}
+
+async function handleAdminStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
 
   try {
     const now = Date.now();
@@ -1029,6 +1052,62 @@ async function handleAdminStats(request: Request, env: Env): Promise<Response> {
       200,
       origin,
     );
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// GET /admin/barred — the accounts currently kept off the leaderboard, and why.
+// Unlike /admin/stats this DOES return per-account rows (user_id + nickname), on
+// purpose: it's the owner's moderation tool and releasing an account needs its
+// id. Still no email or any other PII — just the id (a UUID) and the nickname
+// that's already public on the board. Barred set is derived from the SAME
+// predicate as isBarredFromBoard (barringRowSql), so the list can never claim
+// someone is barred whom /submit would actually let through, or vice-versa.
+async function handleAdminBarred(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
+  try {
+    // One row per barred account: worst ratio, the biggest reported jump, how
+    // many flagged writes, the union of flags, and the nickname if they ever
+    // reached the board (a LEFT JOIN — barred-on-first-submit accounts have no
+    // scores row, so name is null and the UI falls back to the id).
+    const res = await env.DB.prepare(
+      `SELECT sa.user_id AS userId,
+              s.name AS name,
+              MAX(sa.created)   AS lastFlagged,
+              MAX(sa.ratio)     AS worstRatio,
+              MAX(sa.goo_gain)  AS maxGooGain,
+              COUNT(*)          AS flaggedWrites,
+              GROUP_CONCAT(DISTINCT sa.flags) AS flags
+         FROM save_audit sa
+         LEFT JOIN scores s ON s.code = REPLACE(sa.user_id, '-', '')
+        WHERE ${barringRowSql('sa.', '?1', '?2')}
+        GROUP BY sa.user_id
+        ORDER BY lastFlagged DESC
+        LIMIT 200`,
+    )
+      .bind(SUBMIT_ENFORCE_SINCE, FIRST_SAVE_CAP_BARS_SINCE)
+      .all();
+    return authJson({ generatedAt: Date.now(), barred: res.results ?? [] }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// POST /admin/release { user_id } — clear an account's failed-audit rows so it
+// returns to the board. Deletes ONLY ok = 0 rows (never the account, never its
+// save), i.e. the one-liner documented above, one tap. Idempotent: releasing an
+// already-clean account simply changes nothing.
+async function handleAdminRelease(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
+  const body = await readJsonObject(request);
+  const userId = typeof body?.user_id === 'string' ? body.user_id.trim() : '';
+  if (!userId) return authJson({ error: 'bad-user' }, 400, origin);
+  try {
+    const res = await env.DB.prepare('DELETE FROM save_audit WHERE user_id = ?1 AND ok = 0').bind(userId).run();
+    return authJson({ ok: true, released: res.meta?.changes ?? 0 }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }

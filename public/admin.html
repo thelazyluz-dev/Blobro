@@ -55,6 +55,12 @@
       .empty { color: var(--faint); font-size: .85rem; padding: 8px; }
       .foot { color: var(--faint); font-size: .75rem; margin-top: 20px; text-align: center; }
       .pill { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; background: var(--panel2); color: var(--muted); }
+      .reason { color: var(--muted); font-size: .82rem; }
+      .reason small { color: var(--faint); font-size: .72rem; }
+      button.rel { background: var(--goo); color: #04121a; border-color: transparent; padding: 6px 12px; font-size: .82rem; }
+      button.rel:disabled { opacity: .5; cursor: default; }
+      td.sev { text-align: end; color: var(--hot); font-weight: 700; }
+      .who small { color: var(--faint); font-size: .68rem; display: block; direction: ltr; text-align: start; }
     </style>
   </head>
   <body>
@@ -97,6 +103,15 @@
         </div>
 
         <div class="card" style="margin-top:14px;">
+          <h2>🚫 שחקנים חסומים מהלוח <span class="pill" id="barredCount">—</span></h2>
+          <div class="sub" style="margin-bottom:8px;">חסימה לא מוחקת התקדמות — היא רק מסתירה מהטבלה. "שחרר" מחזיר מיד.</div>
+          <table>
+            <thead><tr><th>שחקן</th><th>סיבה</th><th class="n">חומרה</th><th></th></tr></thead>
+            <tbody id="barred"></tbody>
+          </table>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
           <h2>🎬 פרסומות — 7 ימים אחרונים <span class="pill">מצרפי, ללא זיהוי</span></h2>
           <table><thead><tr><th>מטרה</th><th>תוצאה</th><th class="n">כמות</th></tr></thead><tbody id="ads"></tbody></table>
         </div>
@@ -121,6 +136,78 @@
         if (!res.ok) throw new Error('שגיאת שרת (' + res.status + ')');
         return res.json();
       }
+
+      // Plain-language reason for each audit flag (kids' parents read this).
+      const REASON = {
+        'goo-rate': 'קפיצת גו חריגה — כנראה מיזוג התקדמות בין מכשירים',
+        'click-rate': 'קפיצת לחיצות חריגה',
+        'first-save-absurd': 'שמירה ראשונה עם מספר בלתי-אפשרי',
+        'first-save-cap': 'שמירה ראשונה גבוהה (חלון מיגרציה)',
+      };
+      function reasonText(flags) {
+        const set = [...new Set(String(flags || '').split(',').filter(Boolean))];
+        const known = set.filter((f) => REASON[f]);
+        if (!known.length) return esc(set.join(', ') || '—');
+        return known.map((f) => REASON[f]).join(' · ');
+      }
+
+      async function loadBarred(token) {
+        const res = await fetch(`${API}/admin/barred`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error('barred ' + res.status);
+        return res.json();
+      }
+
+      function renderBarred(d) {
+        const rows = d.barred || [];
+        $('barredCount').textContent = rows.length ? rows.length + ' חסומים' : 'אין חסומים 🎉';
+        if (!rows.length) {
+          $('barred').innerHTML = '<tr><td colspan="4" class="empty">אף אחד לא חסום — הכול נקי ✨</td></tr>';
+          return;
+        }
+        $('barred').innerHTML = rows
+          .map((r) => {
+            const who = r.name
+              ? `${esc(r.name)}<small>${esc(r.userId)}</small>`
+              : `<span class="reason">ללא כינוי</span><small>${esc(r.userId)}</small>`;
+            const sev = r.worstRatio >= 1 ? '×' + fmt(Math.round(r.worstRatio)) : '—';
+            const when = r.lastFlagged ? new Date(r.lastFlagged).toLocaleDateString('he-IL') : '';
+            return (
+              `<tr data-id="${esc(r.userId)}">` +
+              `<td class="who">${who}</td>` +
+              `<td class="reason">${reasonText(r.flags)}<br><small>${r.flaggedWrites} אירועים · ${esc(when)}</small></td>` +
+              `<td class="sev">${sev}</td>` +
+              `<td class="n"><button class="rel" data-id="${esc(r.userId)}" data-name="${esc(r.name || r.userId)}">שחרר</button></td>` +
+              `</tr>`
+            );
+          })
+          .join('');
+      }
+
+      async function release(userId, name) {
+        const token = sessionStorage.getItem(KEY);
+        if (!token) return showLogin();
+        if (!confirm(`לשחרר את ${name} מהחסימה? ההתקדמות שלו לא נגעת.`)) return;
+        const res = await fetch(`${API}/admin/release`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        if (!res.ok) { alert('שחרור נכשל (' + res.status + ')'); return; }
+        await refreshBarred();
+      }
+
+      async function refreshBarred() {
+        const token = sessionStorage.getItem(KEY);
+        if (!token) return;
+        try { renderBarred(await loadBarred(token)); }
+        catch (e) { $('barred').innerHTML = '<tr><td colspan="4" class="empty">לא ניתן לטעון (עדכן את ה-Worker?)</td></tr>'; }
+      }
+
+      // One delegated click handler for all "שחרר" buttons (rows re-render often).
+      $('barred').addEventListener('click', (e) => {
+        const btn = e.target.closest('button.rel');
+        if (btn) release(btn.dataset.id, btn.dataset.name);
+      });
 
       function kpi(cls, label, value) {
         return `<div class="kpi ${cls}"><div class="l">${label}</div><div class="v">${fmt(value)}</div></div>`;
@@ -165,6 +252,7 @@
         if (!token) return showLogin();
         try {
           render(await load(token));
+          void refreshBarred();
         } catch (e) {
           if (String(e.message).includes('שגויה')) {
             sessionStorage.removeItem(KEY);
@@ -183,6 +271,7 @@
           sessionStorage.setItem(KEY, token);
           showDash();
           render(d);
+          void refreshBarred();
           if (timer) clearInterval(timer);
           timer = setInterval(refresh, 30_000); // live-ish
         } catch (e) {
