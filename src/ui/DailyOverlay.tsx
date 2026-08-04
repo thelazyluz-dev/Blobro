@@ -132,7 +132,10 @@ export function DailyOverlay() {
               giftReady ? 'bg-goo text-void active:scale-95' : 'bg-black/30 text-bone/40'
             }`}
           >
-            {giftReady ? `לָקַחַת אֶת הַמַּתָּנָה — ${giftLabel}` : 'נִתְרָאֶה מָחָר! ✨'}
+            {/* When it isn't ready, today's already claimed — so cycleDay (and
+                giftLabel) now point at tomorrow's slot. Name that reward so the
+                player can see what coming back tomorrow is worth. */}
+            {giftReady ? `לָקַחַת אֶת הַמַּתָּנָה — ${giftLabel}` : `מָחָר: ${giftLabel} ✨`}
           </button>
         </div>
 
@@ -149,7 +152,7 @@ export function DailyOverlay() {
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{def.icon}</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-bone">{def.nameHe}</span>
+                      <span className="block text-sm font-bold leading-snug text-bone">{def.nameHe}</span>
                       {!claimed && (
                         <span className="block text-xs text-goo">פְּרָס: +{formatGoo(questPays)} גּוּ</span>
                       )}
