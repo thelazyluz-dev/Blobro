@@ -137,17 +137,18 @@ export function ClickScreen() {
     return () => window.clearInterval(iv);
   }, [frenzyUntil]);
 
-  // Order-of-magnitude crossing: strong flash + a punchy banner + a haptic
-  // thump, so every new digit is unmistakable.
+  // Order-of-magnitude crossing: a "spaceship accelerating" burst — bloom + warp
+  // lines + a launch banner + a building thrust rumble, so every new digit
+  // really lands. Non-blocking and self-clearing; it never gates a tap.
   useEffect(() => {
     if (magnitudePulse === 0) return;
-    haptic([0, 30, 20, 50]);
+    haptic([0, 25, 15, 45, 15, 70]); // a rumble that builds, like thrust
     if (reduced) return;
     setMagFlash(true);
     setMagBanner({ id: magnitudePulse, exp: magnitudeExp });
-    const tf = window.setTimeout(() => setMagFlash(false), 700);
+    const tf = window.setTimeout(() => setMagFlash(false), 900);
     window.clearTimeout(magBannerTimer.current);
-    magBannerTimer.current = window.setTimeout(() => setMagBanner(null), 1100);
+    magBannerTimer.current = window.setTimeout(() => setMagBanner(null), 1300);
     return () => window.clearTimeout(tf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magnitudePulse]);
@@ -363,11 +364,14 @@ export function ClickScreen() {
         />
       )}
       {magFlash && !reduced && (
-        <div
-          className="anim-mag-flash pointer-events-none absolute inset-0 z-10"
-          style={{ background: 'radial-gradient(circle, rgba(163,255,18,0.8), rgba(0,229,255,0.4) 42%, transparent 74%)' }}
-          aria-hidden
-        />
+        <>
+          <div
+            className="anim-mag-flash pointer-events-none absolute inset-0 z-10"
+            style={{ background: 'radial-gradient(circle at 50% 60%, rgba(163,255,18,0.85), rgba(0,229,255,0.45) 42%, transparent 74%)' }}
+            aria-hidden
+          />
+          <div className="anim-warp pointer-events-none absolute inset-0 z-10" aria-hidden />
+        </>
       )}
       {magBanner && !reduced && (
         <div
@@ -375,7 +379,7 @@ export function ClickScreen() {
           className="anim-mag-banner pointer-events-none absolute inset-x-0 top-56 z-30 text-center"
         >
           <div className="font-display text-6xl text-goo text-glow-pop">
-            🔥 {formatGoo(Math.pow(10, magBanner.exp))}!
+            🚀 {formatGoo(Math.pow(10, magBanner.exp))}!
           </div>
         </div>
       )}

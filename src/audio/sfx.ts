@@ -298,31 +298,69 @@ export function playRainDrop(muted: boolean): void {
 /** A quick rising "whoosh + ping" each time the goo counter crosses a new
  * order of magnitude (100 → 1,000 → …). Pitch climbs with the exponent so
  * bigger jumps sound higher and more triumphant. */
+/**
+ * Crossing an order of magnitude — a "spaceship accelerating" launch, not the
+ * old short sad sweep (§ owner request). Three layers building together: an
+ * engine-thrust noise that swells while its band sweeps upward, a rising
+ * sawtooth that ramps a couple of octaves (the acceleration itself), and a
+ * bright major-triad chime that blooms at the top of the climb (liftoff). The
+ * bigger the number crossed, the brighter/higher it all sits.
+ */
 export function playMagnitude(muted: boolean, exponent: number): void {
   if (muted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
-  const base = Math.min(1400, 300 + exponent * 90);
-  // upward sweep
+  const dur = 0.55;
+  const lift = Math.min(1, Math.max(0, (exponent - 2) / 18)); // 0 at ~100 → 1 by ~1e20
+  const base = 150 + lift * 120;
+
+  // Engine thrust: white noise, swelling, with a band that sweeps up = accelerating.
+  const noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const data = noiseBuf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuf;
+  const nGain = ctx.createGain();
+  nGain.gain.setValueAtTime(0.0001, now);
+  nGain.gain.exponentialRampToValueAtTime(0.11, now + 0.12);
+  nGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  const nbp = ctx.createBiquadFilter();
+  nbp.type = 'bandpass';
+  nbp.frequency.setValueAtTime(280, now);
+  nbp.frequency.exponentialRampToValueAtTime(2600, now + dur * 0.9);
+  nbp.Q.value = 0.8;
+  noise.connect(nbp);
+  nbp.connect(nGain);
+  nGain.connect(ctx.destination);
+  noise.start(now);
+  noise.stop(now + dur);
+
+  // Rising thrust tone: a sawtooth ramping up ~2.5 octaves under an opening filter.
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(base * 0.6, now);
-  osc.frequency.exponentialRampToValueAtTime(base * 1.6, now + 0.16);
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, now);
-  env.gain.exponentialRampToValueAtTime(0.12, now + 0.03);
-  env.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = 6000;
-  osc.connect(env);
-  env.connect(lp);
-  lp.connect(ctx.destination);
+  osc.frequency.setValueAtTime(base, now);
+  osc.frequency.exponentialRampToValueAtTime(base * 5, now + dur * 0.8);
+  const oGain = ctx.createGain();
+  oGain.gain.setValueAtTime(0.0001, now);
+  oGain.gain.exponentialRampToValueAtTime(0.12, now + 0.08);
+  oGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  const olp = ctx.createBiquadFilter();
+  olp.type = 'lowpass';
+  olp.frequency.setValueAtTime(800, now);
+  olp.frequency.exponentialRampToValueAtTime(7000, now + dur * 0.8);
+  osc.connect(olp);
+  olp.connect(oGain);
+  oGain.connect(ctx.destination);
   osc.start(now);
-  osc.stop(now + 0.24);
-  // a bright ping on top
-  voice(ctx, base * 2, now + 0.1, 0.09, { type: 'sine', gain: 0.1, filter: 9000, decay: 0.12 });
+  osc.stop(now + dur);
+
+  // Liftoff: a bright major triad blooms at the top of the climb.
+  const climax = now + dur * 0.62;
+  [523.25, 659.25, 783.99].forEach((f, i) =>
+    voice(ctx, f * (1 + lift * 0.5), climax + i * 0.04, 0.12, { type: 'triangle', gain: 0.11, filter: 9000, decay: 0.18 }),
+  );
+  voice(ctx, 1046.5 * (1 + lift * 0.5), climax + 0.12, 0.1, { type: 'sine', gain: 0.08, filter: 11000, decay: 0.2 });
 }
 
 /** The full "you hit a milestone" fanfare — big, a little crazy. */
