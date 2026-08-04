@@ -859,16 +859,18 @@ const SUBMIT_ENFORCE_SINCE = Date.UTC(2026, 7, 3); // 2026-08-03, the day enforc
 // FIRST_SAVE_CAP_BARS_SINCE (below). Spelled out in isBarredFromBoard's SQL.
 
 // The first-save cap only BARS from this date on. Mandatory sign-in shipped
-// 2026-08-02, so the whole pre-auth player base migrates its local progress as
-// a "first save" in the following weeks — and an honest carried-over save is
+// 2026-08-02, so the pre-auth player base migrates its local progress as a
+// "first save" in the following days — and an honest carried-over save is
 // easily past FIRST_SAVE_GOO_CAP (1e6 is literally the game's first milestone,
 // and AuthGate promises "your progress will be linked to your account").
-// Barring on it during the migration window was silently benching real
-// players. The flag is still RECORDED throughout (tuning data, and repeat
+// Barring during that window silently benches real players (a known past
+// incident). The flag is still RECORDED throughout (tuning data, and repeat
 // cheating is still caught by the rate flags); filtering at READ time also
-// retroactively releases everyone wrongly barred since Aug 3. After this date
-// every first save really is a brand-new account, and the cap arms itself.
-export const FIRST_SAVE_CAP_BARS_SINCE = Date.UTC(2026, 8, 15); // 2026-09-15
+// retroactively releases everyone wrongly barred since Aug 3. Owner decision at
+// the pre-launch review: a SHORT ~2-week migration window (sign-in shipped
+// Aug 2), then the cap arms so the boards are trustworthy for the wider push —
+// balancing "don't bench honest migrators" against "boards can be trusted".
+export const FIRST_SAVE_CAP_BARS_SINCE = Date.UTC(2026, 7, 16); // 2026-08-16
 
 /**
  * A first save has no previous row to diff against, so verifySaveDelta
