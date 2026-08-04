@@ -1,26 +1,22 @@
-// "Add to home screen" prompt (§ user request). On Android/Chrome we capture the
-// native beforeinstallprompt and offer a one-tap install; on iOS Safari (which
-// has no such event) we show the manual Share → "Add to Home Screen" steps.
-// Hidden if already installed. Two funnel rules (growth audit):
-// - it waits for a moment of INVESTMENT (the first hatched creature) instead of
-//   firing on cold entry, when "install this" converts worst;
-// - "not now" snoozes it for two weeks instead of forever — a kid who is
-//   clearly hooked three weeks in deserves a second ask, one ask per cycle.
+// "Add to home screen" prompt. On Android/Chrome we use the native
+// beforeinstallprompt (one-tap install); on iOS Safari (no such event) we show
+// the manual Share → "Add to Home Screen" steps. Hidden if already installed.
+//
+// Owner decision (distribution push): show it from the FIRST entry — a short
+// beat after the game mounts, not gated on investment — and if "not now" is
+// tapped, re-ask every few days until installed (a snooze, never forever).
 
 import { useEffect, useState } from 'react';
 import { useGame } from '../store';
-
-interface BIPEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: string }>;
-}
+import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './pwaInstall';
 
 const DISMISS_KEY = 'blorbo-install-dismissed';
-const DISMISS_COOLDOWN_MS = 14 * 86_400_000; // two weeks
+const DISMISS_COOLDOWN_MS = 3 * 86_400_000; // re-ask every ~3 days (owner request)
+const FIRST_ENTRY_DELAY_MS = 2500; // let the player see the game before we ask
 
-/** True while a past "not now" is still fresh. Legacy value '1' = forever
- * (the old behavior) — treat it as dismissed-now so those users get the new
- * cooldown from this deploy rather than a surprise prompt. */
+/** True while a past "not now" is still fresh. Legacy value '1' = forever (the
+ * old behavior) — treat it as dismissed-now so those users fall into the new
+ * short cooldown rather than getting an instant surprise prompt. */
 function dismissedRecently(): boolean {
   try {
     const raw = localStorage.getItem(DISMISS_KEY);
@@ -35,49 +31,32 @@ function dismissedRecently(): boolean {
   }
 }
 
-function isStandalone(): boolean {
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIOS(): boolean {
-  const ua = navigator.userAgent || '';
-  const iDevice = /iphone|ipad|ipod/i.test(ua);
-  // iPadOS 13+ reports as Mac; detect via touch.
-  const iPadOS = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-  return iDevice || iPadOS;
-}
-
 export function InstallPrompt() {
-  const [deferred, setDeferred] = useState<BIPEvent | null>(null);
+  const loaded = useGame((s) => s.loaded);
   const [mode, setMode] = useState<'android' | 'ios' | null>(null);
-  // The investment gate: at least one hatched creature (or real prior progress
-  // from before this gate shipped) before we ask for home-screen space.
-  const invested = useGame((s) => s.loaded && (s.lifetimeHatches > 0 || s.clicks >= 250));
 
   useEffect(() => {
-    if (!invested) return; // not yet — the effect re-runs when the gate opens
+    if (!loaded) return; // wait until the game has mounted (first entry)
     if (isStandalone()) return; // already installed
-    if (dismissedRecently()) return; // "not now" is still fresh
+    if (dismissedRecently()) return; // snooze still fresh
 
-    const onBIP = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as BIPEvent);
-      setMode('android');
-    };
-    window.addEventListener('beforeinstallprompt', onBIP);
+    // A short beat after entry so the banner doesn't slam the very first frame.
+    const t = window.setTimeout(() => {
+      if (canPromptInstall()) setMode('android');
+      else if (isIOS()) setMode('ios');
+    }, FIRST_ENTRY_DELAY_MS);
 
-    // iOS has no beforeinstallprompt — show manual steps shortly after the gate.
-    let t = 0;
-    if (isIOS()) t = window.setTimeout(() => setMode((m) => m ?? 'ios'), 1800);
+    // Android often fires beforeinstallprompt a moment after load — show as soon
+    // as it's available (if we haven't already shown iOS steps).
+    const off = onInstallChange(() => {
+      if (canPromptInstall()) setMode((m) => m ?? 'android');
+    });
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBIP);
       window.clearTimeout(t);
+      off();
     };
-  }, [invested]);
+  }, [loaded]);
 
   const remember = () => {
     try {
@@ -93,24 +72,16 @@ export function InstallPrompt() {
   };
 
   const install = async () => {
-    if (!deferred) return;
-    try {
-      await deferred.prompt();
-      await deferred.userChoice;
-    } catch {
-      /* ignore */
-    }
+    await promptInstall();
     remember();
     setMode(null);
-    setDeferred(null);
   };
 
   if (!mode) return null;
 
   return (
     // bottom-24 (not bottom-0): sits ABOVE the bottom nav — measured at 360x640
-    // the prompt used to fully cover the tab bar, trapping early tab exploration
-    // (which is exactly when the invested-gate now fires it).
+    // the prompt used to fully cover the tab bar, trapping early tab exploration.
     <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center p-3" role="dialog" aria-modal="false">
       <div
         className="anim-drop-in w-full max-w-md rounded-3xl bg-surface p-4 ring-1 ring-bone/15"

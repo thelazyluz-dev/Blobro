@@ -3,11 +3,73 @@
 // ProgressOverlay/StatsOverlay: backdrop, `surface` card, scroll area, a big
 // close button pinned at the bottom.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { playPurchase } from '../audio/sfx';
 import { formatGoo } from '../game/format';
 import { useGame } from '../store';
 import { haptic } from './haptics';
+import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './pwaInstall';
+import { whatsappShareUrl } from './share';
+
+// Invite a friend (WhatsApp) + install the app. Sharing is the growth loop the
+// owner is distributing around; install keeps returning players one tap away.
+function ShareInstallSection() {
+  const [installed, setInstalled] = useState(() => isStandalone());
+  const [canInstall, setCanInstall] = useState(() => canPromptInstall());
+  const [iosSteps, setIosSteps] = useState(false);
+
+  useEffect(
+    () =>
+      onInstallChange(() => {
+        setInstalled(isStandalone());
+        setCanInstall(canPromptInstall());
+      }),
+    [],
+  );
+
+  const onInstall = async () => {
+    if (canPromptInstall()) {
+      await promptInstall();
+      setInstalled(isStandalone());
+      setCanInstall(canPromptInstall());
+    } else if (isIOS()) {
+      setIosSteps((s) => !s); // no native prompt on iOS — reveal the manual steps
+    } else {
+      setIosSteps(false);
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <a
+          href={whatsappShareUrl()}
+          target="_blank"
+          rel="noopener"
+          className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
+        >
+          💬 שַׁתְּפוּ חֲבֵרִים
+        </a>
+        {!installed && (canInstall || isIOS()) && (
+          <button
+            type="button"
+            onClick={onInstall}
+            className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
+          >
+            📲 הַתְקָנָה
+          </button>
+        )}
+      </div>
+      {installed && <p className="text-center text-xs text-bone/50">הָאַפְּלִיקַצְיָה מֻתְקֶנֶת ✓</p>}
+      {iosSteps && !installed && (
+        <div className="rounded-2xl bg-black/25 px-3 py-2.5 text-sm leading-relaxed text-bone/80 ring-hairline">
+          כְּדֵי לְהַתְקִין: לַחֲצוּ עַל <span className="font-bold text-cy">שִׁתּוּף</span>{' '}
+          <span aria-hidden>📤</span> לְמַטָּה, וְאָז עַל <span className="font-bold text-cy">"הוֹסֵף לְמָסָךְ הַבַּיִת"</span>.
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function SettingsButton() {
   const setOpen = useGame((s) => s.setSettingsOpen);
@@ -234,6 +296,7 @@ export function SettingsOverlay() {
         <div className="flex flex-col gap-4 overflow-y-auto pe-1">
           <AccountSection />
           <SoundSection />
+          <ShareInstallSection />
 
           {/* Help + privacy, opened outside the app so progress isn't disturbed. */}
           <section className="flex gap-2">
