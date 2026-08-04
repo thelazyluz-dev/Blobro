@@ -197,6 +197,16 @@ describe('POST /ad-event — aggregate ad telemetry', () => {
     expect((await event(cookie, { purpose: 'banner', outcome: 'shown' })).status).toBe(400);
     expect((await event(cookie, { purpose: 'boost', outcome: 'clicked' })).status).toBe(400);
   });
+
+  it('throttles rapid ad-events from one account so they cannot spam D1 writes', async () => {
+    const cookie = await signUp();
+    const before = (await env.DB.prepare('SELECT COUNT(*) AS c FROM ad_events').first<{ c: number }>())!.c;
+    expect((await event(cookie, { purpose: 'boost', outcome: 'shown' })).status).toBe(200);
+    // Immediate second call: still answered ok (fire-and-forget), but dropped — no D1 write.
+    expect((await event(cookie, { purpose: 'boost', outcome: 'reward' })).status).toBe(200);
+    const after = (await env.DB.prepare('SELECT COUNT(*) AS c FROM ad_events').first<{ c: number }>())!.c;
+    expect(after - before).toBe(1);
+  });
 });
 
 describe('GET /top stays public', () => {
@@ -348,6 +358,19 @@ describe('the cpm board and the held-goo board', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { cpm: { best: number } };
     expect(body.cpm.best).toBe(maxCpm); // maxHumanTapsPerSec * 60 — see game/cpm.ts
+  });
+
+  it('flags a first save that already claims a high taps-per-minute record', async () => {
+    // cpm has no delta audit, so the first-save cap is its only guard against an
+    // instant fabricated ⚡ #1. Small goo/clicks isolate the cpm trigger.
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ bestCpm: 2500, goo: 100, lifetimeGoo: 100, clicks: 10 }));
+    const row = await env.DB.prepare('SELECT flags, ok FROM save_audit ORDER BY id DESC LIMIT 1').first<{
+      flags: string;
+      ok: number;
+    }>();
+    expect(row?.ok).toBe(0);
+    expect((row?.flags ?? '').split(',')).toContain('first-save-cap');
   });
 
   it('the goo board tracks the CURRENT balance — it goes DOWN after spending', async () => {

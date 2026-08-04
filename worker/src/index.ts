@@ -887,6 +887,13 @@ export const FIRST_SAVE_CAP_BARS_SINCE = Date.UTC(2026, 8, 15); // 2026-09-15
  */
 const FIRST_SAVE_GOO_CAP = 1_000_000;
 const FIRST_SAVE_CLICK_CAP = 5_000;
+// The ⚡ taps-per-minute board is otherwise unaudited (verifySaveDelta ignores
+// cpm — it's only ever clamped to the maxCpm ceiling). A brand-new account's
+// first minute of play tops out at a few hundred, so a first save already
+// claiming a near-ceiling record is the cheap "instant #1" cheat. Half the
+// physical ceiling (maxCpm 3000) is comfortably above any honest first minute
+// and well below a fabricated max. Bars on the same date as the other caps.
+const FIRST_SAVE_CPM_CAP = 1_500;
 
 /** True when this account has a barring audit flag recorded since enforcement began.
  * The rate flags (goo-rate / click-rate) bar from SUBMIT_ENFORCE_SINCE; the
@@ -920,6 +927,15 @@ async function isBarredFromBoard(db: D1Database, userId: string): Promise<boolea
 const AD_PURPOSES = new Set(['boost', 'offline', 'egg']);
 const AD_OUTCOMES = new Set(['shown', 'reward', 'cancel', 'no_fill']);
 
+// /ad-event is the one write path that had no throttle: a session is free
+// (Google OAuth), so one signed-in client could loop it and burn D1 writes
+// (against the "must not cost money" constraint). Same in-isolate limiter as
+// /rank. Over-frequency events are silently dropped (no D1 write) and still
+// answered ok:true — the client fires-and-forgets telemetry, so a dropped
+// duplicate must never surface as an error.
+const AD_EVENT_MIN_INTERVAL_MS = 1_000;
+const adEventLastCall = new Map<string, number>();
+
 async function handleAdEvent(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get('Origin');
   let user: UserRow | null;
@@ -936,6 +952,17 @@ async function handleAdEvent(request: Request, env: Env): Promise<Response> {
   if (!AD_PURPOSES.has(purpose) || !AD_OUTCOMES.has(outcome)) {
     return authJson({ error: 'bad-event' }, 400, origin);
   }
+
+  // Throttle AFTER validation (a bad event still gets its 400) and before the
+  // write: over-frequency VALID events are dropped, answered ok:true, no D1 row.
+  const nowMs = Date.now();
+  const last = adEventLastCall.get(user.id) ?? 0;
+  if (nowMs - last < AD_EVENT_MIN_INTERVAL_MS) return authJson({ ok: true }, 200, origin);
+  adEventLastCall.set(user.id, nowMs);
+  // Bound isolate memory the same way rankLastCall does — eviction just re-allows
+  // each account one more event, never a sustained write bypass.
+  if (adEventLastCall.size > 10_000) adEventLastCall.clear();
+
   try {
     await env.DB.prepare('INSERT INTO ad_events (purpose, outcome, created) VALUES (?1, ?2, ?3)')
       .bind(purpose, outcome, Date.now())
@@ -1380,7 +1407,12 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       // write itself already succeeded and stays untouched.
       const flags: string[] = [...verdict.flags];
       let ok = verdict.ok;
-      if (!previousRow && (sanitized.lifetimeGoo > FIRST_SAVE_GOO_CAP || sanitized.clicks > FIRST_SAVE_CLICK_CAP)) {
+      if (
+        !previousRow &&
+        (sanitized.lifetimeGoo > FIRST_SAVE_GOO_CAP ||
+          sanitized.clicks > FIRST_SAVE_CLICK_CAP ||
+          sanitized.bestCpm > FIRST_SAVE_CPM_CAP)
+      ) {
         // Two tiers. Beyond the game's own hard ceilings (MAX_GOO / MAX_CLICKS)
         // no honest save can exist AT ALL — that is 'first-save-absurd' and it
         // bars regardless of the calendar. Below them, a big first save during
