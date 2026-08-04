@@ -81,10 +81,10 @@ export function HatchScreen() {
     <div className="anim-tab-in flex h-full flex-col items-center justify-between overflow-y-auto px-6 py-4">
       <header className="text-center">
         <h1 className="font-display text-4xl text-bone">בְּקִיעָה</h1>
-        <p className="mt-1 text-sm text-bone/60">קוֹנִים בֵּיצִים — פּוֹתְחִים וּמְגַלִּים יְצוּרִים!</p>
-        {/* The chase's scoreboard — how much of the egg collection is still out
-            there (game-design audit: the tab never showed collection progress). */}
-        <p className="mt-1 text-xs text-goo tabular">
+        {/* The chase's scoreboard doubles as the subtitle — one line instead of
+            two (the old instructional subtitle taught nothing a first tap
+            doesn't). */}
+        <p className="mt-1 text-sm text-goo tabular">
           נֶאֶסְפוּ {hatchableOwned} מִתּוֹךְ {hatchableTotal} יְצוּרֵי בֵּיצָה 🥚
         </p>
       </header>
@@ -166,7 +166,7 @@ export function HatchScreen() {
           {adEggReady ? '🎬 סִרְטוֹן = בֵּיצַת מַזָּל!' : `🎬 בֵּיצַת מַזָּל נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
         </button>
         {adEggReady && (
-          <p className="-mt-1 mb-2 text-xs text-pop">סִכּוּי מֻגְדָּל פִּי 10 לְאַגָּדִי! ✨</p>
+          <p className="-mt-1 mb-2 text-xs text-pop">הַסִּכּוּי הֲכִי גָּדוֹל לְאַגָּדִי בַּמִּשְׂחָק! ✨</p>
         )}
 
         {/* Buy controls. */}
