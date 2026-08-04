@@ -1041,6 +1041,85 @@ async function cachedTotalScores(env: Env): Promise<number> {
   return value;
 }
 
+// ── Approximate ranks from a once-a-minute score histogram ──────────────────
+//
+// The per-player rank used to be `COUNT(*) WHERE col > me` on EVERY board open —
+// a range scan that, at scale, is the single biggest source of D1 rows-read
+// (CLAUDE.md's named hot path). Instead we bucket every score by its base-10
+// magnitude ONCE a minute per board and cache the histogram in-isolate; a rank
+// is then a lookup over a few hundred bucket counts and costs ZERO extra D1
+// reads between refreshes. Same in-isolate trade-off as cachedTotalScores: a
+// cold isolate simply does the one grouped scan, so this only ever helps.
+//
+// The rank becomes APPROXIMATE (bucketed to ~20 steps per power of ten) rather
+// than exact — the player sees "~#1,234". That is the deliberate move CLAUDE.md
+// prescribes for the >25-30k-DAU regime, and it adds no writes (the anti-goal
+// there was per-minute rank WRITES, ~$600/mo — this is reads only).
+const RANK_HISTOGRAM_TTL_MS_DEFAULT = 60_000;
+const BUCKETS_PER_DECADE = 20; // log10(score) * 20 → 20 buckets per power of ten
+
+type Board = 'clicks' | 'goo' | 'cpm';
+interface Histogram {
+  buckets: Map<number, number>; // bucket index → how many players fall in it
+  positive: number; // total players with score >= 1 (sum of all bucket counts)
+  at: number;
+}
+const histogramCache = new Map<Board, Histogram>();
+
+// Test hook (like MIN_SAVE_INTERVAL_MS): the integration suite sets this to '0'
+// so a rank read right after a submit sees a fresh histogram instead of the
+// up-to-a-minute-stale one production intentionally serves.
+function histogramTtl(env: Env): number {
+  const raw = (env as { RANK_HISTOGRAM_TTL_MS?: string }).RANK_HISTOGRAM_TTL_MS;
+  const n = raw != null ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : RANK_HISTOGRAM_TTL_MS_DEFAULT;
+}
+
+// score → bucket, matching the SQL `CAST(log(col) * B AS INTEGER)` exactly for
+// col >= 1 (there log is >= 0, so SQLite's cast-truncation == Math.floor). D1
+// exposes base-10 `log()`; `log10` is not authorized, hence `log`.
+function bucketOf(v: number): number {
+  return Math.floor(Math.log10(v) * BUCKETS_PER_DECADE);
+}
+
+async function scoreHistogram(env: Env, col: Board): Promise<Histogram> {
+  const now = Date.now();
+  const cached = histogramCache.get(col);
+  if (cached && now - cached.at < histogramTtl(env)) return cached;
+  // One grouped scan, served from the board's DESC index. `col >= 1` skips the
+  // zero/tiny rows — they rank at the very bottom and never need the histogram.
+  const rows = await env.DB.prepare(
+    `SELECT CAST(log(${col}) * ${BUCKETS_PER_DECADE} AS INTEGER) AS b, COUNT(*) AS c FROM scores WHERE ${col} >= 1 GROUP BY b`,
+  ).all<{ b: number; c: number }>();
+  const buckets = new Map<number, number>();
+  let positive = 0;
+  for (const r of rows.results ?? []) {
+    buckets.set(r.b, r.c);
+    positive += r.c;
+  }
+  const hist: Histogram = { buckets, positive, at: now };
+  histogramCache.set(col, hist);
+  return hist;
+}
+
+// Approximate 1-based rank of score `v` on `col`. Everyone in a higher bucket
+// ranks above; within the player's own bucket we place them at the midpoint
+// (the least-biased guess with no intra-bucket detail). A score below 1 sits
+// beneath everyone with a real score. Always >= 1, and identical to the old
+// exact rank whenever the neighbours fall in separate buckets.
+async function approxRank(env: Env, col: Board, v: number): Promise<number> {
+  const hist = await scoreHistogram(env, col);
+  if (v < 1) return hist.positive + 1;
+  const mine = bucketOf(v);
+  let above = 0;
+  let same = 0;
+  for (const [b, c] of hist.buckets) {
+    if (b > mine) above += c;
+    else if (b === mine) same = c;
+  }
+  return above + Math.max(1, Math.round(same / 2));
+}
+
 // GET /rank runs the one query CLAUDE.md names as the D1-cost hot path (a
 // range COUNT that can scan most of the table), and unlike /submit and /save
 // it had no throttle at all — any signed-in account could loop it for free.
@@ -1076,11 +1155,9 @@ async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo' | 'c
       .bind(code)
       .first<{ name: string; v: number }>();
     if (!me) return authJson({ rank: null }, 200, origin);
-    const above = await env.DB.prepare(`SELECT COUNT(*) AS c FROM scores WHERE ${col} > ?1`)
-      .bind(me.v)
-      .first<{ c: number }>();
-    const rank = (above?.c ?? 0) + 1;
-    // Guard the (possibly up-to-a-minute-stale) cached total up to the live rank
+    // Approximate rank from the cached histogram — no range scan per request.
+    const rank = await approxRank(env, col, me.v);
+    // Guard the (possibly up-to-a-minute-stale) cached total up to the rank
     // so a brand-new joiner never sees "rank 15,001 of 15,000".
     const total = Math.max(await cachedTotalScores(env), rank);
     return authJson({ by: col, rank, score: me.v, name: me.name, total }, 200, origin);
@@ -1097,20 +1174,13 @@ async function rankPayload(env: Env, code: string) {
   const bestClicks = row?.clicks ?? 0;
   const bestGoo = row?.goo ?? 0;
   const bestCpm = row?.cpm ?? 0;
-  const cAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE clicks > ?1')
-    .bind(bestClicks)
-    .first<{ c: number }>();
-  const gAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE goo > ?1')
-    .bind(bestGoo)
-    .first<{ c: number }>();
-  const mAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE cpm > ?1')
-    .bind(bestCpm)
-    .first<{ c: number }>();
-  const cRank = (cAbove?.c ?? 0) + 1;
-  const gRank = (gAbove?.c ?? 0) + 1;
-  const mRank = (mAbove?.c ?? 0) + 1;
+  // All three ranks come from the cached histograms (see approxRank) — no
+  // range-COUNT scan per board, per request.
+  const cRank = await approxRank(env, 'clicks', bestClicks);
+  const gRank = await approxRank(env, 'goo', bestGoo);
+  const mRank = await approxRank(env, 'cpm', bestCpm);
   // Cached, up-to-a-minute-stale total (see cachedTotalScores). Guard it up to
-  // the largest live rank so a brand-new joiner never reads "rank N+1 of N".
+  // the largest rank so a brand-new joiner never reads "rank N+1 of N".
   const total = Math.max(await cachedTotalScores(env), cRank, gRank, mRank);
   return {
     ok: true,

@@ -21,6 +21,7 @@ import { maxCpm } from '../src/rules';
 (env as { ALLOW_PASSWORD_AUTH?: string }).ALLOW_PASSWORD_AUTH = '1';
 
 (env as { MIN_SAVE_INTERVAL_MS?: string }).MIN_SAVE_INTERVAL_MS = '0';
+(env as { RANK_HISTOGRAM_TTL_MS?: string }).RANK_HISTOGRAM_TTL_MS = '0';
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const request = new Request(`http://worker.example${path}`, init);
@@ -377,5 +378,46 @@ describe('the cpm board and the held-goo board', () => {
     await putSave(cookie, 0, save({ goo: 1e15, lifetimeGoo: 50 }));
     const expected = Date.now() >= FIRST_SAVE_CAP_BARS_SINCE ? 403 : 200;
     expect((await submit(cookie, { name: 'רן' })).status).toBe(expected);
+  });
+});
+
+// The rank comes from a once-a-minute score histogram (approxRank in index.ts),
+// not a per-request COUNT scan. With RANK_HISTOGRAM_TTL_MS=0 (set at the top of
+// this file) every read rebuilds it, and well-separated scores land in distinct
+// buckets — where the approximation is exactly the true rank.
+describe('GET /rank — approximate ranks from the score histogram', () => {
+  const rankOf = async (cookie: string) => {
+    const res = await call('/rank?by=goo', { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    return (await res.json()) as { rank: number; score: number; total: number };
+  };
+
+  it('orders well-separated goo scores 1, 2, 3 and reports a plausible total', async () => {
+    const specs = [
+      { goo: 5_000, name: 'נָמוּךְ' },
+      { goo: 5_000_000, name: 'אֶמְצַע' },
+      { goo: 5_000_000_000, name: 'גָּבוֹהַּ' },
+    ];
+    const cookies: string[] = [];
+    for (const s of specs) {
+      const c = await signUp();
+      await putSave(c, 0, save({ goo: s.goo, lifetimeGoo: s.goo }));
+      expect((await submit(c, { name: s.name })).status).toBe(200);
+      cookies.push(c);
+    }
+
+    const high = await rankOf(cookies[2]);
+    const mid = await rankOf(cookies[1]);
+    const low = await rankOf(cookies[0]);
+
+    expect(high.score).toBe(5_000_000_000);
+    expect(high.rank).toBe(1);
+    expect(mid.rank).toBe(2);
+    expect(low.rank).toBe(3);
+    // total is the up-to-60s-stale cached count (see cachedTotalScores), so we
+    // only assert it's populated — freshness isn't this test's concern.
+    expect(high.total).toBeGreaterThan(0);
+    // the reported total is always guarded up to the player's own rank
+    expect(low.rank).toBeLessThanOrEqual(low.total);
   });
 });

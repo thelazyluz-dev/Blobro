@@ -21,6 +21,7 @@ import worker from '../src/index';
 (env as { ALLOW_PASSWORD_AUTH?: string }).ALLOW_PASSWORD_AUTH = '1';
 
 (env as { MIN_SAVE_INTERVAL_MS?: string }).MIN_SAVE_INTERVAL_MS = '0';
+(env as { RANK_HISTOGRAM_TTL_MS?: string }).RANK_HISTOGRAM_TTL_MS = '0';
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const request = new Request(`http://worker.example${path}`, init);
