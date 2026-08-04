@@ -5,19 +5,21 @@
 
 import type { CSSProperties, FC } from 'react';
 
-// Crack strokes emanating from the centre, revealed one per tap. Ordered so the
-// egg looks like it's splitting apart more and more.
+// One connected fracture, revealed one segment per tap. Each segment starts
+// where an earlier one ended, so instead of scattered scribbles the crack reads
+// as a single split running down the shell from the top, then branching
+// symmetrically and opening up around the middle — a real egg cracking apart.
 export const EGG_CRACKS = [
-  'M60 30 L55 58 L64 74',
-  'M60 30 L68 54 L60 78',
-  'M40 72 L58 78 L48 100',
-  'M82 70 L62 80 L74 104',
-  'M60 78 L56 104 L66 120',
-  'M30 60 L52 74',
-  'M92 62 L70 76',
-  'M60 30 L60 120', // the big split down the middle (late)
-  'M44 118 L60 108 L76 118',
-  'M36 92 L54 96',
+  'M60 34 L56 46 L61 56', // stem, top of the shell
+  'M61 56 L56 66 L60 74', // stem continues toward the middle
+  'M56 46 L45 44', //        upper-left branch
+  'M61 56 L73 53', //        upper-right branch
+  'M60 74 L50 76', //        opens left, at the split line
+  'M60 74 L71 78', //        opens right, at the split line
+  'M60 74 L61 96 L56 106', // stem carries on down past the opening
+  'M56 106 L47 112', //      lower-left branch
+  'M56 106 L66 111', //      lower-right branch
+  'M45 44 L36 39', //        top-left twig (only the rarest eggs reach this far)
 ];
 
 export const MAX_EGG_CRACKS = EGG_CRACKS.length;
