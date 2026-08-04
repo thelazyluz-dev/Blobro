@@ -946,6 +946,28 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
   }
 }
 
+// The board's total-player count is identical for everyone and moves only when
+// a brand-new player joins — yet the rank queries below ran `SELECT COUNT(*)
+// FROM scores`, a full-table scan, on EVERY leaderboard open. At tens of
+// thousands of rows and thousands of opens a day that one scan was the single
+// largest source of D1 rows-read. It doesn't need to be live: a count that's up
+// to a minute stale is invisible to a player ("out of ~15,000"). So we cache it
+// in-isolate and refresh at most once a minute. A cold isolate simply does what
+// the code always did — one scan — so this can only ever help, never regress.
+const TOTAL_SCORES_TTL_MS = 60_000;
+let totalScoresCache: { value: number; at: number } | null = null;
+
+async function cachedTotalScores(env: Env): Promise<number> {
+  const now = Date.now();
+  if (totalScoresCache && now - totalScoresCache.at < TOTAL_SCORES_TTL_MS) {
+    return totalScoresCache.value;
+  }
+  const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
+  const value = total?.c ?? 0;
+  totalScoresCache = { value, at: now };
+  return value;
+}
+
 async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo' | 'cpm'): Promise<Response> {
   const origin = request.headers.get('Origin');
   let user: UserRow | null;
@@ -965,12 +987,11 @@ async function handleRank(request: Request, env: Env, col: 'clicks' | 'goo' | 'c
     const above = await env.DB.prepare(`SELECT COUNT(*) AS c FROM scores WHERE ${col} > ?1`)
       .bind(me.v)
       .first<{ c: number }>();
-    const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
-    return authJson(
-      { by: col, rank: (above?.c ?? 0) + 1, score: me.v, name: me.name, total: total?.c ?? 1 },
-      200,
-      origin,
-    );
+    const rank = (above?.c ?? 0) + 1;
+    // Guard the (possibly up-to-a-minute-stale) cached total up to the live rank
+    // so a brand-new joiner never sees "rank 15,001 of 15,000".
+    const total = Math.max(await cachedTotalScores(env), rank);
+    return authJson({ by: col, rank, score: me.v, name: me.name, total }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }
@@ -993,13 +1014,18 @@ async function rankPayload(env: Env, code: string) {
   const mAbove = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores WHERE cpm > ?1')
     .bind(bestCpm)
     .first<{ c: number }>();
-  const total = await env.DB.prepare('SELECT COUNT(*) AS c FROM scores').first<{ c: number }>();
+  const cRank = (cAbove?.c ?? 0) + 1;
+  const gRank = (gAbove?.c ?? 0) + 1;
+  const mRank = (mAbove?.c ?? 0) + 1;
+  // Cached, up-to-a-minute-stale total (see cachedTotalScores). Guard it up to
+  // the largest live rank so a brand-new joiner never reads "rank N+1 of N".
+  const total = Math.max(await cachedTotalScores(env), cRank, gRank, mRank);
   return {
     ok: true,
-    total: total?.c ?? 1,
-    clicks: { best: bestClicks, rank: (cAbove?.c ?? 0) + 1 },
-    goo: { best: bestGoo, rank: (gAbove?.c ?? 0) + 1 },
-    cpm: { best: bestCpm, rank: (mAbove?.c ?? 0) + 1 },
+    total,
+    clicks: { best: bestClicks, rank: cRank },
+    goo: { best: bestGoo, rank: gRank },
+    cpm: { best: bestCpm, rank: mRank },
   };
 }
 
