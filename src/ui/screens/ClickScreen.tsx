@@ -392,7 +392,7 @@ export function ClickScreen() {
       {magBanner && !reduced && (
         <div
           key={magBanner.id}
-          className="anim-mag-banner pointer-events-none absolute inset-x-0 top-56 z-30 text-center"
+          className="anim-mag-banner pointer-events-none absolute inset-x-0 top-40 z-30 text-center"
         >
           <div className="font-display text-6xl text-goo text-glow-pop">
             🚀 {formatGoo(Math.pow(10, magBanner.exp))}!
@@ -511,7 +511,7 @@ export function ClickScreen() {
           aria-label="לחיצה על הבלוב"
           className="relative touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-cy"
         >
-          {combo >= 4 && (
+          {combo >= 4 && !comboBurst && (
             <span
               className="anim-count-pop pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-cy px-3 py-0.5 font-display text-sm text-void"
               style={{ boxShadow: '0 0 16px rgba(0,229,255,0.7)' }}

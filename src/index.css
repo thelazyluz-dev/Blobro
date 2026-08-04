@@ -528,7 +528,7 @@ body {
   18% { opacity: 1; transform: scale(1.32) translateY(0); }
   38% { transform: scale(1); }
   70% { opacity: 1; transform: translateY(-10px) scale(1.03); }
-  100% { opacity: 0; transform: translateY(-130px) scale(0.9); }
+  100% { opacity: 0; transform: translateY(-56px) scale(0.9); }
 }
 .anim-mag-banner {
   animation: blorbo-mag-banner 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;

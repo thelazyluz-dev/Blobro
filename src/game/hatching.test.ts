@@ -36,8 +36,9 @@ describe('hatch with premium: true', () => {
   const ctx = { owned: {}, sinceRare: 3, totalHatches: 10, luck: 0 };
 
   it('uses the premium table (a mid-roll that would be common is rare here)', () => {
-    // u = 0.08: normal roll → common (0.68 band); premium roll → rare.
-    const outcome = hatch(() => 0.08, { ...ctx, premium: true });
+    // u = 0.2: normal roll → common (0.68 band); premium roll → rare
+    // (legendary band 0..0.12, rare 0.12..0.42 — the raised ad-egg table).
+    const outcome = hatch(() => 0.2, { ...ctx, premium: true });
     expect(outcome.rarity).toBe('rare');
   });
 

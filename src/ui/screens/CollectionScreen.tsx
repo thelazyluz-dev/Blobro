@@ -387,7 +387,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             speakName(def.nameHe, m);
           }}
           aria-label={`השמע את השם ${def.nameHe}`}
-          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl outline-none transition active:scale-95 ${evolved ? 'anim-hue-spin' : ''}`}
+          className={`relative mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-2xl outline-none transition active:scale-95 `}
           style={{ background: rarityBackground(def.rarity), boxShadow: `0 0 40px -8px ${ringColor}` }}
         >
           {evolved && <span className="absolute -end-1 -top-1 text-2xl">✨</span>}

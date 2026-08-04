@@ -95,6 +95,10 @@ export interface QuestDef {
 // an 8-day cycle with a much larger combination space. Each new counter is
 // bumped at exactly one store action (buyEgg/buyEggsMax, evolveCreature, and a
 // crit tap in click()). Kept everyone's "same quests today" shared design.
+// 'evolve' was piloted and PULLED (economy verification): evolveCost prices
+// against a creature's total accumulated income, so for anyone who leveled
+// past 10 first the quest cost 13-33x its reward. It returns when evolveCost
+// is repriced marginally (backlog); the QuestId stays so old saves sanitize.
 export const QUEST_POOL: QuestDef[] = [
   { id: 'taps', nameHe: 'לִלְחֹץ 800 פְּעָמִים', icon: '👆', target: 800 },
   { id: 'hatches', nameHe: 'לִבְקֹעַ 6 בֵּיצִים', icon: '🥚', target: 6 },
@@ -102,7 +106,6 @@ export const QUEST_POOL: QuestDef[] = [
   { id: 'upgrades', nameHe: 'לִקְנוֹת 20 שִׁדְרוּגִים', icon: '⬆️', target: 20 },
   { id: 'levels', nameHe: 'לְאַמֵּן יְצוּרִים 65 רָמוֹת', icon: '🐾', target: 65 },
   { id: 'eggs', nameHe: 'לִקְנוֹת 5 בֵּיצִים', icon: '🛒', target: 5 },
-  { id: 'evolve', nameHe: 'לְפַתֵּחַ 3 יְצוּרִים', icon: '✨', target: 3 },
   { id: 'crits', nameHe: 'לְהַנְחִית 20 מַכּוֹת עָצְמָה', icon: '⚡', target: 20 },
 ];
 

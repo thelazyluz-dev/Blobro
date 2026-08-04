@@ -276,8 +276,12 @@ export const adEggCooldownMs = 30 * 60 * 1000;
 // The ad egg's own rarity table (owner-set): a real reason to watch. The
 // remaining 85% splits between common/uncommon at their base ratio, so this
 // is "the same egg with the top boosted", not a different game.
-export const adEggLegendaryChance = 0.05; // base: 0.005 — ×10
-export const adEggRareChance = 0.1; // base: 0.045 — ×2.2
+// Raised 0.05/0.10 → 0.12/0.30 (economy verification round): cheapening the
+// luck upgrade let a maxed-luck NATURAL roll (11% legendary / 29% rare) beat
+// the ad egg from ~day 3 — the one reward ad had become objectively worse
+// odds. The ad egg must stay the best egg in the game at any luck level.
+export const adEggLegendaryChance = 0.12;
+export const adEggRareChance = 0.3;
 // 4s → 10s: real rewarded video runs 15-30s, and a 4s demo was training kids
 // on a reward-per-effort ratio that would break the day AdSense goes live.
 // 10s is the compromise — closer to reality without making today's demo a slog.
@@ -355,5 +359,5 @@ export const dailyGiftDay7Eggs = 3;
 // tolerates for the day-6 gift.
 export const dailyQuestIncomeSeconds = 90; // reward per completed quest
 export const dailyQuestMinGoo = 60;
-export const dailyQuestAllBonusSeconds = 200; // extra for finishing all three
-export const dailyQuestAllBonusMinGoo = 140;
+export const dailyQuestAllBonusSeconds = 225; // extra for finishing all three (x1.5 like the per-quest reward)
+export const dailyQuestAllBonusMinGoo = 150;
