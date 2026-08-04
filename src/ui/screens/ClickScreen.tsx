@@ -8,6 +8,8 @@ import {
   bonusIntervalMaxMs,
   bonusIntervalMinMs,
   bonusLifetimeMs,
+  firstBonusDelayMaxMs,
+  firstBonusDelayMinMs,
   comboMilestones,
   comboRepeatEvery,
   comboRewardMult,
@@ -108,6 +110,7 @@ export function ClickScreen() {
   const blobRef = useRef<HTMLButtonElement>(null);
   const popTimer = useRef<number>();
   const spawnRef = useRef<number>();
+  const firstBonusRef = useRef(true); // the session's first bonus comes early for new players
   const lifeRef = useRef<number>();
   const scheduleRef = useRef<() => void>(() => {});
   const rainTimer = useRef<number>();
@@ -182,7 +185,16 @@ export function ClickScreen() {
   // Golden-bonus spawn loop (only alive while this screen is mounted).
   useEffect(() => {
     const schedule = () => {
-      const wait = bonusIntervalMinMs + Math.random() * (bonusIntervalMaxMs - bonusIntervalMinMs);
+      // A brand-new player gets their first bonus fast, so the thin opening
+      // stretch has a scheduled payoff. Gated on being genuinely new (few taps,
+      // few bonuses) so an established player can't farm it by re-entering the
+      // tab; everyone else gets the normal 42-88s pacing.
+      const g = useGame.getState();
+      const early = firstBonusRef.current && g.clicks < 150 && g.bonusesCollected < 3;
+      firstBonusRef.current = false;
+      const wait = early
+        ? firstBonusDelayMinMs + Math.random() * (firstBonusDelayMaxMs - firstBonusDelayMinMs)
+        : bonusIntervalMinMs + Math.random() * (bonusIntervalMaxMs - bonusIntervalMinMs);
       spawnRef.current = window.setTimeout(() => {
         setBonus({ id: ++uid, top: 20 + Math.random() * 48 });
         lifeRef.current = window.setTimeout(() => {
@@ -273,7 +285,10 @@ export function ClickScreen() {
     // Combo: consecutive rapid taps build up, driving pitch and particle count.
     const t = performance.now();
     const c = comboRef.current;
-    c.count = t - c.last < COMBO_WINDOW_MS ? c.count + 1 : 1;
+    // A missed window HALVES the streak instead of zeroing it, so a kid who
+    // pauses to watch the blob keeps most of their progress toward the payouts
+    // (they reward steady tapping without demanding metronomic, bot-like taps).
+    c.count = t - c.last < COMBO_WINDOW_MS ? c.count + 1 : Math.max(1, Math.floor(c.count / 2));
     c.last = t;
     setCombo(c.count);
     window.clearTimeout(comboTimer.current);

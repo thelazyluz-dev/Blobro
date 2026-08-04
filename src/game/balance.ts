@@ -157,9 +157,11 @@ export const comboRepeatEvery = 500;
 // Combo payouts are multiplied by this — bumped to make active tapping (combos)
 // more rewarding relative to idle income.
 export const comboRewardMult = 2;
-// How long a tap keeps the combo alive. Forgiving enough that a brief pause or
-// a frame-hitch during a celebration doesn't drop a long streak.
-export const comboWindowMs = 1200;
+// How long a tap keeps the combo alive. Widened 1200 → 1600 (playtest): a kid
+// who taps, pauses to watch the blob, then taps again shouldn't lose the whole
+// streak — and a missed window now HALVES the count instead of zeroing it (see
+// ClickScreen), so natural bursty tapping still builds toward the payouts.
+export const comboWindowMs = 1600;
 
 // --- Luck (hatch odds shift) -------------------------------------------------
 export const luckCap = 0.35; // max fraction shifted from common → rare/legendary
@@ -233,6 +235,12 @@ export const pityLegendaryThreshold = 110; // totalHatches → guaranteed legend
 // a short click frenzy.
 export const bonusIntervalMinMs = 42000;
 export const bonusIntervalMaxMs = 88000;
+// The FIRST bonus of an early-game session comes fast so a normal-paced player
+// gets a payoff inside their first minute — the 42-88s floor left the opening
+// stretch (the most retention-critical part) with nothing scheduled. Only fires
+// while the player is still new (see ClickScreen gate); steady-state is unchanged.
+export const firstBonusDelayMinMs = 12000;
+export const firstBonusDelayMaxMs = 20000;
 export const bonusLifetimeMs = 9000; // how long it stays before drifting off
 export const bonusIncomeSeconds = 40; // reward ≈ this many seconds of passive income
 export const bonusClickEquivalent = 40; // …or this many taps, whichever is larger
