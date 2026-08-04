@@ -144,7 +144,8 @@ export type PlausibilityFlag =
   | 'click-rate'
   /** lifetimeGoo went DOWN — it is monotonic, so this is a rewritten save. */
   | 'lifetime-goo-decreased'
-  /** Creatures were owned that no hatch could have produced (count went down then up). */
+  /** The tap count went DOWN — clicks are monotonic in an honest save, so a
+   * decrease means a rewritten/edited (or diverging cross-device) save. */
   | 'clicks-decreased'
   /**
    * The client says this decrease is a deliberate rollback (the player used

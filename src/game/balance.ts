@@ -72,7 +72,6 @@ export const minCharLevel = 1;
 export const evolveLevels = [10, 25, 50, 100]; // level required for stage 1,2,3,4
 export const maxEvolution = evolveLevels.length; // 4
 export const evolveMultiplierByStage = [1, 3, 8, 20, 50]; // income × at stage 0..4
-export const evolveLevel = evolveLevels[0]; // first evolution level (back-compat)
 
 // --- Direct creature leveling (goo sink) --------------------------------------
 // Besides hatching duplicates, a creature can be levelled straight up with goo.

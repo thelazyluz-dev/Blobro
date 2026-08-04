@@ -18,10 +18,8 @@ import {
   evolveLevels,
   frenzyDurationMs,
   frenzyMultiplier,
-  leaderboardMaxEntries,
   luckCap,
   openAllCap,
-  leaderboardNameMaxLen,
   maxEvolution,
   upgradeAllCooldownMs,
 } from './game/balance';
@@ -185,7 +183,8 @@ interface GameState {
   // Manual-tap timestamps inside the last minute (transient — never saved);
   // feeds the bestCpm record via game/cpm.ts.
   tapTimes: number[];
-  // Rewarded "watch to boost" mechanic (session-only, never persisted).
+  // Rewarded "watch to boost" mechanic. PERSISTED (v18): a live boost / cooldown
+  // must survive a refresh, so both are in snapshot/defaultSaveState/migrate.
   adRewardUntil: number; // epoch ms; a ×N boost to taps AND income is live until then
   adCooldownUntil: number; // epoch ms; the bonus button recharges after this
   adEggReadyAt: number; // epoch ms; free-egg ad recharge — PERSISTED (v15): a refresh must not reset it
@@ -256,8 +255,6 @@ interface GameState {
   claimAchievement: (id: string) => void;
   claimAllAchievements: () => void;
   setNicknameOpen: (open: boolean) => void;
-  addToLeaderboard: (name: string) => void;
-  resetClicks: () => void;
   resetGame: () => void;
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
@@ -1246,24 +1243,6 @@ export const useGame = create<GameState>((set, get) => {
 
     setNicknameOpen: (open) => set({ nicknameOpen: open }),
 
-    // Save the current player's click count under a nickname. Local only — this
-    // list lives in IndexedDB and is never uploaded anywhere.
-    addToLeaderboard: (name) => {
-      const clean = name.trim().slice(0, leaderboardNameMaxLen);
-      if (!clean) return;
-      const s = get();
-      const entry: LeaderboardEntry = { name: clean, clicks: s.clicks };
-      const leaderboard = [...s.leaderboard, entry]
-        .sort((a, b) => b.clicks - a.clicks)
-        .slice(0, leaderboardMaxEntries);
-      set({ leaderboard });
-      get().pushToast({ text: `${clean} נכנס לטבלה! 🏅`, icon: '🏅', tone: 'star' });
-    },
-
-    // Start a fresh run for the next player (resets the click tally only —
-    // the game's goo and creatures are untouched).
-    resetClicks: () => set({ clicks: 0 }),
-
     // Wipe ALL progress back to a brand-new game (and persist the empty save).
     resetGame: () => {
       const now = Date.now();
@@ -1302,6 +1281,10 @@ export const useGame = create<GameState>((set, get) => {
         questsClaimed: [],
         questAllClaimed: false,
         adEggReadyAt: 0,
+        // Match defaultSaveState: a fresh game must not carry a live ad boost /
+        // cooldown from the old run (these are persisted since v18).
+        adRewardUntil: 0,
+        adCooldownUntil: 0,
         prestigeCrystals: 0,
         prestigeCount: 0,
         dailyOpen: false,
@@ -1361,11 +1344,6 @@ export const useGame = create<GameState>((set, get) => {
     setAuthUser: (user) => set({ authUser: user, authChecked: true }),
     clearAuthUser: () => set({ authUser: null }),
 
-    // Sign out. Deliberately does NOT touch the local game save — in this PR
-    // progress belongs to the device, not the account, so a signed-out player
-    // keeps playing with the exact same blob/goo/creatures they had. Only
-    // identity is cleared. If AUTH_REQUIRED is on, clearing authUser here is
-    // what sends the player back to the gate (see App.tsx).
     /**
      * Put the stashed save back. This is the escape hatch for the one way the
      * cloud merge can hurt someone: the rule picks by lifetimeGoo, which is
@@ -1428,6 +1406,10 @@ export const useGame = create<GameState>((set, get) => {
       pendingRollback = true;
     },
 
+    // Sign out. Deliberately does NOT touch the local game save — progress
+    // belongs to the device, so a signed-out player keeps the same
+    // blob/goo/creatures; only identity is cleared. With AUTH_REQUIRED on,
+    // clearing authUser is what returns the player to the gate (see App.tsx).
     signOut: () => {
       set({ authUser: null });
       void logout();
@@ -1635,7 +1617,6 @@ export const selectClickPower = (s: GameState) => {
 };
 /** The combo melody (note frequencies) of the equipped sound pack. */
 export const selectComboMelody = (s: GameState) => soundById(s.equippedSound).melody;
-export const selectUpgradeCost = (id: UpgradeId) => (s: GameState) => upgradeCost(id, s.upgrades[id]);
 export const selectAchContext = (s: GameState): AchievementContext => achContextOf(s);
 /** Ids of achievements finished but not yet claimed — the "ready to collect" set. */
 export const selectClaimableIds = (s: GameState): Set<string> =>
