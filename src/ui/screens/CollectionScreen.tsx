@@ -135,10 +135,10 @@ export function CollectionScreen() {
                   className="inline-block h-3 w-3 rounded-full"
                   style={{ background: rarityColor[rarity], boxShadow: `0 0 8px ${rarityColor[rarity]}` }}
                 />
-                <span className="font-display text-lg" style={{ color: rarityColor[rarity] }}>
+                <span className="font-display text-xl" style={{ color: rarityColor[rarity] }}>
                   {rarityLabelHe[rarity]}
                 </span>
-                <span className="text-xs text-bone/45 tabular">
+                <span className="text-sm text-bone/60 tabular">
                   {haveHere}/{ids.length}
                 </span>
                 <span className="ms-auto text-[10px] text-bone/40 tabular">

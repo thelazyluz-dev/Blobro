@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
-import { pityLegendaryThreshold, pityRareThreshold } from '../../game/balance';
+import { eggCostGrowth, pityLegendaryThreshold, pityRareThreshold } from '../../game/balance';
 import { hatchableByRarity } from '../../game/characters';
 import { formatGoo } from '../../game/format';
 import { isLegendaryOwned } from '../../game/hatching';
@@ -48,6 +48,10 @@ export function HatchScreen() {
 
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
+  // "Buy max" only earns its column when it would buy MORE than one — when it
+  // equals "buy egg" it's a duplicate button (design proposal A). Next egg's
+  // price is exactly cost x growth, so this needs no extra pricing plumbing.
+  const showMax = goo >= cost + cost * eggCostGrowth;
   const hasEggs = eggs > 0;
   const legendaryOwned = isLegendaryOwned(characters);
 
@@ -78,7 +82,7 @@ export function HatchScreen() {
   };
 
   return (
-    <div className="anim-tab-in flex h-full flex-col items-center justify-between overflow-y-auto px-6 py-4">
+    <div className="anim-tab-in flex h-full flex-col items-center gap-2 overflow-y-auto px-6 pb-2 pt-3">
       <header className="text-center">
         <h1 className="font-display text-4xl text-bone">בְּקִיעָה</h1>
         {/* The chase's scoreboard doubles as the subtitle — one line instead of
@@ -89,8 +93,9 @@ export function HatchScreen() {
         </p>
       </header>
 
-      {/* pity meter */}
-      <div className="w-full max-w-xs space-y-2">
+      {/* Status card — the pity meters share one card so they read as one
+          "chase status" unit instead of two floating bars (design proposal A). */}
+      <div className="surface w-full max-w-xs shrink-0 space-y-1 rounded-2xl px-3 py-1.5">
         <PityBar
           label={rareLeft === 0 ? 'הפתיחה הבאה: נדיר מובטח! ✨' : `עוד ${rareLeft} עד נדיר מובטח`}
           value={sinceRare}
@@ -108,9 +113,9 @@ export function HatchScreen() {
       </div>
 
       {/* The stash: tap the egg to open one (crack-by-crack in the overlay). */}
-      <div className="relative flex min-h-0 flex-1 shrink items-center justify-center py-2">
+      <div className="relative flex min-h-[88px] w-full flex-1 shrink items-center justify-center overflow-visible py-1">
         <div
-          className={`pointer-events-none absolute h-[clamp(140px,28vh,224px)] w-[clamp(140px,28vh,224px)] rounded-full ${reduced ? '' : 'anim-breathe'}`}
+          className={`pointer-events-none absolute aspect-square h-full max-h-[200px] rounded-full ${reduced ? '' : 'anim-breathe'}`}
           style={{ background: 'radial-gradient(circle, rgba(255,216,77,0.28), transparent 65%)' }}
         />
         <button
@@ -118,13 +123,13 @@ export function HatchScreen() {
           onClick={open}
           disabled={!hasEggs}
           aria-label={hasEggs ? 'פתח ביצה' : 'אין ביצים'}
-          className={`relative touch-none select-none rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-cy ${
+          className={`relative h-full max-h-[190px] touch-none select-none rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-cy ${
             hasEggs ? 'active:scale-95' : 'opacity-60'
           }`}
         >
           <EggArt
             spotColor="#A3FF12"
-            className={`h-[clamp(130px,26vh,210px)] w-[clamp(104px,20.8vh,168px)] ${reduced || !hasEggs ? '' : 'anim-idle'}`}
+            className={`h-full w-auto ${reduced || !hasEggs ? '' : 'anim-idle'}`}
           />
           {/* inventory count badge */}
           <span
@@ -136,62 +141,62 @@ export function HatchScreen() {
         </button>
       </div>
 
-      <div className="w-full max-w-xs shrink-0 text-center">
-        {hasEggs ? (
-          <p className="mb-3 text-sm text-bone/70">לְחַץ עַל הַבֵּיצָה כְּדֵי לִשְׁבֹּר אוֹתָהּ! 🥚</p>
-        ) : (
-          <p className="mb-3 text-sm text-bone/70">אֵין לְךָ בֵּיצִים — קְנֵה אַחַת!</p>
-        )}
-
-        {/* One quick-hatch button opens the whole stash instantly (tapping the
-            egg above is the slow, satisfying way to open them one at a time). */}
+      {/* Actions card — one card, one job: everything that spends goo lives
+          here, in a fixed order (context line, price+shortfall as ONE line,
+          buy grid, quick-hatch). Design proposal A: 10 floating rows became
+          header / status / egg / actions / ad-egg. */}
+      <div className="surface w-full max-w-xs shrink-0 rounded-2xl p-3 text-center">
+        <p className="mb-2 text-xs text-bone/70">
+          {hasEggs ? 'לְחַץ עַל הַבֵּיצָה כְּדֵי לִשְׁבֹּר אוֹתָהּ! 🥚' : 'אֵין לְךָ בֵּיצִים — קְנֵה אַחַת!'}
+        </p>
+        <p className="mb-2 text-sm text-pop tabular">
+          מְחִיר בֵּיצָה: {formatGoo(cost)} גּוּ
+          {!canAfford && <span className="text-cy"> · חָסֵר {formatGoo(missing)}</span>}
+        </p>
+        <div className={`grid gap-2 ${showMax ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <button
+            type="button"
+            onClick={() => buy(false)}
+            disabled={!canAfford}
+            className={`btn py-3.5 text-xl ${canAfford ? 'bg-goo text-void glow-goo' : 'bg-black/25 text-bone/35 ring-hairline'}`}
+          >
+            קְנֵה בֵּיצָה
+          </button>
+          {showMax && (
+            <button
+              type="button"
+              onClick={() => buy(true)}
+              disabled={!canAfford}
+              className="btn bg-goo/80 py-3.5 text-xl text-void"
+            >
+              קְנֵה מַקְּסִימוּם
+            </button>
+          )}
+        </div>
         {hasEggs && (
-          <button type="button" onClick={openAll} className="btn mb-2 w-full bg-hot py-3 text-lg text-bone glow-hot">
+          <button type="button" onClick={openAll} className="btn mt-2 w-full bg-hot py-3 text-lg text-bone glow-hot">
             ⚡ בְּקִיעָה מְהִירָה ({eggs})
           </button>
         )}
+      </div>
 
-        {/* Rewarded placement (opt-in, like every ad here): one free egg for
-            one ad, on a cooldown so it stays a treat. ABOVE the buy controls —
-            it used to sit below the fold on small phones, invisible exactly at
-            the game's most exciting moment (monetization audit). */}
+      {/* Rewarded ad egg — bottom of the stack and visually demoted: buying
+          with goo is the primary loop, the ad is an opt-in treat (product
+          rule). Still full-width and readable, never screaming. */}
+      <div className="w-full max-w-xs shrink-0 text-center">
         <button
           type="button"
           onClick={watchAdForEgg}
           disabled={!adEggReady}
-          className={`btn mb-2 w-full py-3 text-base ${
-            adEggReady ? 'bg-pop text-void glow-pop' : 'bg-surface text-bone/35 ring-hairline'
+          className={`btn w-full py-2 text-base ${
+            adEggReady ? 'bg-black/25 text-pop ring-1 ring-pop/50' : 'bg-black/25 text-bone/35 ring-hairline'
           }`}
         >
           {adEggReady ? '🎬 סִרְטוֹן = בֵּיצַת מַזָּל!' : `🎬 בֵּיצַת מַזָּל נוֹסֶפֶת בְּעוֹד ${adEggWaitMin} דַּקּוֹת`}
         </button>
         {adEggReady && (
-          <p className="-mt-1 mb-2 text-xs text-pop">הַסִּכּוּי הֲכִי גָּדוֹל לְאַגָּדִי בַּמִּשְׂחָק! ✨</p>
+          <p className="mt-1 text-xs text-pop">הַסִּכּוּי הֲכִי גָּדוֹל לְאַגָּדִי בַּמִּשְׂחָק! ✨</p>
         )}
-
-        {/* Buy controls. */}
-        <div className="mb-2 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-pop tabular ring-hairline">
-          מְחִיר בֵּיצָה: {formatGoo(cost)} גּוּ
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => buy(false)}
-            disabled={!canAfford}
-            className={`btn py-4 text-xl ${canAfford ? 'bg-goo text-void glow-goo' : 'bg-surface text-bone/35 ring-hairline'}`}
-          >
-            קְנֵה בֵּיצָה
-          </button>
-          <button
-            type="button"
-            onClick={() => buy(true)}
-            disabled={!canAfford}
-            className={`btn py-4 text-xl ${canAfford ? 'bg-goo/80 text-void' : 'bg-surface text-bone/35 ring-hairline'}`}
-          >
-            קְנֵה מַקְּסִימוּם
-          </button>
-        </div>
-        {!canAfford && <p className="mt-3 text-sm text-cy tabular">חסר עוד {formatGoo(missing)} גּוּ</p>}
       </div>
     </div>
   );

@@ -104,7 +104,7 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
 
   if (equipped) {
     return (
-      <div className="btn mt-2 w-full bg-goo/20 py-2 text-center text-sm font-bold text-goo ring-1 ring-goo/40">
+      <div className="mt-2 w-full rounded-2xl bg-black/25 py-2 text-center text-sm font-bold text-bone/80 ring-1 ring-goo/70">
         ✓ מוּפְעָל
       </div>
     );
