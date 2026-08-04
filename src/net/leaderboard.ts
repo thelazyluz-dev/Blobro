@@ -29,13 +29,6 @@ export interface SubmitResult {
   cpm: MetricRank; // record manual taps in a rolling minute
 }
 
-export interface RankInfo {
-  rank: number;
-  score: number;
-  total: number;
-  name?: string;
-}
-
 /** True when a backend URL is configured — i.e. the leaderboard is global. */
 export function hasGlobalLeaderboard(): boolean {
   return LEADERBOARD_API.trim().length > 0;
@@ -173,18 +166,3 @@ export async function fetchTop(by: Metric, limit = 50): Promise<GlobalEntry[] | 
   }
 }
 
-/** The player's own rank in a metric (works even far below the top N). */
-export async function fetchRank(by: Metric): Promise<RankInfo | null> {
-  if (!hasGlobalLeaderboard()) return null;
-  try {
-    // Identified by the session, not by a code in the query string — a code
-    // in a URL is a secret that lands in logs and history.
-    const res = await fetch(`${BASE()}/rank?by=${by}`, { credentials: 'include' });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { rank?: number | null; score?: number; total?: number; name?: string };
-    if (typeof data.rank !== 'number') return null; // not on the table yet
-    return { rank: data.rank, score: data.score ?? 0, total: data.total ?? 0, name: data.name };
-  } catch {
-    return null;
-  }
-}
