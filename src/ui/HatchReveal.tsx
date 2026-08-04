@@ -3,7 +3,7 @@
 // Intensity rises with rarity; legendary gets the loud treatment.
 // Duplicates are never framed as a loss (§7.3). Honors reduced-motion.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { playClick, playCrack } from '../audio/sfx';
 import { speakName } from '../audio/speech';
 import { playJingle } from '../audio/synth';
@@ -19,6 +19,19 @@ import { haptic } from './haptics';
 import { rarityBackground, rarityColor, rarityLabelHe, isShareworthy } from './rarity';
 import { shareCreature } from './shareCard';
 import { useReducedMotion } from './useReducedMotion';
+
+// A shell chip flung loose by a tap: where it starts (% of the egg button) and
+// where it drifts to (px), plus a spin and a shell tint.
+interface Shard {
+  id: number;
+  left: number;
+  top: number;
+  sx: number;
+  sy: number;
+  sr: number;
+  color: string;
+  size: number;
+}
 
 const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
 // The suspense builds longer for rarer pulls.
@@ -41,6 +54,9 @@ export function HatchReveal() {
   const reduced = useReducedMotion();
   const [stage, setStage] = useState<'shaking' | 'revealed'>('shaking');
   const [taps, setTaps] = useState(0);
+  // Shell chips that fly off on each tap — the "I'm peeling it open" feedback.
+  const [shards, setShards] = useState<Shard[]>([]);
+  const shardId = useRef(0);
 
   const rarity = outcome?.rarity ?? 'common';
   const rarityLevel = RARITY_RANK[rarity];
@@ -61,6 +77,7 @@ export function HatchReveal() {
   useEffect(() => {
     if (!outcome) return;
     setTaps(0);
+    setShards([]);
     setStage(reduced ? 'revealed' : 'shaking');
   }, [outcome, reduced]);
 
@@ -77,6 +94,25 @@ export function HatchReveal() {
       if (next >= tapsNeeded) setStage('revealed');
       return next;
     });
+    if (reduced) return;
+    // Break a couple of shell chips loose from the egg's edge; they arc down and
+    // fade, then evict themselves so the list never grows unbounded.
+    const fresh: Shard[] = Array.from({ length: 2 }, () => {
+      const id = shardId.current++;
+      return {
+        id,
+        left: 50 + (Math.random() * 56 - 28),
+        top: 40 + Math.random() * 28,
+        sx: Math.random() * 44 - 22,
+        sy: 60 + Math.random() * 70,
+        sr: Math.random() * 540 - 270,
+        color: Math.random() > 0.5 ? '#FFF7E8' : '#EFDDBB',
+        size: 9 + Math.random() * 6,
+      };
+    });
+    setShards((s) => [...s, ...fresh]);
+    const ids = new Set(fresh.map((f) => f.id));
+    window.setTimeout(() => setShards((s) => s.filter((x) => !ids.has(x.id))), 820);
   };
 
   // The crack, the jingle, the spoken name, confetti and haptics on reveal.
@@ -159,9 +195,29 @@ export function HatchReveal() {
               spotColor={rarityColor[rarity]}
               crackColor={rarityColor[rarity]}
               cracks={taps}
+              peek={Math.min(1, taps / tapsNeeded)}
               className={`relative h-[220px] w-[176px] glow-goo ${reduced || taps > 0 ? '' : 'anim-egg-shake'}`}
               style={reduced ? undefined : { animationDuration: `${Math.max(0.14, 0.28 - rarityLevel * 0.04)}s` }}
             />
+            {shards.map((sh) => (
+              <span
+                key={sh.id}
+                className="anim-shell-fall pointer-events-none absolute z-10"
+                style={
+                  {
+                    left: `${sh.left}%`,
+                    top: `${sh.top}%`,
+                    width: sh.size,
+                    height: sh.size,
+                    background: sh.color,
+                    clipPath: 'polygon(50% 0%, 100% 82%, 0% 82%)',
+                    '--sx': `${sh.sx}px`,
+                    '--sy': `${sh.sy}px`,
+                    '--sr': `${sh.sr}deg`,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
           </button>
           <p className="mt-8 font-display text-2xl" style={{ color: rarityLevel >= 2 ? rarityColor[rarity] : '#FFF4E0D9' }}>
             {SHAKING_TEXT[rarity]}
