@@ -21,7 +21,7 @@ export const ABILITY_META: Record<AbilityType, { icon: string; nameHe: string; d
   crit: { icon: '⚡', nameHe: 'מַכָּה קְרִיטִית', descHe: (p) => `+${p}% סִיכּוּי לְמַכָּה קְרִיטִית` },
   luck: { icon: '🍀', nameHe: 'מַזָּל', descHe: (p) => `+${p}% מַזָּל לִיצוּרִים נְדִירִים` },
   combo: { icon: '🔥', nameHe: 'קוֹמְבּוֹ', descHe: (p) => `+${p}% מִבּוֹנוּס הַקּוֹמְבּוֹ` },
-  bonus: { icon: '🎁', nameHe: 'בּוֹנוּס זָהָב', descHe: (p) => `+${p}% מִבּוֹנוּס הַזָּהָב` },
+  bonus: { icon: '🎁', nameHe: 'בּוֹנוּס זָהָב', descHe: (p) => `הַבָּלוֹב הַזָּהֹב מְשַׁלֵּם +${p}%` },
 };
 
 const TIER: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
