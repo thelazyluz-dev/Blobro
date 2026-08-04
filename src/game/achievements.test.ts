@@ -20,7 +20,7 @@ describe('achievement ladders', () => {
     const goals = (k: string) =>
       achievements.filter((a) => a.kind === k).map((a) => a.goal);
     expect(goals('maxevolved')).toEqual([1, 3, 6, 12, 24]);
-    expect(Math.max(...goals('lifetime'))).toBe(6e23); // lands with the Avogadro milestone
+    expect(Math.max(...goals('lifetime'))).toBe(1e33); // the "first to a decillion" challenge target
   });
 
   it('collection and shinies run all the way to every creature', () => {

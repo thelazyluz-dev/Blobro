@@ -6,7 +6,8 @@
 
 export const SHARE_URL = 'https://bl-or-bo.com/';
 
-export const SHARE_TEXT = 'בלורבו 🫧 מי הראשון שיגיע לדציליון? 🏆';
+export const SHARE_TEXT =
+  'בלורבו 🫧 מי הראשון שיגיע לדציליון? 🏆 חמשת הראשונים שמגיעים לדציליון — מתווספת דמות על שמם במשחק!';
 
 /** wa.me deep link — opens the WhatsApp app on mobile, WhatsApp Web on desktop,
  * with the message + link prefilled for the user to pick a chat and send. */
