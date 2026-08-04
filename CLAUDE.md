@@ -60,9 +60,17 @@ unverified work. Report failures honestly, with the output.
   breaking it to prove a test catches it), the revert silently does nothing and
   the mutation stays. Undo it explicitly, then re-run the suite and confirm green
   before committing. This nearly shipped a corrupted PRNG.
-- The Cloudflare Worker is **deployed manually by the owner** (`wrangler deploy`
-  from `worker/`). Changing `worker/src/index.ts` in the repo does NOT deploy it —
-  always tell the owner a deploy is needed, and give them the exact steps.
+- **Two deploy paths, and they differ.** The client (the game) **auto-deploys**
+  to GitHub Pages on every push to a deploy branch — `.github/workflows/deploy.yml`
+  triggers on `main` and `claude/new-session-6f5k8n`, so *a push IS the deploy*;
+  bump the SW cache before pushing. The **Worker does NOT auto-deploy** (it talks
+  to the live D1): it ships via a manual button — GitHub → Actions → **Deploy
+  Worker → Run workflow** (`deploy-worker.yml`, `workflow_dispatch`, runs from a
+  phone; gates on root build + unit tests + worker integration tests, then
+  `wrangler deploy`). Tick **`apply_schema` only when a PR added a table/column** —
+  a pure code change (e.g. an in-memory cache) needs the deploy alone. Editing
+  `worker/src/index.ts` and only pushing changes nothing in production — tell the
+  owner to run that workflow, and whether the schema box is needed.
 
 ## Conventions
 
@@ -88,6 +96,13 @@ unverified work. Report failures honestly, with the output.
 - `src/net/*` — leaderboard client and the H5 rewarded-ads wrapper. Both degrade
   gracefully to no-ops when the backend/API is unavailable.
 - `worker/` — Cloudflare Worker + D1. **Outside** the app tsconfig on purpose.
+  - Leaderboard: each player's **rank is computed LIVE and exact** on every board
+    open, but the shared **"total players" number is cached in-isolate for 60s**
+    (`cachedTotalScores` in `index.ts`). It used to run `SELECT COUNT(*) FROM
+    scores` — a full-table scan — on *every* open, which was the single biggest
+    source of D1 rows-read. A cold isolate simply does the old scan, so the cache
+    can only help; it adds **zero writes**. Player-visible effect: none, beyond the
+    total being up to 60s stale. If you ever need it exact/global, move it to KV.
 - Save migrations: bump `CURRENT_VERSION` in `game/save.ts`, default the new
   field in `defaultSaveState` **and** `migrate`, and add a test. Never drop a
   player's progress.
@@ -134,6 +149,32 @@ Owner decisions (do not revisit without asking):
 - Anti-cheat target is "too expensive to bother", not perfection. Client-side
   HMAC keys are extractable; the real defence is server re-simulation plus
   wall-clock plausibility caps. Never claim more than that.
+
+## Scale & cost (simulated — a model, not a guess)
+
+A Monte-Carlo run over **20,000 daily active users**, driven by the real cadences
+in the code (60s checkpoint save, 20s exit-push throttle, `auth/me` + `save` GET
+per load, event-driven leaderboard, `rankPayload` = 3 range `COUNT`s + 1 total
+per open). Re-run it (`node scripts/scale-cost-sim.mjs`) before quoting numbers —
+they move with the cadences and the assumptions written at the top of that file.
+
+- **Load:** ~17M Worker requests/mo, ~12M D1 writes/mo, ~20B D1 rows read/mo.
+- **Infra ≈ $7/mo** — Workers Paid $5 + ~$2 request overage; D1 stays within the
+  included allowance. The owner's "~$5/mo at scale" estimate held.
+- **Ad revenue** (rewarded, child-directed, non-personalised, ~70% fill):
+  ~$2.4k–$7.2k/mo. This is the **least certain** number — child-directed inventory
+  pays less and fills worse; budget on the low end, not the middle.
+- **Free-tier ceiling ≈ 2–3k DAU** (requests/writes/reads hit it first, and the
+  leaderboard's `COUNT`s exhaust the free D1 read budget early). Past that,
+  Workers Paid covers you comfortably to ~25k DAU.
+- **Runs smoothly at 20k:** edge Workers + a SW-cached static PWA mean peak is
+  ~tens of requests/sec and ~10GB/mo Pages egress — nowhere near any limit.
+- **The one thing to fix before ~25–30k DAU:** the per-player rank `COUNT`s (still
+  live) become the hot path. Approximate ranks from a **once-a-minute score
+  histogram** (cheap reads, tiny writes). Do **NOT** recompute-and-write every
+  player's rank each minute — that's ~650M writes/mo ≈ **$600/mo**, a trap.
+- Reminder: D1 bills **rows read** = rows a query *scans*. `COUNT(*)` over the
+  board scans the whole table — which is exactly why the total is cached (above).
 
 ## Product rules (these came from the owner — don't quietly change them)
 
