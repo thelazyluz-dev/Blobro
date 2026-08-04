@@ -49,6 +49,8 @@ import {
   affordableCreatureLevels,
   autoClicksPerSec,
   autoTapMaxLevel,
+  critMaxLevel,
+  luckMaxLevel,
   effectiveClickPower,
   creatureLevelCost,
   eggCost,
@@ -629,8 +631,12 @@ export const useGame = create<GameState>((set, get) => {
 
     buyUpgrade: (id) => {
       const s = get();
-      // The robot hand's rate is capped — refuse to sell dead levels past it.
+      // Capped upgrades refuse dead levels past their max, so the shop never
+      // takes goo for an effect that has stopped moving (the caps themselves
+      // stay, protecting the audit ceiling from edited saves).
       if (id === 'autoTap' && s.upgrades.autoTap >= autoTapMaxLevel) return;
+      if (id === 'crit' && s.upgrades.crit >= critMaxLevel) return;
+      if (id === 'luck' && s.upgrades.luck >= luckMaxLevel) return;
       const cost = upgradeCost(id, s.upgrades[id]);
       if (s.goo < cost) return;
       set({

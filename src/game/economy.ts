@@ -103,6 +103,15 @@ export function autoClicksPerSec(level: number): number {
  */
 export const autoTapMaxLevel = Math.round(autoTapRateCap / autoTapRatePerLevel);
 
+/**
+ * The last crit/luck level that still moves the number. Both effects clamp
+ * (critChanceCap, luckCap), so past these levels a purchase is pure dead money —
+ * the shop must stop selling there, exactly like autoTap. The caps themselves
+ * stay (they protect the audit ceiling from edited saves).
+ */
+export const critMaxLevel = Math.ceil((critChanceCap - critBaseChance) / upgradeConfig.crit.effectPerLevel);
+export const luckMaxLevel = Math.ceil(luckCap / upgradeConfig.luck.effectPerLevel);
+
 /** charIncome = baseByRarity × charIncomeGrowth^(level − 1) — compounding per
  * level. Exponent is guarded so an absurd level can never overflow to Infinity. */
 export function charIncome(rarity: Rarity, level: number): number {
