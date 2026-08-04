@@ -323,7 +323,12 @@ export const saveIntervalMs = 5000;
 // grant (160s) sits well inside the smallest window's ceiling.
 export const dailyGiftIncomeSeconds = [40, 60, 80, 100, 130, 160] as const; // days 1–6; day 7 is an egg
 export const dailyGiftMinGoo = 30; // floor per gift-day, times the day number
-export const dailyQuestIncomeSeconds = 60; // reward per completed quest
-export const dailyQuestMinGoo = 40;
-export const dailyQuestAllBonusSeconds = 150; // extra for finishing all three
-export const dailyQuestAllBonusMinGoo = 100;
+// Bumped ~1.5x (playtest) to track the quest targets, which were raised twice
+// since launch (taps 300→800, levels 10→65, …) while the reward stayed flat —
+// the effort-to-reward ratio had drifted toward "chore". Kept modest so the
+// largest combined grant stays in the same band the plausibility audit already
+// tolerates for the day-6 gift.
+export const dailyQuestIncomeSeconds = 90; // reward per completed quest
+export const dailyQuestMinGoo = 60;
+export const dailyQuestAllBonusSeconds = 200; // extra for finishing all three
+export const dailyQuestAllBonusMinGoo = 140;
