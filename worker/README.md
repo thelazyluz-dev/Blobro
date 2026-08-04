@@ -476,3 +476,56 @@ number — and forces a cheater into a patient, scripted drip that stays under
 the ceiling on every save. That is "too expensive to bother", which is the
 stated goal; it is not proof of honesty. The data-driven threshold on `ratio`
 (the real PR 6) still needs real players' distributions.
+
+## Parent requests: see or delete a child's data (privacy runbook)
+
+The privacy policy promises a parent can ask to SEE everything stored about
+their kid, or DELETE the account entirely. These are the exact commands that
+fulfill each promise — run them, don't improvise SQL under time pressure.
+
+Step 0 — find the account id from the email the parent wrote from:
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote \
+  --command "SELECT id, email, display_name, created FROM users WHERE email = '<parent-email>'"
+```
+
+### "Show me everything you have" (data access request)
+
+Four tables can hold rows for an account. The scores row is keyed by the
+account id with dashes stripped, first 40 chars (see leaderboardCodeFor):
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote --command "SELECT * FROM users WHERE id = '<id>'"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "SELECT rev, updated, length(payload) AS save_bytes FROM saves WHERE user_id = '<id>'"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "SELECT created, elapsed_sec, goo_gain, click_gain, flags, ok FROM save_audit WHERE user_id = '<id>' ORDER BY created"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "SELECT name, clicks, goo, cpm, created, updated FROM scores WHERE code = replace('<id>', '-', '')"
+```
+
+(The full save payload is the player's own game state; send it as-is if asked.)
+
+### "Delete the account and everything with it" (deletion request)
+
+Order matters only for clarity — D1 has no FK enforcement here. This removes
+the email and every trace; it is NOT undoable, so confirm the request came
+from the account's own email first:
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote --command "DELETE FROM scores WHERE code = replace('<id>', '-', '')"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "DELETE FROM save_audit WHERE user_id = '<id>'"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "DELETE FROM saves WHERE user_id = '<id>'"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "DELETE FROM sessions WHERE user_id = '<id>'"
+npx wrangler d1 execute blorbo-leaderboard --remote --command "DELETE FROM users WHERE id = '<id>'"
+```
+
+Then verify nothing is left:
+
+```bash
+npx wrangler d1 execute blorbo-leaderboard --remote \
+  --command "SELECT (SELECT COUNT(*) FROM users WHERE id='<id>') + (SELECT COUNT(*) FROM saves WHERE user_id='<id>') + (SELECT COUNT(*) FROM sessions WHERE user_id='<id>') + (SELECT COUNT(*) FROM save_audit WHERE user_id='<id>') + (SELECT COUNT(*) FROM scores WHERE code=replace('<id>','-','')) AS remaining"
+```
+
+`remaining` must be 0. The player's LOCAL save (on their device) is theirs and
+is not ours to delete; if asked, point the parent at the in-game "התחל מחדש".
+A self-service /account/delete endpoint is on the roadmap; until it ships,
+this runbook IS the deletion mechanism the policy promises.

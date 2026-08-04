@@ -1,9 +1,14 @@
 // "Add to home screen" prompt (§ user request). On Android/Chrome we capture the
 // native beforeinstallprompt and offer a one-tap install; on iOS Safari (which
 // has no such event) we show the manual Share → "Add to Home Screen" steps.
-// Shown once on entry, hidden if already installed or previously dismissed.
+// Hidden if already installed. Two funnel rules (growth audit):
+// - it waits for a moment of INVESTMENT (the first hatched creature) instead of
+//   firing on cold entry, when "install this" converts worst;
+// - "not now" snoozes it for two weeks instead of forever — a kid who is
+//   clearly hooked three weeks in deserves a second ask, one ask per cycle.
 
 import { useEffect, useState } from 'react';
+import { useGame } from '../store';
 
 interface BIPEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,6 +16,24 @@ interface BIPEvent extends Event {
 }
 
 const DISMISS_KEY = 'blorbo-install-dismissed';
+const DISMISS_COOLDOWN_MS = 14 * 86_400_000; // two weeks
+
+/** True while a past "not now" is still fresh. Legacy value '1' = forever
+ * (the old behavior) — treat it as dismissed-now so those users get the new
+ * cooldown from this deploy rather than a surprise prompt. */
+function dismissedRecently(): boolean {
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY);
+    if (!raw) return false;
+    if (raw === '1') {
+      localStorage.setItem(DISMISS_KEY, String(Date.now()));
+      return true;
+    }
+    return Date.now() - Number(raw) < DISMISS_COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+}
 
 function isStandalone(): boolean {
   return (
@@ -30,14 +53,14 @@ function isIOS(): boolean {
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BIPEvent | null>(null);
   const [mode, setMode] = useState<'android' | 'ios' | null>(null);
+  // The investment gate: at least one hatched creature (or real prior progress
+  // from before this gate shipped) before we ask for home-screen space.
+  const invested = useGame((s) => s.loaded && (s.lifetimeHatches > 0 || s.clicks >= 250));
 
   useEffect(() => {
+    if (!invested) return; // not yet — the effect re-runs when the gate opens
     if (isStandalone()) return; // already installed
-    try {
-      if (localStorage.getItem(DISMISS_KEY)) return; // user said "not now"
-    } catch {
-      /* private mode — just proceed */
-    }
+    if (dismissedRecently()) return; // "not now" is still fresh
 
     const onBIP = (e: Event) => {
       e.preventDefault();
@@ -46,7 +69,7 @@ export function InstallPrompt() {
     };
     window.addEventListener('beforeinstallprompt', onBIP);
 
-    // iOS has no beforeinstallprompt — show manual steps shortly after entry.
+    // iOS has no beforeinstallprompt — show manual steps shortly after the gate.
     let t = 0;
     if (isIOS()) t = window.setTimeout(() => setMode((m) => m ?? 'ios'), 1800);
 
@@ -54,11 +77,11 @@ export function InstallPrompt() {
       window.removeEventListener('beforeinstallprompt', onBIP);
       window.clearTimeout(t);
     };
-  }, []);
+  }, [invested]);
 
   const remember = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, '1');
+      localStorage.setItem(DISMISS_KEY, String(Date.now()));
     } catch {
       /* ignore */
     }

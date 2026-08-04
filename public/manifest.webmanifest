@@ -1,9 +1,10 @@
 {
   "name": "בלורבו",
   "short_name": "בלורבו",
-  "description": "לוחצים על יצור מוזר, בוקעים ביצים, אוספים 10 יצורים מקוריים.",
+  "description": "משחק חינמי בעברית לילדים ולמשפחה — בלי פרסומות קופצות, בלי רכישות. אוספים יצורים חמודים ונהנים!",
   "lang": "he",
   "dir": "rtl",
+  "categories": ["games", "kids", "entertainment"],
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -28,6 +29,22 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshot-1.png",
+      "type": "image/png",
+      "sizes": "412x915",
+      "form_factor": "narrow",
+      "label": "לוחצים על הבלוב וצוברים גו"
+    },
+    {
+      "src": "./screenshot-2.png",
+      "type": "image/png",
+      "sizes": "412x915",
+      "form_factor": "narrow",
+      "label": "בוקעים ביצים ואוספים יצורים"
     }
   ]
 }

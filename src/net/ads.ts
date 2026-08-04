@@ -47,8 +47,12 @@ export function initAds(muted: boolean): void {
 export interface RewardedHandlers {
   /** The player earned the reward (watched to the end). */
   onReward: () => void;
-  /** No ad played, or the player dismissed it — no reward. */
+  /** An ad PLAYED but the player dismissed it early — no reward. */
   onNoReward: () => void;
+  /** No ad was available at all (no fill). The player did nothing wrong —
+   * callers should fall back to the placeholder so the button never looks
+   * broken. Expected ~30% of the time on child-directed inventory. */
+  onNoFill: () => void;
 }
 
 /**
@@ -56,9 +60,10 @@ export interface RewardedHandlers {
  * caller can fall back to the placeholder. When it returns true, exactly one of
  * the handlers will fire.
  */
-export function showRewardedAd({ onReward, onNoReward }: RewardedHandlers): boolean {
+export function showRewardedAd({ onReward, onNoReward, onNoFill }: RewardedHandlers): boolean {
   if (!hasRewardedAds()) return false;
   let rewarded = false;
+  let shown = false;
   let settled = false;
   const settle = (fn: () => void) => {
     if (settled) return;
@@ -69,14 +74,18 @@ export function showRewardedAd({ onReward, onNoReward }: RewardedHandlers): bool
     window.adBreak!({
       type: 'reward',
       name: 'bonus-boost',
-      beforeReward: (showAdFn) => showAdFn(), // an ad is ready — play it now
+      beforeReward: (showAdFn) => {
+        shown = true; // an ad is ready — play it now
+        showAdFn();
+      },
       adViewed: () => {
         rewarded = true;
         settle(onReward);
       },
       adDismissed: () => settle(onNoReward),
-      // Fires last, always. If no ad was available at all, nothing else ran.
-      adBreakDone: () => settle(rewarded ? onReward : onNoReward),
+      // Fires last, always. If beforeReward never ran, no ad existed (no fill) —
+      // that's Google's business, not the kid's, so it gets its own path.
+      adBreakDone: () => settle(rewarded ? onReward : shown ? onNoReward : onNoFill),
     });
     return true;
   } catch {

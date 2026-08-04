@@ -111,10 +111,14 @@ async function buildBlob(id: CharId): Promise<Blob> {
   ctx.font = '400 56px Rubik';
   ctx.fillText(def.nameLatin, W / 2, 1500);
 
-  // Wordmark at the bottom.
+  // Wordmark at the bottom — plus the DOMAIN, because the recipient of a
+  // shared image otherwise has no path back to the game at all.
   ctx.fillStyle = '#A3FF12';
   ctx.font = '400 88px "Suez One"';
   ctx.fillText('בלורבו', W / 2, 1760);
+  ctx.fillStyle = '#FFD84D';
+  ctx.font = '700 52px Rubik, sans-serif';
+  ctx.fillText('bl-or-bo.com', W / 2, 1845);
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png');
@@ -193,10 +197,13 @@ async function buildProgress(s: ProgressShare): Promise<Blob> {
   ctx.font = '400 56px Rubik';
   ctx.fillText(`אספתי ${s.collectionCount} מתוך ${s.total} יצורים`, W / 2, 1560);
 
-  // Wordmark.
+  // Wordmark + the domain (the recipient's only path back to the game).
   ctx.fillStyle = '#A3FF12';
   ctx.font = '400 96px "Suez One"';
   ctx.fillText('בלורבו', W / 2, 1760);
+  ctx.fillStyle = '#FFD84D';
+  ctx.font = '700 52px Rubik, sans-serif';
+  ctx.fillText('bl-or-bo.com', W / 2, 1850);
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png');

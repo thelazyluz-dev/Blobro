@@ -258,7 +258,11 @@ export const adRewardMult = 3; // ×income and ×taps while the boost is live
 // review called it the weakest number in the ads flow. The toast has always
 // said "for a minute"; now it's true.
 export const adRewardDurationMs = 60000;
-export const adRewardCooldownMs = 600000; // button recharges 10 min after use
+// 10min → 6min (monetization audit): sessions average ~5 active minutes, so a
+// 10-minute recharge structurally capped the boost at one watch per SESSION —
+// only long sessions ever saw a second. Opt-in with no penalty for skipping,
+// so a shorter window adds opportunity, never pressure.
+export const adRewardCooldownMs = 360000;
 // "Watch an ad → a free egg" (the hatch screen's rewarded placement). The
 // cooldown keeps it a treat, not an egg firehose — and the economy self-limits
 // anyway: every egg (free or bought) raises the escalating egg-price curve via
@@ -269,7 +273,10 @@ export const adEggCooldownMs = 30 * 60 * 1000;
 // is "the same egg with the top boosted", not a different game.
 export const adEggLegendaryChance = 0.05; // base: 0.005 — ×10
 export const adEggRareChance = 0.1; // base: 0.045 — ×2.2
-export const adPlaceholderMs = 4000; // how long the dummy ad "plays"
+// 4s → 10s: real rewarded video runs 15-30s, and a 4s demo was training kids
+// on a reward-per-effort ratio that would break the day AdSense goes live.
+// 10s is the compromise — closer to reality without making today's demo a slog.
+export const adPlaceholderMs = 10000;
 
 // --- Achievements ------------------------------------------------------------
 // Many escalating tiers per category so there's always another goal. Rewards are

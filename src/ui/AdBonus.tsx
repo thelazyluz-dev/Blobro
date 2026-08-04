@@ -83,23 +83,35 @@ export function AdOverlay() {
 
   const [remaining, setRemaining] = useState(Math.ceil(adPlaceholderMs / 1000));
   const [done, setDone] = useState(false);
+  // No-fill fallback: Google's API is live but had no ad to show (~30% of the
+  // time on child-directed inventory). The kid did nothing wrong, so the
+  // placeholder takes over and the reward still lands — the bonus button must
+  // never look broken (monetization audit's #1).
+  const [fallback, setFallback] = useState(false);
   const endRef = useRef(0);
 
   // When a REAL rewarded ad is available, hand off to Google's player: it takes
   // over the screen, and we grant (or skip) the reward from its callbacks. The
   // placeholder countdown below only runs when no real ad can be shown.
   useEffect(() => {
-    if (!open || !hasRewardedAds()) return;
+    if (!open) {
+      setFallback(false);
+      return;
+    }
+    if (!hasRewardedAds()) return;
     const handed = showRewardedAd({
       onReward: () => useGame.getState().finishAd(),
       onNoReward: () => useGame.getState().cancelAd(),
+      onNoFill: () => setFallback(true),
     });
     if (!handed) return; // API vanished mid-flight — fall through to placeholder
   }, [open]);
 
-  // Start / restart the placeholder countdown whenever the overlay opens.
+  // Start / restart the placeholder countdown whenever it becomes the active
+  // ad experience — on open with no ad API, or on a no-fill fallback.
+  const placeholderActive = open && (!hasRewardedAds() || fallback);
   useEffect(() => {
-    if (!open) return;
+    if (!placeholderActive) return;
     setDone(false);
     endRef.current = Date.now() + adPlaceholderMs;
     setRemaining(Math.ceil(adPlaceholderMs / 1000));
@@ -114,12 +126,12 @@ export function AdOverlay() {
       }
     }, 250);
     return () => window.clearInterval(iv);
-  }, [open]);
+  }, [placeholderActive]);
 
   if (!open) return null;
   // A real rewarded ad renders its own full-screen player — don't draw the
-  // placeholder underneath it.
-  if (hasRewardedAds()) return null;
+  // placeholder underneath it (unless we fell back on a no-fill).
+  if (hasRewardedAds() && !fallback) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-6" role="dialog" aria-modal="true">
