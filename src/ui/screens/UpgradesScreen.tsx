@@ -117,11 +117,23 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <div className="font-display text-xl text-bone">{def.nameHe}</div>
-            <div className="shrink-0 text-sm text-pop tabular">רמה {level}</div>
+            <div className="shrink-0 text-sm text-pop tabular">
+              רמה {level}
+              {id === 'autoTap' ? ` / ${autoTapMaxLevel}` : ''}
+            </div>
           </div>
           <div className="text-sm text-cy">{def.effectHe}</div>
-          {level > 0 && (
-            <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level, tapMult)}</div>
+          {/* Once creature income dominates, a tap is worth a SHARE OF PRODUCTION
+              (see effectiveClickPower's floor), so finger/power no longer move the
+              real tap value. Say so honestly and steer to creatures — instead of
+              the ever-climbing "total per tap" that made the upgrade look broken
+              (the number a kid watched never actually changed on the main screen). */}
+          {floorBinding ? (
+            <div className="mt-0.5 text-xs font-bold text-cy">🐾 הַיְּצוּרִים כְּבָר מוֹבִילִים — כְּדַאי לְשַׁדְרֵג יְצוּרִים!</div>
+          ) : (
+            level > 0 && (
+              <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level, tapMult)}</div>
+            )
           )}
           {/* Robotic hand: show the concrete goo/sec its auto-clicks add right now. */}
           {id === 'autoTap' && level > 0 && (

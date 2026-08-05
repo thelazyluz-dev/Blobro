@@ -1,0 +1,10 @@
+import { upgradeCost } from '../src/game/upgrades';
+const cum=(id:any,to:number)=>{let s=0;for(let l=0;l<to;l++)s+=upgradeCost(id,l);return s;};
+const f=(n:number)=>n.toLocaleString('en-US',{maximumFractionDigits:0});
+console.log('cumulative goo to reach finger 40 =', f(cum('finger',40)));
+console.log('cumulative goo to reach power 20  =', f(cum('power',20)));
+console.log('cumulative goo to reach autoTap 20=', f(cum('autoTap',20)));
+const total=cum('finger',40)+cum('power',20)+cum('autoTap',20);
+console.log('TOTAL on these 3 =', f(total));
+console.log('crossover gooPerSec (star1) = ~3.07M/sec');
+console.log('secs of income @3.07M/s to earn that total =', f(total/3.07e6), 's =', (total/3.07e6/60).toFixed(0),'min');
