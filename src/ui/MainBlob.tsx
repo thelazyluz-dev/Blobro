@@ -227,12 +227,24 @@ function AccessoryArtEl({ art }: { art: AccessoryArt }) {
         </g>
       );
     case 'aura':
-      // A glowing crystal ring hugging the blob's edge — a status halo that
-      // frames the whole creature without hiding it.
+      // A glowing crystal halo framing the whole creature: three layered strokes
+      // build a soft neon glow (no SVG filter — keeps it safe when many blobs
+      // render at once), and small four-point sparkles ride the top of the ring
+      // like a tiara of light. The whole group breathes via .creature-aura.
       return (
-        <g className="creature-aura" fill="none" strokeLinecap="round">
-          <circle cx="100" cy="112" r="90" stroke="#00E5FF" strokeWidth="4" opacity="0.55" />
-          <circle cx="100" cy="112" r="90" stroke="#BEF9FF" strokeWidth="1.5" opacity="0.8" strokeDasharray="3 10" />
+        <g className="creature-aura">
+          <g fill="none" strokeLinecap="round">
+            <circle cx="100" cy="110" r="93" stroke="#00E5FF" strokeWidth="11" opacity="0.14" />
+            <circle cx="100" cy="110" r="93" stroke="#33E1FF" strokeWidth="4.5" opacity="0.75" />
+            <circle cx="100" cy="110" r="93" stroke="#EAFDFF" strokeWidth="1.5" opacity="0.9" />
+          </g>
+          <g fill="#EAFDFF" stroke="#00E5FF" strokeWidth="1.5" strokeLinejoin="round">
+            <path d="M100 8 l4.5 9 -4.5 9 -4.5 -9 Z" />
+            <path d="M34 44 l4 8 -4 8 -4 -8 Z" />
+            <path d="M166 44 l4 8 -4 8 -4 -8 Z" />
+            <path d="M12 104 l3.5 7 -3.5 7 -3.5 -7 Z" />
+            <path d="M188 104 l3.5 7 -3.5 7 -3.5 -7 Z" />
+          </g>
         </g>
       );
   }

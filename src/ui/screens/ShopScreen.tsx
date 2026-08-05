@@ -25,6 +25,12 @@ import { MainBlob } from '../MainBlob';
 export function ShopScreen() {
   const goo = useGame((s) => s.goo);
 
+  // Always display each category cheapest → dearest, regardless of data order.
+  const byPrice = <T extends { cost: number }>(list: T[]) => [...list].sort((a, b) => a.cost - b.cost);
+  const sortedAccessories = byPrice(accessories);
+  const sortedBackgrounds = byPrice(backgroundSkins);
+  const sortedSounds = byPrice(soundSkins);
+
   return (
     <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
       <header className="mb-4 text-center">
@@ -41,7 +47,7 @@ export function ShopScreen() {
       <section className="mb-6">
         <h2 className="mb-2 font-display text-xl text-cy">אֲבִיזָרִים 🎩</h2>
         <div className="grid grid-cols-2 gap-3">
-          {accessories.map((acc) => (
+          {sortedAccessories.map((acc) => (
             <AccessoryCard key={acc.id} acc={acc} />
           ))}
         </div>
@@ -50,7 +56,7 @@ export function ShopScreen() {
       <section className="mb-6">
         <h2 className="mb-2 font-display text-xl text-cy">רְקָעִים 🖼️</h2>
         <div className="grid grid-cols-2 gap-3">
-          {backgroundSkins.map((skin) => (
+          {sortedBackgrounds.map((skin) => (
             <BackgroundCard key={skin.id} skin={skin} />
           ))}
         </div>
@@ -60,7 +66,7 @@ export function ShopScreen() {
         <h2 className="mb-2 font-display text-xl text-cy">צְלִילִים 🎵</h2>
         <p className="mb-2 text-xs text-bone/50">מְלוֹדִיַּת 8-בִּיט שֶׁמִּתְנַגֶּנֶת בְּקוֹמְבּוֹ גָּבוֹהַּ. לְחַץ ▶ לְהַאֲזָנָה.</p>
         <div className="grid grid-cols-2 gap-3">
-          {soundSkins.map((snd) => (
+          {sortedSounds.map((snd) => (
             <SoundCard key={snd.id} snd={snd} />
           ))}
         </div>
