@@ -9,7 +9,6 @@
 import { creatureContribution, effectiveClickPower, gooPerSec, modifiersFrom } from '../src/game/economy';
 import { characters, incomeMultOf } from '../src/game/characters';
 import { creatureLevelPaybackSeconds, evolveLevels, paybackGrowthPerDecade, paybackMultMin, paybackPivotRate } from '../src/game/balance';
-import { prestigeMultiplierFor } from '../src/game/prestige';
 import type { Modifiers, OwnedCharacters, Rarity } from '../src/game/types';
 
 // wealthPaybackMult with a tunable cap, so we can see how the far tail changes
