@@ -74,6 +74,7 @@ export function ClickScreen() {
   const grantGoo = useGame((s) => s.grantGoo);
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const clicks = useGame((s) => s.clicks);
+  const nicknameOpen = useGame((s) => s.nicknameOpen);
   const activeAbility = useGame(selectActiveAbility);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   // The starter blob is always our original green one (skins are retired).
@@ -589,6 +590,27 @@ export function ClickScreen() {
         </button>
 
         {bonus && <GoldenBonus key={bonus.id} top={bonus.top} reduced={reduced} onCollect={onBonus} />}
+
+        {/* First-verb hint: a pointing finger that taps ON the blob so a pre-reader
+            learns the core action without words. Dies on the very first tap
+            (clicks === 0), so it can never nag. Hidden under the nickname dialog.
+            Under reduced-motion it stays as a STATIC finger — the reduced-motion
+            kid still gets the affordance (the blob and text hint alone give none).
+            pointer-events-none so it never eats the tap it's teaching. */}
+        {clicks === 0 && !nicknameOpen && (
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2"
+            style={{ marginTop: 44 }}
+            aria-hidden
+          >
+            <span
+              className={`block text-5xl ${reduced ? '' : 'anim-tap-hint'}`}
+              style={{ filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.65))' }}
+            >
+              👆
+            </span>
+          </div>
+        )}
       </div>
 
       {/* All the earning numbers live BELOW the creature, so nothing ever
