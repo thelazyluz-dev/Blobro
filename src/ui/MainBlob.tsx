@@ -226,27 +226,52 @@ function AccessoryArtEl({ art }: { art: AccessoryArt }) {
           <path d="M34 116 L36 123 L43 125 L36 127 L34 134 L32 127 L25 125 L32 123 Z" />
         </g>
       );
-    case 'aura':
-      // A glowing crystal halo framing the whole creature: three layered strokes
-      // build a soft neon glow (no SVG filter — keeps it safe when many blobs
-      // render at once), and small four-point sparkles ride the top of the ring
-      // like a tiara of light. The whole group breathes via .creature-aura.
+    case 'aura': {
+      // A jeweled halo of light framing the whole creature. RECENTERED to
+      // (100,102) and shrunk to r=84 so every drawn pixel (ring + 12-wide glow
+      // + gems) stays inside the 200×200 viewBox with ≥8px margin — the old
+      // r=93/cy=110 ring reached y≈208 and clipped at the bottom. "Premium"
+      // comes from faceted COLORED gems (which survive the 80px shop card, where
+      // thin strokes vanish) plus a layered-stroke glow that sings at 252px. No
+      // SVG filter — layered strokes only — so it's cheap with many blobs on
+      // screen. Breathes via .creature-aura (opacity), static under reduced-motion.
+      const gems: Array<{ x: number; y: number; c: string; s: number }> = [
+        { x: 100, y: 18, c: '#FFD84D', s: 8 }, // crown jewel — gold, on top
+        { x: 169, y: 54, c: '#FF2E88', s: 6.5 }, // upper pair — magenta
+        { x: 31, y: 54, c: '#FF2E88', s: 6.5 },
+        { x: 179, y: 131, c: '#00E5FF', s: 6.5 }, // lower pair — cyan
+        { x: 21, y: 131, c: '#00E5FF', s: 6.5 },
+      ];
       return (
         <g className="creature-aura">
           <g fill="none" strokeLinecap="round">
-            <circle cx="100" cy="110" r="93" stroke="#00E5FF" strokeWidth="11" opacity="0.14" />
-            <circle cx="100" cy="110" r="93" stroke="#33E1FF" strokeWidth="4.5" opacity="0.75" />
-            <circle cx="100" cy="110" r="93" stroke="#EAFDFF" strokeWidth="1.5" opacity="0.9" />
+            <circle cx="100" cy="102" r="84" stroke="#00E5FF" strokeWidth="12" opacity="0.12" />
+            <circle cx="100" cy="102" r="84" stroke="#33E1FF" strokeWidth="4.5" opacity="0.7" />
+            <circle cx="100" cy="102" r="84" stroke="#EAFDFF" strokeWidth="1.5" opacity="0.9" />
           </g>
-          <g fill="#EAFDFF" stroke="#00E5FF" strokeWidth="1.5" strokeLinejoin="round">
-            <path d="M100 8 l4.5 9 -4.5 9 -4.5 -9 Z" />
-            <path d="M34 44 l4 8 -4 8 -4 -8 Z" />
-            <path d="M166 44 l4 8 -4 8 -4 -8 Z" />
-            <path d="M12 104 l3.5 7 -3.5 7 -3.5 -7 Z" />
-            <path d="M188 104 l3.5 7 -3.5 7 -3.5 -7 Z" />
-          </g>
+          {/* hero twinkle behind the crown jewel */}
+          <path
+            d="M100 5 L104.5 13.5 L113 18 L104.5 22.5 L100 31 L95.5 22.5 L87 18 L95.5 13.5 Z"
+            fill="#EAFDFF"
+            opacity="0.85"
+          />
+          {gems.map((g, i) => (
+            <g key={i} stroke={OUT} strokeWidth="1.5" strokeLinejoin="round">
+              <path
+                d={`M${g.x} ${g.y - g.s} L${g.x + g.s * 0.72} ${g.y} L${g.x} ${g.y + g.s} L${g.x - g.s * 0.72} ${g.y} Z`}
+                fill={g.c}
+              />
+              <path
+                d={`M${g.x} ${g.y - g.s * 0.48} L${g.x + g.s * 0.35} ${g.y} L${g.x} ${g.y + g.s * 0.48} L${g.x - g.s * 0.35} ${g.y} Z`}
+                fill="#EAFDFF"
+                stroke="none"
+                opacity="0.85"
+              />
+            </g>
+          ))}
         </g>
       );
+    }
   }
 }
 
