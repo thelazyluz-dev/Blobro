@@ -27,7 +27,11 @@ export const clickBase = 1;
 // is kept BELOW the cost growth (1.5) so a tap stays a sensible active bonus
 // (roughly a second or two of passive income) instead of exploding past the
 // whole idle economy. fingerBonus(level) = base × (growth^level − 1).
-export const fingerBonusBase = 5;
+// Base 5 → 8 (playtest feedback: active tapping felt weak). Scaling only the
+// BASE lifts the whole finger curve by a flat factor — early taps hit ~60%
+// harder immediately — while the ×1.21 growth (and thus the long-run shape and
+// the "can't outrun the cost curve" guarantee) is untouched.
+export const fingerBonusBase = 8;
 export const fingerBonusGrowth = 1.21;
 
 // --- Passive income ----------------------------------------------------------
@@ -146,7 +150,12 @@ export const critMultiplier = 8; // a crit tap is worth this many normal taps
 // inflates income a hundred-thousandfold; to 1.21 it reaches 1e198. This floor
 // sidesteps the whole problem: tied to production, tapping can't decay, and
 // because it's a SHARE of production it can't run away either.
-export const tapProductionShare = 0.02;
+// 0.02 → 0.03 (playtest feedback: "let the clicks progress faster"): once the
+// floor binds, a tap is now worth 3% of production instead of 2% — a +50% lift
+// to active tapping in the whole floored (mid-to-late) regime, where taps had
+// otherwise become a sliver of idle income. Still a small share, so the "can't
+// run away" property holds.
+export const tapProductionShare = 0.03;
 
 // --- Combo milestones --------------------------------------------------------
 // Sustained rapid tapping pays off: reaching a combo milestone grants a lump sum
@@ -156,8 +165,10 @@ export const tapProductionShare = 0.02;
 export const comboMilestones = [50, 100, 250];
 export const comboRepeatEvery = 500;
 // Combo payouts are multiplied by this — bumped to make active tapping (combos)
-// more rewarding relative to idle income.
-export const comboRewardMult = 2;
+// more rewarding relative to idle income. 2 → 3 (playtest feedback: "let the
+// clicks progress faster") — a sustained streak now cashes in 50% more, so the
+// reward for actively tapping keeps pace with what idle income buys.
+export const comboRewardMult = 3;
 // How long a tap keeps the combo alive. Widened 1200 → 1600 (playtest): a kid
 // who taps, pauses to watch the blob, then taps again shouldn't lose the whole
 // streak — and a missed window now HALVES the count instead of zeroing it (see
