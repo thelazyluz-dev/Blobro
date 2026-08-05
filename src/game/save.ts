@@ -30,7 +30,15 @@ import {
 import { defaultUpgrades } from './upgrades';
 import { maxCpm } from './cpm';
 import { GIFT_CYCLE_DAYS, QUEST_POOL, type QuestId } from './daily';
-import { crystalsFor } from './prestige';
+// Prestige was removed from the app, but `prestigeCrystals` stays a save field
+// (dormant) and migrate still clamps it to what a lifetime could ever have
+// justified — so an edited save can't smuggle in a stack of the (still
+// income-multiplying) crystals. Inlined here to keep migrate self-contained and
+// its golden vectors byte-for-byte unchanged after prestige.ts was deleted.
+function crystalsFor(lifetimeGoo: number): number {
+  if (!Number.isFinite(lifetimeGoo) || lifetimeGoo < 1e10) return 0;
+  return Math.floor(Math.log10(lifetimeGoo / 1e10) * 5) + 1;
+}
 import { randomSeed, type RngState } from './rng';
 import type {
   CharId,

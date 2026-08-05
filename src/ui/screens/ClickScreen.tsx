@@ -26,7 +26,6 @@ import {
 } from '../../game/balance';
 import { bigScaleNameHe, formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { autoClicksPerSec } from '../../game/economy';
-import { prestigeCrystalBonus } from '../../game/balance';
 import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
 import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
@@ -67,7 +66,6 @@ const FRENZY_COLORS = ['#FF2E88', '#FFD84D', '#00E5FF', '#A3FF12'];
 
 export function ClickScreen() {
   const goo = useGame((s) => s.goo);
-  const prestigeCrystals = useGame((s) => s.prestigeCrystals);
   const rate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
   const comboMelody = useGame(selectComboMelody);
@@ -615,9 +613,6 @@ export function ClickScreen() {
           >
             <span className="text-goo">{formatGoo(rate + robotPerSec)}/ש׳</span>
             <span className="text-pop">👆 {formatGoo(perClick)}</span>
-            {prestigeCrystals > 0 && (
-              <span className="text-cy">💎 ‎+{Math.round(prestigeCrystals * prestigeCrystalBonus * 100)}%</span>
-            )}
             <span className="text-cy">ℹ️</span>
           </button>
         </div>

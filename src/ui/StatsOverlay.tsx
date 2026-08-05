@@ -4,7 +4,6 @@
 
 import { achievements } from '../game/achievements';
 import { collectionOrder } from '../game/characters';
-import { prestigeCrystalBonus } from '../game/balance';
 import { formatExact, formatGoo } from '../game/format';
 import { selectClickPower, selectGooPerSec, selectStarBonus, useGame } from '../store';
 
@@ -24,7 +23,6 @@ function Tile({ icon, label, value, color = 'text-bone' }: { icon: string; label
 
 export function StatsContent() {
   const goo = useGame((s) => s.goo);
-  const prestigeCrystals = useGame((s) => s.prestigeCrystals);
   const lifetimeGoo = useGame((s) => s.lifetimeGoo);
   const clicks = useGame((s) => s.clicks);
   const totalHatches = useGame((s) => s.totalHatches);
@@ -49,14 +47,6 @@ export function StatsContent() {
           <Tile icon="📈" label="סַךְ הַכֹּל אֵי־פַּעַם" value={formatGoo(lifetimeGoo)} color="text-goo" />
           <Tile icon="⏱️" label="גּוּ לְשְׁנִיָּה" value={formatGoo(rate)} color="text-cy" />
           <Tile icon="👆" label="לְכָל נְגִיעָה" value={formatGoo(perTap)} color="text-cy" />
-          {prestigeCrystals > 0 && (
-            <Tile
-              icon="💎"
-              label="גְּבִישֵׁי גִּלְגּוּל"
-              value={`${prestigeCrystals} · ‎+${Math.round(prestigeCrystals * prestigeCrystalBonus * 100)}%`}
-              color="text-cy"
-            />
-          )}
         </div>
       </section>
 

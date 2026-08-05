@@ -17,7 +17,6 @@ import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { OfflineModal } from './ui/OfflineModal';
 import { DailyButton, DailyOverlay } from './ui/DailyOverlay';
-import { PrestigeOverlay } from './ui/PrestigeOverlay';
 import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
 import { SettingsButton, SettingsOverlay } from './ui/SettingsOverlay';
 import { Toaster } from './ui/Toaster';
@@ -137,7 +136,6 @@ export function App() {
       <UnlockReveal />
       <ProgressOverlay />
       <DailyOverlay />
-      <PrestigeOverlay />
       <AdOverlay />
       <SettingsOverlay />
       <InfoOverlay />

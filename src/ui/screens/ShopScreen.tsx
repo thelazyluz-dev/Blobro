@@ -11,10 +11,7 @@ import {
   blobById,
   clicksRemainingFor,
   cosmeticsById,
-  crystalsRemainingFor,
-  isCrystalItem,
   meetsClickRequirement,
-  meetsCrystalRequirement,
   soundSkins,
   type Accessory,
   type BackgroundSkin,
@@ -27,45 +24,16 @@ import { MainBlob } from '../MainBlob';
 
 export function ShopScreen() {
   const goo = useGame((s) => s.goo);
-  const crystals = useGame((s) => s.prestigeCrystals);
-
-  // Prestige-only items live in their own showcase; keep them out of the goo aisles.
-  const crystalAccessories = accessories.filter(isCrystalItem);
-  const crystalBackgrounds = backgroundSkins.filter(isCrystalItem);
-  const gooAccessories = accessories.filter((a) => !isCrystalItem(a));
-  const gooBackgrounds = backgroundSkins.filter((b) => !isCrystalItem(b));
 
   return (
     <div className="anim-tab-in h-full overflow-y-auto px-5 py-6">
       <header className="mb-4 text-center">
         <h1 className="font-display text-4xl text-bone">חֲנוּת</h1>
         <p className="mt-2 text-sm text-bone/60">קוֹנִים בְּגּוּ — מְעַצְּבִים אֶת הַמִּשְׂחָק</p>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-          <span className="rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
-            {formatGoo(goo)} גּוּ
-          </span>
-          <span className="rounded-full bg-cy/15 px-4 py-1 text-base text-cy tabular ring-1 ring-cy/40">
-            {crystals} 💎
-          </span>
+        <div className="mx-auto mt-3 inline-block rounded-full bg-black/25 px-4 py-1 text-base text-goo tabular ring-hairline">
+          {formatGoo(goo)} גּוּ
         </div>
       </header>
-
-      {/* 💎 Prestige-only showcase — the reason to roll. Free once you've earned
-          the crystals; purely a look, never power. */}
-      <section className="mb-6 rounded-3xl bg-cy/5 p-3 ring-1 ring-cy/25">
-        <h2 className="mb-1 font-display text-xl text-cy">💎 בִּלְעֲדִי לְמְגַלְגְּלִים</h2>
-        <p className="mb-2 text-xs text-bone/55">
-          קִשּׁוּטִים נְדִירִים שֶׁמַּשִּׂיגִים רַק דֶּרֶךְ גִּלְגּוּל מֵחָדָשׁ — וְהֵם שֶׁלְּךָ לָנֶצַח.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {crystalAccessories.map((acc) => (
-            <AccessoryCard key={acc.id} acc={acc} />
-          ))}
-          {crystalBackgrounds.map((skin) => (
-            <BackgroundCard key={skin.id} skin={skin} />
-          ))}
-        </div>
-      </section>
 
       {/* Blob skins moved out of the shop: your main-screen look is now chosen in
           the בלובים tab (the starter blob, or any creature you've collected). */}
@@ -73,7 +41,7 @@ export function ShopScreen() {
       <section className="mb-6">
         <h2 className="mb-2 font-display text-xl text-cy">אֲבִיזָרִים 🎩</h2>
         <div className="grid grid-cols-2 gap-3">
-          {gooAccessories.map((acc) => (
+          {accessories.map((acc) => (
             <AccessoryCard key={acc.id} acc={acc} />
           ))}
         </div>
@@ -82,7 +50,7 @@ export function ShopScreen() {
       <section className="mb-6">
         <h2 className="mb-2 font-display text-xl text-cy">רְקָעִים 🖼️</h2>
         <div className="grid grid-cols-2 gap-3">
-          {gooBackgrounds.map((skin) => (
+          {backgroundSkins.map((skin) => (
             <BackgroundCard key={skin.id} skin={skin} />
           ))}
         </div>
@@ -104,7 +72,6 @@ export function ShopScreen() {
 function ActionButton({ id, cost }: { id: string; cost: number }) {
   const goo = useGame((s) => s.goo);
   const clicks = useGame((s) => s.clicks);
-  const crystals = useGame((s) => s.prestigeCrystals);
   const owned = useGame((s) => s.ownedCosmetics.includes(id));
   const equippedBlob = useGame((s) => s.equippedBlob);
   const equippedBackground = useGame((s) => s.equippedBackground);
@@ -115,12 +82,8 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
   const equipped =
     id === equippedBlob || id === equippedBackground || id === equippedAccessory || id === equippedSound;
   const def = cosmeticsById.get(id);
-  const crystalItem = !!def && isCrystalItem(def);
-  const clickUnlocked = !def || meetsClickRequirement(def, clicks);
-  const crystalUnlocked = !def || meetsCrystalRequirement(def, crystals);
-  const unlocked = clickUnlocked && crystalUnlocked;
+  const unlocked = !def || meetsClickRequirement(def, clicks);
   const remaining = def ? clicksRemainingFor(def, clicks) : 0;
-  const crystalRemaining = def ? crystalsRemainingFor(def, crystals) : 0;
 
   const onClick = () => {
     const muted = useGame.getState().muted;
@@ -152,26 +115,10 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
       </button>
     );
   }
-  // Crystal gate (prestige-only items). Named first: it's the exclusive wall,
-  // and these items have no goo price to fall back on.
-  if (crystalItem && !crystalUnlocked) {
-    const required = def!.requiresCrystals ?? 0;
-    const done = Math.min(crystals, required);
-    return (
-      <div className="mt-2 w-full rounded-2xl bg-black/30 px-2 py-1.5 text-center ring-hairline">
-        <div className="text-[11px] text-bone/55">
-          עוֹד <span className="tabular text-cy">{crystalRemaining}</span> 💎 מִגִּלְגּוּל
-        </div>
-        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-black/40">
-          <div className="h-full rounded-full bg-cy/70" style={{ width: `${(done / required) * 100}%` }} />
-        </div>
-      </div>
-    );
-  }
   // Locked by taps beats "can't afford it": showing a price the player could
   // pay, on something they still can't have, reads as the game being broken.
   // The tap gate is the harder wall, so it's the one we name.
-  if (!clickUnlocked) {
+  if (!unlocked) {
     const required = def?.requiresClicks ?? 0;
     const done = Math.min(clicks, required);
     return (
@@ -183,16 +130,6 @@ function ActionButton({ id, cost }: { id: string; cost: number }) {
           <div className="h-full rounded-full bg-hot/70" style={{ width: `${(done / required) * 100}%` }} />
         </div>
       </div>
-    );
-  }
-
-  // Crystal items are free once unlocked — the crystals ARE the price. "Claim",
-  // not "buy", so it never reads as spending anything.
-  if (crystalItem) {
-    return (
-      <button type="button" onClick={onClick} className="btn mt-2 w-full bg-cy py-2 text-sm text-void glow-goo">
-        קַבֵּל 💎
-      </button>
     );
   }
 
@@ -221,7 +158,7 @@ function AccessoryCard({ acc }: { acc: Accessory }) {
       </div>
       <div className="mt-1 text-center font-display text-base text-bone">{acc.nameHe}</div>
       <div className="text-center text-[11px] text-cy tabular">
-        {isCrystalItem(acc) ? '💎 בִּלְעֲדִי' : acc.clickBonus > 0 ? `+${Math.round(acc.clickBonus * 100)}% לנגיעה` : 'בְּלִי בּוֹנוּס'}
+        {acc.clickBonus > 0 ? `+${Math.round(acc.clickBonus * 100)}% לִנְגִיעָה` : '✨ רַק לְמַרְאֶה'}
       </div>
       <ActionButton id={acc.id} cost={acc.cost} />
     </CardShell>
@@ -260,7 +197,7 @@ function BackgroundCard({ skin }: { skin: BackgroundSkin }) {
       />
       <div className="mt-1 text-center font-display text-base text-bone">{skin.nameHe}</div>
       <div className="text-center text-[11px] text-cy tabular">
-        {isCrystalItem(skin) ? '💎 בִּלְעֲדִי' : skin.incomeBonus > 0 ? `+${Math.round(skin.incomeBonus * 100)}% לשנייה` : 'בְּסִיסִי'}
+        {skin.incomeBonus > 0 ? `+${Math.round(skin.incomeBonus * 100)}% לִשְׁנִיָּה` : '✨ רַק לְמַרְאֶה'}
       </div>
       <ActionButton id={skin.id} cost={skin.cost} />
     </CardShell>

@@ -12,24 +12,13 @@ import type { Rarity, UpgradeId } from './types';
  */
 export const globalMultiplier = 1; // prestige hook — do not remove
 
-// --- Prestige ("גלגול מחדש") — see game/prestige.ts ------------------------
-// Crystals derive from TOTAL lifetime goo via a square root, which makes the
-// system strategy-proof: total crystals depend only on total goo ever earned,
-// never on how the player splits their rolls — so there is no degenerate
-// "roll constantly" optimum, and the migrate() invariant (crystals ≤ what
-// lifetime justifies) is a one-liner.
-export const prestigeCrystalBonus = 0.05; // +5% income AND taps per crystal, forever (owner-set)
-// LOGARITHMIC crystal curve (recalibrated on real pacing data: the owner's
-// uncle hit billions in an afternoon, the owner hit 1e15 in two days — any
-// polynomial curve explodes under orders-of-magnitude-per-day growth).
-// Crystals per ORDER OF MAGNITUDE of total lifetime goo: steady, never
-// runaway, always a next crystal within reach (~×1.6 growth apart).
-// Raised 1e9 → 1e10 (playtest): at 1e9 the roll button lit up ~end of day 1 for
-// a single +5% crystal, inviting a curious kid to reset their whole build for a
-// trivial gain. One decade later the FIRST roll is already worth ~5-6 crystals,
-// so the mechanic's debut is a real reward, not a trap. (owner-tunable)
-export const prestigeFirstCrystalGoo = 1e10;
-export const prestigeCrystalsPerDecade = 5; // +25% per ×10 lifetime growth
+// The prestige mechanic was removed from the app (owner decision). This
+// per-crystal bonus remains ONLY as dormant save-compat: `prestigeCrystals`
+// stays a save field (never earned anymore, 0 for new players), and
+// modifiersFrom still folds it through — so an old save that carries crystals
+// keeps its (tiny) historical bonus rather than silently changing. No UI, no
+// way to gain more.
+export const prestigeCrystalBonus = 0.05;
 
 // --- Clicking ----------------------------------------------------------------
 // clickPower = (clickBase + fingerBonus(level)) × clickMultiplier × star × globalMultiplier

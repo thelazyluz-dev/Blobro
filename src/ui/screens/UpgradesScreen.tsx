@@ -10,7 +10,6 @@ import { upgradeCost, upgradeDefs, upgradeGainHe, upgradeTotalHe } from '../../g
 import type { UpgradeId } from '../../game/types';
 import { haptic } from '../haptics';
 import { selectClickPower, selectGooPerSec, selectMods, useGame } from '../../store';
-import { PrestigeCard } from '../PrestigeOverlay';
 
 export function UpgradesScreen() {
   const clickP = useGame(selectClickPower);
@@ -32,7 +31,6 @@ export function UpgradesScreen() {
         {upgradeDefs.map((def) => (
           <UpgradeCard key={def.id} id={def.id} />
         ))}
-        <PrestigeCard />
       </div>
     </div>
   );

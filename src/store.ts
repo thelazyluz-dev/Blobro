@@ -41,8 +41,6 @@ import {
   clickCosmeticBonus,
   cosmeticsById,
   meetsClickRequirement,
-  meetsCrystalRequirement,
-  isCrystalItem,
   soundById,
   type CosmeticKind,
 } from './game/cosmetics';
@@ -65,7 +63,6 @@ import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } fro
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
 import { recordManualTap } from './game/cpm';
-import { applyPrestige, canPrestige, crystalsGained } from './game/prestige';
 import {
   bumpQuest,
   claimGift,
@@ -195,7 +192,6 @@ interface GameState {
   offlineDoubled: boolean; // guard: the returning-bonus can be doubled only once
   toasts: Toast[];
   dailyOpen: boolean; // the daily gift + quests panel
-  prestigeOpen: boolean; // the roll-confirmation panel (see PrestigeOverlay)
   settingsOpen: boolean; // account, sound, help links, start-over — see SettingsOverlay
   progressOpen: boolean; // one panel, three tabs — see ProgressOverlay
   progressTab: ProgressTab;
@@ -248,8 +244,6 @@ interface GameState {
   setInfoOpen: (open: boolean) => void;
   setNumberLegendOpen: (open: boolean) => void;
   setDailyOpen: (open: boolean) => void;
-  setPrestigeOpen: (open: boolean) => void;
-  prestigeRoll: () => Promise<void>;
   claimDailyGift: () => void;
   claimQuest: (id: QuestId) => void;
   claimAchievement: (id: string) => void;
@@ -476,7 +470,6 @@ export const useGame = create<GameState>((set, get) => {
     offlineDoubled: false,
     toasts: [],
     dailyOpen: false,
-    prestigeOpen: false,
     settingsOpen: false,
     progressOpen: false,
     progressTab: 'stats',
@@ -872,19 +865,16 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const c = cosmeticsById.get(id);
       if (!c || s.ownedCosmetics.includes(id) || s.goo < c.cost) return;
-      // Enforced here, not only in the shop UI: these are the rules, and the
-      // screen is just one caller of them. Crystal items are a GATE (never a
-      // spend — see cosmetics.ts): crystals stay monotonic, the item is free.
+      // Enforced here, not only in the shop UI: this is the rule, and the
+      // screen is just one caller of it.
       if (!meetsClickRequirement(c, s.clicks)) return;
-      if (!meetsCrystalRequirement(c, s.prestigeCrystals)) return;
       set({
         goo: s.goo - c.cost,
         ownedCosmetics: [...s.ownedCosmetics, id],
         ...equipPatch(c.kind, id),
       });
-      const crystal = isCrystalItem(c);
-      const icon = crystal ? '💎' : c.kind === 'blob' ? '🎨' : c.kind === 'background' ? '🖼️' : '🎩';
-      get().pushToast({ text: crystal ? `${c.nameHe} נִפְתַּח!` : `${c.nameHe} נִקְנָה!`, icon, tone: 'star' });
+      const icon = c.kind === 'blob' ? '🎨' : c.kind === 'background' ? '🖼️' : '🎩';
+      get().pushToast({ text: `${c.nameHe} נִקְנָה!`, icon, tone: 'star' });
     },
 
     equipCosmetic: (id) => {
@@ -1081,55 +1071,6 @@ export const useGame = create<GameState>((set, get) => {
     setNumberLegendOpen: (open) => set({ numberLegendOpen: open }),
 
     setDailyOpen: (open) => set({ dailyOpen: open }),
-    setPrestigeOpen: (open) => set({ prestigeOpen: open }),
-
-    /**
-     * The prestige roll (game/prestige.ts). Ordered for safety: the
-     * pre-roll save is stashed in the backup slot FIRST, so the existing
-     * restore button is a full undo — a kid who rolled by mistake loses
-     * nothing. Only then does the reset land, and it persists immediately
-     * (local + cloud-dirty) so a crash can't leave half a roll.
-     */
-    prestigeRoll: async () => {
-      const s = get();
-      const now = Date.now();
-      const snap = snapshot(s, now);
-      if (!canPrestige(snap)) return;
-      const gained = crystalsGained(snap);
-
-      await backupLocal(snap);
-      const rolled = applyPrestige(snap, now);
-      // Click-unlock creatures are earned by TOTAL taps, which prestige keeps —
-      // so a player still qualifies for them the instant the run resets. Re-grant
-      // them silently HERE (mirroring loadGame's retroactive grant). Without this
-      // the live clicks-subscription re-discovers them one-per-tap and replays a
-      // full "new creature!" celebration for something already long-owned.
-      const characters = { ...rolled.characters };
-      for (const c of unlockCreatures) {
-        if (c.unlockClicks != null && s.clicks >= c.unlockClicks) characters[c.id] = { level: 1 };
-      }
-      set({
-        goo: rolled.goo,
-        characters,
-        upgrades: { ...rolled.upgrades },
-        eggs: rolled.eggs,
-        totalHatches: rolled.totalHatches,
-        lifetimeHatches: rolled.lifetimeHatches,
-        sinceRare: rolled.sinceRare,
-        equippedMain: rolled.equippedMain,
-        prestigeCrystals: rolled.prestigeCrystals,
-        prestigeCount: rolled.prestigeCount,
-        prestigeOpen: false,
-        hatchResult: null,
-        multiHatchResult: null,
-        backupAvailable: { lifetimeGoo: snap.lifetimeGoo, goo: snap.goo, savedAt: now },
-        activeTab: 'click',
-      });
-      await persist(snapshot(get(), now));
-      cloudDirty = true;
-      get().pushToast({ text: `גִּלְגּוּל מֵחָדָשׁ! 💎 +${gained} גְּבִישִׁים לָנֶצַח`, icon: '💎', tone: 'star' });
-      get().triggerConfetti('rainbow');
-    },
 
     // ── Daily gift + quests (v14 — see game/daily.ts for all semantics) ──
 
