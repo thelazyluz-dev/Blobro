@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 import * as balance from '../src/game/balance';
-import { abilityOf } from '../src/game/abilities';
+import { abilityOf, type Ability } from '../src/game/abilities';
 import { achievements, isComplete, starBonusFor } from '../src/game/achievements';
 import { characters } from '../src/game/characters';
 import {
@@ -150,7 +150,7 @@ const evolveIncomeMultCases = Array.from({ length: balance.maxEvolution + 1 }, (
 // ── ownedCreatureIncome ──────────────────────────────────────────────────
 const ownedCreatureIncomeCases: {
   rarity: Rarity;
-  held: { level: number; evolution?: number };
+  held: { level: number; evolution?: number; rebirths?: number };
   incomeMult: number;
   expected: number;
 }[] = [
@@ -164,6 +164,11 @@ const ownedCreatureIncomeCases: {
   { rarity: 'common', held: { level: 500, evolution: 0 }, incomeMult: 1 },
   { rarity: 'uncommon', held: { level: 3 }, incomeMult: 2 },
   { rarity: 'legendary', held: { level: 1 }, incomeMult: 1 },
+  // Rebirth income bonus (mastering loop): +10%/rebirth, clamped to rebirthCap.
+  { rarity: 'common', held: { level: 1, rebirths: 1 }, incomeMult: 1 },
+  { rarity: 'rare', held: { level: 25, evolution: 2, rebirths: 5 }, incomeMult: 1 },
+  { rarity: 'legendary', held: { level: 1, rebirths: 20 }, incomeMult: 1 }, // at the cap
+  { rarity: 'legendary', held: { level: 1, rebirths: 999 }, incomeMult: 1 }, // clamped to the cap
 ].map((c) => ({ ...c, expected: ownedCreatureIncome(c.rarity, c.held, c.incomeMult) }));
 
 // ── creatureContribution ─────────────────────────────────────────────────
@@ -413,6 +418,19 @@ const abilityOfCases = characters.map((def) => ({
   rarity: def.rarity,
   expected: abilityOf(def.id, def.rarity),
 }));
+
+// ── abilityOf with rebirths — the mastering loop ──────────────────────────
+// Locks value = base × (1 + abilityRebirthBonus × min(rebirths, rebirthCap))
+// for both the client and the Worker. rebirths 0 must equal the plain case
+// above; the last case proves the anti-cheat clamp (999 credits as the cap).
+const abilityOfRebirthCases: { id: CharId; rarity: Rarity; rebirths: number; expected: Ability }[] = [
+  { id: 'blombo', rarity: 'common', rebirths: 0 }, // == base
+  { id: 'fizzik', rarity: 'common', rebirths: 1 }, // tap
+  { id: 'mumbo', rarity: 'uncommon', rebirths: 5 }, // income
+  { id: 'gigablorf', rarity: 'legendary', rebirths: 20 }, // income, at the cap
+  { id: 'dragapuf', rarity: 'legendary', rebirths: 999 }, // tap, clamped to the cap
+  { id: 'grumpolo', rarity: 'common', rebirths: 8 }, // crit (value grows; the game clamps the CHANCE, not this base)
+].map((c) => ({ ...c, expected: abilityOf(c.id, c.rarity, c.rebirths) }));
 
 // ── starBonusFor ─────────────────────────────────────────────────────────
 const starAchievementIds = achievements.filter((a) => a.starReward > 0).map((a) => a.id);
@@ -759,6 +777,7 @@ const vectors = {
   openEggs: openEggsCases,
   buyableEggs: buyableEggsCases,
   abilityOf: abilityOfCases,
+  abilityOfRebirth: abilityOfRebirthCases,
   starBonusFor: starBonusForCases,
   isComplete: isCompleteCases,
   computeOffline: computeOfflineCases,

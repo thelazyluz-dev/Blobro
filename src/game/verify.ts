@@ -84,7 +84,16 @@ function modsFor(save: SaveState) {
   // added here — the ceiling already assumes a permanent maximum event.)
   const id = save.equippedMain;
   if (id && save.characters[id] && charactersById[id as keyof typeof charactersById]) {
-    const ab = abilityOf(id, charactersById[id as keyof typeof charactersById].rarity);
+    // Fold in the rebirth-boosted ability. abilityOf clamps the count to
+    // rebirthCap, so a save claiming a huge rebirth count still credits at most
+    // the legitimate maximum — the ceiling can't be inflated past what a real
+    // maxed-rebirth player earns. The matching income bonus rides in through
+    // gooPerSec below (ownedCreatureIncome folds rebirthIncomeMult, same clamp).
+    const ab = abilityOf(
+      id,
+      charactersById[id as keyof typeof charactersById].rarity,
+      save.characters[id]?.rebirths ?? 0,
+    );
     if (ab.type === 'tap') m.clickMultiplier *= 1 + ab.value;
     else if (ab.type === 'income') m.incomeMultiplier *= 1 + ab.value;
     else if (ab.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab.value);

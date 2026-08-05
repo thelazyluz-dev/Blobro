@@ -3,7 +3,7 @@
 // felt by real players.
 
 import { describe, expect, it } from 'vitest';
-import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier } from './balance';
+import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier, rebirthCap, rebirthIncomeBonus } from './balance';
 import {
   autoClicksPerSec,
   charIncome,
@@ -12,6 +12,8 @@ import {
   evolveIncomeMult,
   gooPerSec,
   modifiersFrom,
+  ownedCreatureIncome,
+  rebirthIncomeMult,
   wealthPaybackMult,
 } from './economy';
 import { defaultUpgrades } from './upgrades';
@@ -93,5 +95,27 @@ describe('costs', () => {
       expect(Number.isFinite(m)).toBe(true);
       expect(m).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('rebirth income bonus (mastering loop)', () => {
+  it('adds +rebirthIncomeBonus per rebirth, ×1 at zero', () => {
+    expect(rebirthIncomeMult(0)).toBe(1);
+    for (const reb of [1, 4, 10]) {
+      expect(rebirthIncomeMult(reb)).toBeCloseTo(1 + rebirthIncomeBonus * reb, 10);
+    }
+  });
+
+  it('clamps at rebirthCap — a forged count cannot exceed it (anti-cheat)', () => {
+    const atCap = rebirthIncomeMult(rebirthCap);
+    for (const forged of [rebirthCap + 1, 1000, 1e9]) {
+      expect(rebirthIncomeMult(forged)).toBe(atCap);
+    }
+  });
+
+  it('ownedCreatureIncome folds the bonus through', () => {
+    const plain = ownedCreatureIncome('rare', { level: 20 }, 1);
+    const reborn = ownedCreatureIncome('rare', { level: 20, rebirths: 5 }, 1);
+    expect(reborn).toBeCloseTo(plain * rebirthIncomeMult(5), 6);
   });
 });

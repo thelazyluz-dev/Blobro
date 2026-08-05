@@ -9,7 +9,7 @@ import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
 import { ABILITY_META, abilityOf, abilityPct } from '../../game/abilities';
-import { evolveLevels, evolveMultiplierByStage, maxEvolution } from '../../game/balance';
+import { evolveLevels, evolveMultiplierByStage, maxEvolution, rebirthCap, rebirthIncomeBonus } from '../../game/balance';
 import { charactersById, collectionOrder, incomeMultOf } from '../../game/characters';
 import {
   affordableCreatureLevels,
@@ -303,10 +303,14 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const m = useGame(selectMods);
   const rate = useGame(selectGooPerSec);
   const evolveCreature = useGame((s) => s.evolveCreature);
+  const rebirthCreature = useGame((s) => s.rebirthCreature);
   const levelUp = useGame((s) => s.levelUpCreature);
   const levelUpMax = useGame((s) => s.levelUpCreatureMax);
   const isMain = useGame((s) => s.equippedMain === id);
   const setEquippedMain = useGame((s) => s.setEquippedMain);
+  // Rebirth is irreversible (the creature loses its levels), so it takes a
+  // deliberate second tap to confirm — never a single accidental press.
+  const [confirmRebirth, setConfirmRebirth] = useState(false);
   if (!held) return null;
 
   // The creature's TRUE goo/sec contribution (all automation multipliers folded
@@ -318,6 +322,10 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const ringColor = evolved ? '#FFD84D' : rarityColor[def.rarity];
   // Evolution chain: next stage needs the creature at evolveLevels[stage].
   const maxedEvolution = stage >= maxEvolution;
+  // Rebirth (mastering loop): only at max evolution, and only below the cap.
+  const rebirths = held.rebirths ?? 0;
+  const canRebirth = maxedEvolution && rebirths < rebirthCap;
+  const rebirthCapped = rebirths >= rebirthCap;
   const nextEvolveLevel = maxedEvolution ? Infinity : evolveLevels[stage];
   const canEvolve = !maxedEvolution && held.level >= nextEvolveLevel;
   const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m, rate, im);
@@ -362,6 +370,18 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
     } else {
       playError(muted);
     }
+  };
+
+  const onRebirth = () => {
+    const muted = useGame.getState().muted;
+    if (!confirmRebirth) {
+      setConfirmRebirth(true); // first tap arms the confirm
+      return;
+    }
+    rebirthCreature(id);
+    setConfirmRebirth(false);
+    playPurchase(muted);
+    haptic([0, 50, 40, 80]);
   };
 
   // Portal to <body> so the modal escapes the collection screen's stacking
@@ -423,13 +443,21 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         <div className="mt-4 text-lg text-pop tabular">רמה {held.level}</div>
         <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
 
-        {/* The special ability this creature grants when it's your main. */}
+        {/* The special ability this creature grants when it's your main —
+            strengthened permanently by each rebirth (the mastering loop). */}
         {(() => {
-          const ab = abilityOf(id, def.rarity);
+          const ab = abilityOf(id, def.rarity, rebirths);
           const meta = ABILITY_META[ab.type];
           return (
             <div className="mt-3 rounded-2xl bg-pop/10 px-3 py-2 ring-1 ring-pop/30">
-              <div className="text-xs text-bone/55">יְכֹלֶת מְיֻחֶדֶת (כְּשֶׁמּוּצֶגֶת בַּמָּסָךְ)</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-bone/55">יְכֹלֶת מְיֻחֶדֶת (כְּשֶׁמּוּצֶגֶת בַּמָּסָךְ)</div>
+                {rebirths > 0 && (
+                  <div className="shrink-0 rounded-full bg-pop/25 px-2 py-0.5 text-xs font-bold text-pop tabular">
+                    🔄 {rebirths}
+                  </div>
+                )}
+              </div>
               <div className="mt-0.5 font-display text-base text-pop">
                 {meta.icon} {meta.descHe(abilityPct(ab))}
               </div>
@@ -485,6 +513,47 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           </div>
         )}
         {maxedEvolution && <div className="mt-3 text-sm text-pop">✨ אֶבּוֹלוּצְיָה מְלֵאָה! ✨</div>}
+
+        {/* Rebirth — the mastering loop. Only shown at max evolution. Resets the
+            creature to level 1 but permanently strengthens its ability (+income
+            too), so it ends up stronger than before. Two-tap confirm because it
+            wipes the creature's levels. */}
+        {canRebirth && (
+          <button
+            type="button"
+            onClick={onRebirth}
+            className={`btn mt-3 flex w-full flex-col items-center py-2.5 text-void ${
+              confirmRebirth ? 'anim-evolve-glow' : ''
+            }`}
+            style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}
+          >
+            {confirmRebirth ? (
+              <>
+                <span className="text-lg">בְּטוּחִים? 🔄 חוֹזֵר לְרָמָה 1</span>
+                <span className="text-xs">הַיְּכֹלֶת תִּתְחַזֵּק לָנֶצַח — לַחֲצוּ שׁוּב</span>
+              </>
+            ) : (
+              <>
+                <span className="text-lg">🔄 לֵידָה מֵחָדָשׁ</span>
+                <span className="text-xs tabular">
+                  יְכֹלֶת חֲזָקָה יוֹתֵר + {Math.round(rebirthIncomeBonus * 100)}% הַכְנָסָה לָנֶצַח
+                </span>
+              </>
+            )}
+          </button>
+        )}
+        {confirmRebirth && canRebirth && (
+          <button
+            type="button"
+            onClick={() => setConfirmRebirth(false)}
+            className="btn mt-2 w-full bg-black/30 py-2 text-sm text-bone ring-1 ring-hairline"
+          >
+            בִּיטּוּל
+          </button>
+        )}
+        {rebirthCapped && (
+          <div className="mt-3 text-sm text-cy">🏆 מָאסְטֵר! {rebirthCap} לֵידוֹת — הַשִּׂיא!</div>
+        )}
 
         {/* Choose this creature as the star of the main screen. */}
         <button

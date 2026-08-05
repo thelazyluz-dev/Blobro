@@ -5,6 +5,7 @@
 // Six thematic types; each creature is assigned the one that fits its character.
 // Only ONE ability is active at a time — whichever creature is your equipped main.
 
+import { abilityRebirthBonus, rebirthCap } from './balance';
 import type { CharId, Rarity } from './types';
 
 export type AbilityType = 'tap' | 'income' | 'crit' | 'luck' | 'combo' | 'bonus';
@@ -69,10 +70,20 @@ export const ABILITY_TYPE_BY_ID: Record<CharId, AbilityType> = {
   idanosau: 'income',
 };
 
-/** The ability a given creature grants when equipped as the main. */
-export function abilityOf(id: CharId, rarity: Rarity): Ability {
+/**
+ * The ability a given creature grants when equipped as the main.
+ *
+ * `rebirths` (the mastering loop) permanently strengthens the ability:
+ * value = base × (1 + abilityRebirthBonus × rebirths). The count is clamped to
+ * rebirthCap HERE — in the shared pure rule — so the game and the anti-cheat
+ * ceiling (verify.ts) compute the exact same value, and a forged rebirth count
+ * can never inflate power past the cap. Default 0 keeps every existing caller
+ * (and golden vector) byte-identical.
+ */
+export function abilityOf(id: CharId, rarity: Rarity, rebirths = 0): Ability {
   const type = ABILITY_TYPE_BY_ID[id] ?? 'income';
-  return { type, value: VALUES[type][TIER[rarity]] };
+  const reb = Number.isFinite(rebirths) ? Math.min(Math.max(0, Math.floor(rebirths)), rebirthCap) : 0;
+  return { type, value: VALUES[type][TIER[rarity]] * (1 + abilityRebirthBonus * reb) };
 }
 
 /** Percentage to display for an ability value. */

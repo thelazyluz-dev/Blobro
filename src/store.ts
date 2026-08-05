@@ -19,8 +19,10 @@ import {
   frenzyDurationMs,
   frenzyMultiplier,
   luckCap,
+  minCharLevel,
   openAllCap,
   maxEvolution,
+  rebirthCap,
   upgradeAllCooldownMs,
 } from './game/balance';
 import {
@@ -219,6 +221,7 @@ interface GameState {
   openEgg: () => void;
   openAllEggs: () => void;
   evolveCreature: (id: CharId) => void;
+  rebirthCreature: (id: CharId) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
   upgradeAllCreatures: () => void;
@@ -775,6 +778,27 @@ export const useGame = create<GameState>((set, get) => {
         ...bumpQuest(questStateOf(s), 'evolve', 1, Date.now()),
       });
       get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨ (שלב ${stage + 1})`, icon: '✨', tone: 'star' });
+      get().triggerConfetti('rainbow');
+    },
+
+    // Rebirth a fully-evolved creature (the "mastering" loop): it resets to
+    // level 1 / stage 0, and in exchange its ability gains a permanent level and
+    // it earns a permanent income bonus (see abilityOf / rebirthIncomeMult). The
+    // COST is the reset itself — there is no goo price. Only offered at max
+    // evolution and below the cap; both re-checked here so a stale UI can't
+    // over-rebirth.
+    rebirthCreature: (id) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held) return;
+      const stage = held.evolution ?? 0;
+      const reb = held.rebirths ?? 0;
+      if (stage < maxEvolution || reb >= rebirthCap) return; // not eligible / already capped
+      const def = charactersById[id];
+      set({
+        characters: { ...s.characters, [id]: { level: minCharLevel, rebirths: reb + 1 } },
+      });
+      get().pushToast({ text: `${def.nameHe} נוֹלַד מֵחָדָשׁ! 🔄 (לֵידָה ${reb + 1})`, icon: '🔄', tone: 'star' });
       get().triggerConfetti('rainbow');
     },
 
@@ -1493,8 +1517,10 @@ if (typeof document !== 'undefined') {
 // The ability granted by the equipped main creature (only if it's owned).
 export const selectActiveAbility = (s: GameState): Ability | null => {
   const id = s.equippedMain;
-  if (!id || !s.characters[id]) return null;
-  return abilityOf(id, charactersById[id].rarity);
+  const held = id ? s.characters[id] : undefined;
+  if (!id || !held) return null;
+  // Rebirths permanently strengthen the ability (clamped inside abilityOf).
+  return abilityOf(id, charactersById[id].rarity, held.rebirths ?? 0);
 };
 
 // Convenience selectors used across screens.

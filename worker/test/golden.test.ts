@@ -217,6 +217,12 @@ describe('golden vectors via worker/src/rules — abilityOf (all creatures)', ()
   });
 });
 
+describe('golden vectors via worker/src/rules — abilityOf with rebirths', () => {
+  it.each(vectors.abilityOfRebirth)('matches for $id ($rarity) at $rebirths rebirths', (c: any) => {
+    expect(abilityOf(c.id, c.rarity, c.rebirths)).toEqual(c.expected);
+  });
+});
+
 describe('golden vectors via worker/src/rules — starBonusFor', () => {
   it.each(vectors.starBonusFor)('matches for a given claimed set', (c: any) => {
     expect(starBonusFor(c.claimedIds)).toBe(c.expected);

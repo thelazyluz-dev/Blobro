@@ -55,10 +55,14 @@ export interface CharacterDef {
 }
 
 /** Only owned characters appear here. `evolution` = number of evolution stages
- * done (0 = not evolved; 1..maxEvolution = shiny tiers, each worth more). */
+ * done (0 = not evolved; 1..maxEvolution = shiny tiers, each worth more).
+ * `rebirths` = times the creature was reborn at max evolution (the mastering
+ * loop): each permanently levels its ability and adds a flat income bonus.
+ * Absent/0 = never reborn. Clamped to `rebirthCap` wherever it grants power. */
 export interface OwnedCharacter {
   level: number;
   evolution?: number;
+  rebirths?: number;
 }
 export type OwnedCharacters = Partial<Record<CharId, OwnedCharacter>>;
 
@@ -74,7 +78,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 18;
+  version: 19;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)

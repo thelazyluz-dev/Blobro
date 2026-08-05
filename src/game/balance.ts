@@ -66,6 +66,29 @@ export const evolveLevels = [10, 25, 50, 100]; // level required for stage 1,2,3
 export const maxEvolution = evolveLevels.length; // 4
 export const evolveMultiplierByStage = [1, 3, 8, 20, 50]; // income × at stage 0..4
 
+// --- Rebirth: the "mastering" loop -------------------------------------------
+// A creature at MAX evolution can be reborn: it resets to level 1 / stage 0, and
+// in exchange (a) its special ability gains a permanent level and (b) it earns a
+// permanent flat income bonus — so a reborn creature ends STRONGER than before.
+// Per-creature and individual (never a shared cost across the roster), opt-in,
+// and capped: a bounded, weeks-scale endgame trophy, not an infinite treadmill.
+//
+// The cap is LOAD-BEARING for anti-cheat, not just pacing: `rebirths` multiplies
+// power, so both the game AND the plausibility ceiling clamp to it identically
+// (see abilityOf / rebirthIncomeMult / verify.ts). A forged rebirth count is
+// clamped to this number in the shared pure rules, so it can never inflate the
+// ceiling — the game and the bound stay in lockstep.
+export const rebirthCap = 20;
+// +25% of the ability's BASE value per rebirth (owner-set). Linear, so it
+// self-decelerates (each rebirth adds a constant absolute amount); at the cap
+// the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a
+// time (the equipped main), so this only ever boosts the player's chosen star.
+export const abilityRebirthBonus = 0.25;
+// +10% permanent passive income for THAT creature per rebirth (×3 at the cap).
+// This is what turns rebirth from "reset punishment" into "grow past where you
+// were" — the reason the loop feels rewarding to a kid rather than punishing.
+export const rebirthIncomeBonus = 0.1;
+
 // --- Direct creature leveling (goo sink) --------------------------------------
 // Besides hatching duplicates, a creature can be levelled straight up with goo.
 // The cost is tied directly to the income the level GRANTS: a level always costs

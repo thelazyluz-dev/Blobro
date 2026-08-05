@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ABILITY_META, ABILITY_TYPE_BY_ID, abilityOf, abilityPct } from './abilities';
+import { abilityRebirthBonus, rebirthCap } from './balance';
 import { characters, charactersById } from './characters';
 import { isCleanNickname } from './profanity';
 
@@ -73,6 +74,36 @@ describe('nickname filter', () => {
   it('rejects names with no real letters', () => {
     for (const n of ['', '   ', '!!!', '🙂🙂']) {
       expect(isCleanNickname(n), JSON.stringify(n)).toBe(false);
+    }
+  });
+});
+
+describe('ability rebirths (mastering loop)', () => {
+  it('rebirths=0 equals the plain rarity value', () => {
+    for (const def of characters) {
+      expect(abilityOf(def.id, def.rarity, 0)).toEqual(abilityOf(def.id, def.rarity));
+    }
+  });
+
+  it('each rebirth adds +abilityRebirthBonus of the base (linear)', () => {
+    const base = abilityOf('gigablorf', 'legendary', 0).value;
+    for (const reb of [1, 3, 5, 10]) {
+      const v = abilityOf('gigablorf', 'legendary', reb).value;
+      expect(v).toBeCloseTo(base * (1 + abilityRebirthBonus * reb), 10);
+    }
+  });
+
+  it('clamps at rebirthCap — a forged count cannot exceed it (anti-cheat)', () => {
+    const atCap = abilityOf('dragapuf', 'legendary', rebirthCap).value;
+    for (const forged of [rebirthCap + 1, 1000, 1e9]) {
+      expect(abilityOf('dragapuf', 'legendary', forged).value).toBe(atCap);
+    }
+  });
+
+  it('never goes below the base for junk/negative input', () => {
+    const base = abilityOf('fizzik', 'common', 0).value;
+    for (const junk of [-5, -0.5, NaN]) {
+      expect(abilityOf('fizzik', 'common', junk).value).toBe(base);
     }
   });
 });

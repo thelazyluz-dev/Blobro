@@ -13,6 +13,7 @@ import {
   leaderboardNameMaxLen,
   maxEvolution,
   minCharLevel,
+  rebirthCap,
 } from './balance';
 import { collectionOrder } from './characters';
 import { achievements } from './achievements';
@@ -49,7 +50,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 18 as const;
+export const CURRENT_VERSION = 19 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -117,7 +118,7 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
   const valid = new Set<CharId>(collectionOrder);
   for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!valid.has(key as CharId)) continue;
-    const e = entry as { level?: unknown; shiny?: unknown; evolution?: unknown } | null;
+    const e = entry as { level?: unknown; shiny?: unknown; evolution?: unknown; rebirths?: unknown } | null;
     const raw0 = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
     const clamped = remapLegacy ? remapLegacyLevel(raw0) : raw0;
     // Evolution stage: read the number, or convert a legacy `shiny:true` to stage 1.
@@ -129,7 +130,16 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
       else break;
     }
     const evolution = Math.max(0, Math.min(rawEvo, maxEvolution, stageForLevel));
-    out[key as CharId] = evolution > 0 ? { level: clamped, evolution } : { level: clamped };
+    // Rebirth count (mastering loop). Clamped to rebirthCap on load too — a
+    // forged save can't smuggle a huge count past the ceiling. A reborn creature
+    // legitimately sits at level 1 / stage 0 with rebirths > 0, so this is
+    // independent of the level/evolution above.
+    const rebirths = Math.min(rebirthCap, nonNegInt(e?.rebirths, 0));
+    out[key as CharId] = {
+      level: clamped,
+      ...(evolution > 0 ? { evolution } : {}),
+      ...(rebirths > 0 ? { rebirths } : {}),
+    };
   }
   return out;
 }

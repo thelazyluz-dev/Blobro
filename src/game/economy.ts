@@ -25,6 +25,8 @@ import {
   paybackPivotRate,
   paybackGrowthPerDecade,
   prestigeCrystalBonus,
+  rebirthCap,
+  rebirthIncomeBonus,
   tapProductionShare,
   upgradeConfig,
 } from './balance';
@@ -123,14 +125,31 @@ export function evolveIncomeMult(evolution = 0): number {
   return evolveMultiplierByStage[Math.min(Math.max(0, evolution), maxEvolution)] ?? 1;
 }
 
+/**
+ * Income × from a creature's rebirth count (the mastering loop): each rebirth
+ * adds a permanent flat income bonus. Clamped to rebirthCap HERE — same as
+ * abilityOf — so the game and the anti-cheat ceiling agree and a forged count
+ * can't inflate income past the cap. Default 0 → ×1 (existing callers/vectors
+ * unchanged).
+ */
+export function rebirthIncomeMult(rebirths = 0): number {
+  const reb = Number.isFinite(rebirths) ? Math.min(Math.max(0, Math.floor(rebirths)), rebirthCap) : 0;
+  return 1 + rebirthIncomeBonus * reb;
+}
+
 /** A single owned creature's income, including its evolution (shiny) bonus and
  * its per-creature income multiplier (1 for egg creatures, higher for unlocks). */
 export function ownedCreatureIncome(
   rarity: Rarity,
-  held: { level: number; evolution?: number },
+  held: { level: number; evolution?: number; rebirths?: number },
   incomeMult = 1,
 ): number {
-  return charIncome(rarity, held.level) * evolveIncomeMult(held.evolution) * incomeMult;
+  return (
+    charIncome(rarity, held.level) *
+    evolveIncomeMult(held.evolution) *
+    incomeMult *
+    rebirthIncomeMult(held.rebirths)
+  );
 }
 
 /**
@@ -141,7 +160,7 @@ export function ownedCreatureIncome(
  */
 export function creatureContribution(
   rarity: Rarity,
-  held: { level: number; evolution?: number },
+  held: { level: number; evolution?: number; rebirths?: number },
   m: Modifiers,
   incomeMult = 1,
 ): number {

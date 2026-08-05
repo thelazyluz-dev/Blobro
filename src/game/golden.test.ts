@@ -219,6 +219,12 @@ describe('golden vectors — abilityOf (all creatures)', () => {
   });
 });
 
+describe('golden vectors — abilityOf with rebirths (mastering loop)', () => {
+  it.each(vectors.abilityOfRebirth)('matches for $id ($rarity) at $rebirths rebirths', (c: any) => {
+    expect(abilityOf(c.id, c.rarity, c.rebirths)).toEqual(c.expected);
+  });
+});
+
 describe('golden vectors — starBonusFor', () => {
   it.each(vectors.starBonusFor)('matches for a given claimed set', (c: any) => {
     expect(starBonusFor(c.claimedIds)).toBe(c.expected);
