@@ -158,7 +158,7 @@ function AccessoryCard({ acc }: { acc: Accessory }) {
       </div>
       <div className="mt-1 text-center font-display text-base text-bone">{acc.nameHe}</div>
       <div className="text-center text-[11px] text-cy tabular">
-        {acc.clickBonus > 0 ? `+${Math.round(acc.clickBonus * 100)}% לִנְגִיעָה` : '✨ רַק לְמַרְאֶה'}
+        {acc.clickBonus > 0 ? `+${Math.round(acc.clickBonus * 100)}% לִנְגִיעָה` : 'בְּלִי בּוֹנוּס'}
       </div>
       <ActionButton id={acc.id} cost={acc.cost} />
     </CardShell>
@@ -197,7 +197,7 @@ function BackgroundCard({ skin }: { skin: BackgroundSkin }) {
       />
       <div className="mt-1 text-center font-display text-base text-bone">{skin.nameHe}</div>
       <div className="text-center text-[11px] text-cy tabular">
-        {skin.incomeBonus > 0 ? `+${Math.round(skin.incomeBonus * 100)}% לִשְׁנִיָּה` : '✨ רַק לְמַרְאֶה'}
+        {skin.incomeBonus > 0 ? `+${Math.round(skin.incomeBonus * 100)}% לִשְׁנִיָּה` : 'בְּסִיסִי'}
       </div>
       <ActionButton id={skin.id} cost={skin.cost} />
     </CardShell>

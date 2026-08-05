@@ -259,14 +259,15 @@ export const backgroundSkins: BackgroundSkin[] = [
       'radial-gradient(30% 20% at 50% 96%, rgba(255,242,185,0.55), transparent 55%),' +
       'linear-gradient(180deg, rgba(28,0,6,0.62), transparent 42%)',
   },
-  // Premium look-only backgrounds (no bonus — sold purely on style).
+  // Premium backgrounds — a real passive-income bonus, placed in the ladder by
+  // price (prism between forest and galaxy; diamond between candy and lava).
   {
     id: 'bg-prism',
     kind: 'background',
     nameHe: 'פְּרִיזְמָה',
     cost: 1_500_000_000,
     requiresClicks: 30_000,
-    incomeBonus: 0,
+    incomeBonus: 0.23,
     gradient:
       'conic-gradient(from 210deg at 30% 20%, rgba(0,229,255,0.34), rgba(155,93,229,0.30), rgba(255,46,136,0.28), rgba(0,229,255,0.34)),' +
       'radial-gradient(60% 45% at 72% 82%, rgba(190,249,255,0.22), transparent 62%),' +
@@ -278,7 +279,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     nameHe: 'יַהֲלוֹם',
     cost: 300_000_000_000_000,
     requiresClicks: 350_000,
-    incomeBonus: 0,
+    incomeBonus: 0.46,
     gradient:
       'repeating-linear-gradient(60deg, rgba(190,249,255,0.10) 0 2px, transparent 2px 26px),' +
       'repeating-linear-gradient(-60deg, rgba(0,229,255,0.10) 0 2px, transparent 2px 26px),' +
@@ -298,12 +299,12 @@ export const accessories: Accessory[] = [
     requiresClicks: 70_000, clickBonus: 0.2, art: 'crown' },
   { id: 'acc-halo', kind: 'accessory', nameHe: 'הִילָה', cost: 8_000_000_000_000,
     requiresClicks: 180_000, clickBonus: 0.28, art: 'halo' },
-  // Premium look-only accessories (no bonus — sold purely on style). Late-game
-  // goo + a real tap gate, so they read as trophies you play toward.
+  // Premium late-game accessories — a real tap bonus, slotted into the ladder by
+  // price (sparkles between crown and halo; aura at the very top).
   { id: 'acc-sparkles', kind: 'accessory', nameHe: 'נִצְנוּצֵי קְרִיסְטָל', cost: 250_000_000_000,
-    requiresClicks: 90_000, clickBonus: 0, art: 'sparkles' },
+    requiresClicks: 90_000, clickBonus: 0.22, art: 'sparkles' },
   { id: 'acc-aura', kind: 'accessory', nameHe: 'הִלַּת קְרִיסְטָל', cost: 40_000_000_000_000,
-    requiresClicks: 220_000, clickBonus: 0, art: 'aura' },
+    requiresClicks: 220_000, clickBonus: 0.34, art: 'aura' },
 ];
 
 // Sound packs: each is a different 8-bit combo melody that plays once your tap
