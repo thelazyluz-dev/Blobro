@@ -11,6 +11,7 @@ import {
   creatureLevelCost,
   evolveIncomeMult,
   gooPerSec,
+  levelUpToCost,
   modifiersFrom,
   ownedCreatureIncome,
   rebirthIncomeMult,
@@ -83,6 +84,20 @@ describe('costs', () => {
   it('a level-up always costs at least 1 goo', () => {
     const c = creatureLevelCost('common', { level: 1 }, mods(), 0);
     expect(c).toBeGreaterThanOrEqual(1);
+  });
+
+  it('levelUpToCost sums the per-level costs up to the target', () => {
+    const rate = 1000;
+    const expected =
+      creatureLevelCost('rare', { level: 5 }, mods(), rate) +
+      creatureLevelCost('rare', { level: 6 }, mods(), rate) +
+      creatureLevelCost('rare', { level: 7 }, mods(), rate);
+    expect(levelUpToCost('rare', { level: 5 }, 8, mods(), rate)).toBe(expected);
+  });
+
+  it('levelUpToCost is 0 when already at or above the target', () => {
+    expect(levelUpToCost('rare', { level: 10 }, 10, mods(), 1000)).toBe(0);
+    expect(levelUpToCost('rare', { level: 12 }, 10, mods(), 1000)).toBe(0);
   });
 
   it('gets pricier as the player gets richer (wealth-scaled payback)', () => {

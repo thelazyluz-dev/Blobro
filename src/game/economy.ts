@@ -275,3 +275,25 @@ export function affordableCreatureLevels(
   }
   return count;
 }
+
+/**
+ * Total goo to raise a creature from its current level up to (and reaching)
+ * `targetLevel`. Sum of the per-level costs; a fixed wealth reference
+ * (gooPerSecValue) is used for the whole batch, exactly like levelUpCreatureMax.
+ * Returns 0 if the creature is already at/above the target. Used by the
+ * "level up to the threshold and evolve in one press" convenience.
+ */
+export function levelUpToCost(
+  rarity: Rarity,
+  held: { level: number; evolution?: number; rebirths?: number },
+  targetLevel: number,
+  m: Modifiers,
+  gooPerSecValue: number,
+  incomeMult = 1,
+): number {
+  let total = 0;
+  for (let level = held.level; level < targetLevel; level++) {
+    total += creatureLevelCost(rarity, { ...held, level }, m, gooPerSecValue, incomeMult);
+  }
+  return total;
+}

@@ -57,6 +57,7 @@ import {
   eggCost,
   evolveCost,
   gooPerSec,
+  levelUpToCost,
   modifiersFrom,
 } from './game/economy';
 import { formatGoo } from './game/format';
@@ -221,6 +222,7 @@ interface GameState {
   openEgg: () => void;
   openAllEggs: () => void;
   evolveCreature: (id: CharId) => void;
+  evolveWithLevelUp: (id: CharId) => void;
   rebirthCreature: (id: CharId) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
@@ -776,6 +778,40 @@ export const useGame = create<GameState>((set, get) => {
         goo: s.goo - cost,
         characters: { ...s.characters, [id]: { ...held, evolution: stage + 1 } },
         ...bumpQuest(questStateOf(s), 'evolve', 1, Date.now()),
+      });
+      get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨ (שלב ${stage + 1})`, icon: '✨', tone: 'star' });
+      get().triggerConfetti('rainbow');
+    },
+
+    // One-press "level up TO the evolution threshold, then evolve" — offered
+    // when the creature is below the required level but the player can afford
+    // BOTH the missing levels and the evolution. Deducts the whole sum at once.
+    // The level costs use the current wealth reference for the whole batch,
+    // exactly like levelUpCreatureMax, so the price matches what's shown.
+    evolveWithLevelUp: (id) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held) return;
+      const stage = held.evolution ?? 0;
+      if (stage >= maxEvolution) return;
+      const target = evolveLevels[stage];
+      const def = charactersById[id];
+      const m = mods();
+      const rate = gooPerSec(s.characters, m);
+      const im = incomeMultById(id);
+      const levelsCost = levelUpToCost(def.rarity, held, target, m, rate, im);
+      const finalLevel = Math.max(held.level, target);
+      const evoCost = evolveCost(def.rarity, { ...held, level: finalLevel }, m, rate, im);
+      const total = levelsCost + evoCost;
+      if (s.goo < total) return;
+      const gained = finalLevel - held.level;
+      let quests = questStateOf(s);
+      if (gained > 0) quests = bumpQuest(quests, 'levels', gained, Date.now());
+      quests = bumpQuest(quests, 'evolve', 1, Date.now());
+      set({
+        goo: s.goo - total,
+        characters: { ...s.characters, [id]: { ...held, level: finalLevel, evolution: stage + 1 } },
+        ...quests,
       });
       get().pushToast({ text: `${def.nameHe} הִתְפַּתֵּחַ! ✨ (שלב ${stage + 1})`, icon: '✨', tone: 'star' });
       get().triggerConfetti('rainbow');

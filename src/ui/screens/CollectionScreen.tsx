@@ -16,6 +16,7 @@ import {
   creatureContribution,
   creatureLevelCost,
   evolveCost,
+  levelUpToCost,
   ownedCreatureIncome,
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
@@ -315,6 +316,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const m = useGame(selectMods);
   const rate = useGame(selectGooPerSec);
   const evolveCreature = useGame((s) => s.evolveCreature);
+  const evolveWithLevelUp = useGame((s) => s.evolveWithLevelUp);
   const rebirthCreature = useGame((s) => s.rebirthCreature);
   const levelUp = useGame((s) => s.levelUpCreature);
   const levelUpMax = useGame((s) => s.levelUpCreatureMax);
@@ -343,6 +345,15 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m, rate, im);
   const affordEvolve = goo >= evolveCostGoo;
   const evolveMultNext = maxedEvolution ? 1 : evolveMultiplierByStage[stage + 1] / evolveMultiplierByStage[stage];
+  // "Level up to the threshold AND evolve" in one press — offered when the
+  // creature is still below the required level but the player can afford BOTH
+  // the missing levels and the evolution. Evolve cost is measured at the TARGET
+  // level (that's the state you'd evolve from), matching the store action.
+  const combinedEvolveCost = maxedEvolution
+    ? 0
+    : levelUpToCost(def.rarity, held, nextEvolveLevel, m, rate, im) +
+      evolveCost(def.rarity, { ...held, level: nextEvolveLevel }, m, rate, im);
+  const canCombinedEvolve = !maxedEvolution && !canEvolve && goo >= combinedEvolveCost;
 
   // Direct goo leveling.
   const levelCost = creatureLevelCost(def.rarity, held, m, rate, im);
@@ -377,6 +388,17 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
     const muted = useGame.getState().muted;
     if (affordEvolve) {
       evolveCreature(id);
+      playPurchase(muted);
+      haptic([0, 40, 30, 60]);
+    } else {
+      playError(muted);
+    }
+  };
+
+  const onCombinedEvolve = () => {
+    const muted = useGame.getState().muted;
+    if (canCombinedEvolve) {
+      evolveWithLevelUp(id);
       playPurchase(muted);
       haptic([0, 40, 30, 60]);
     } else {
@@ -529,9 +551,25 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             </span>
           </button>
         )}
-        {!maxedEvolution && !canEvolve && (
+        {/* Below the required level, but you can afford to level all the way up
+            AND evolve — offer it as one lit button that does both and charges the
+            whole sum (field feedback: don't make me climb levels by hand first). */}
+        {canCombinedEvolve && (
+          <button
+            type="button"
+            onClick={onCombinedEvolve}
+            className="btn anim-evolve-glow mt-3 flex w-full flex-col items-center py-2.5 text-void"
+            style={{ background: 'linear-gradient(135deg,#FFD84D,#FF2E88)' }}
+          >
+            <span className="text-lg">✨ שַׁדְרֵג לְרָמָה {nextEvolveLevel} + אֶבּוֹלוּצְיָה ✨</span>
+            <span className="text-xs tabular">
+              {formatGoo(combinedEvolveCost)} גּוּ — פִּי {Math.round(evolveMultNext * 10) / 10} הַכְנָסָה!
+            </span>
+          </button>
+        )}
+        {!maxedEvolution && !canEvolve && !canCombinedEvolve && (
           <div className="mt-3 text-xs text-bone/50">
-            אֶבּוֹלוּצְיָה שֶׁלָּב {stage + 1}: הַגֵּעַ לְרָמָה {nextEvolveLevel}
+            אֶבּוֹלוּצְיָה שֶׁלָּב {stage + 1}: הַגֵּעַ לְרָמָה {nextEvolveLevel} · {formatGoo(combinedEvolveCost)} גּוּ הַכֹּל
           </div>
         )}
         {maxedEvolution && <div className="mt-3 text-sm text-pop">✨ אֶבּוֹלוּצְיָה מְלֵאָה! ✨</div>}
