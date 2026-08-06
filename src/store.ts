@@ -109,9 +109,11 @@ export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades' | 'shop';
 export type ProgressTab = 'stats' | 'achievements' | 'leaderboard';
 
 export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
-// Speed-test runtime phases: off (idle) → armed (waiting for the first tap) →
-// running (the minute is counting down) → result (the outcome screen).
-export type SpeedPhase = 'off' | 'armed' | 'running' | 'result';
+// Speed-test runtime phases: off (idle) → countdown (3·2·1·GO) → running (the
+// minute is counting down) → result (the outcome screen).
+export type SpeedPhase = 'off' | 'countdown' | 'running' | 'result';
+/** Length of the pre-test 3·2·1·GO countdown. */
+export const speedCountdownMs = 3000;
 export interface SpeedResult {
   taps: number;
   isRecord: boolean;
@@ -241,11 +243,13 @@ interface GameState {
    * and lights a short frenzy. Returns what happened so the UI can celebrate.
    */
   finishSpeedTest: (taps: number) => { isRecord: boolean; reward: number };
-  /** Arm the speed test — the countdown starts on the first tap (registerSpeedTaps). */
+  /** Start the speed test's 3·2·1·GO countdown. */
   armSpeed: () => void;
+  /** Countdown → running: the minute proper begins (called at GO). */
+  beginSpeedTest: () => void;
   /** Leave the speed test entirely (from any phase). */
   cancelSpeed: () => void;
-  /** Feed manual taps in. From 'armed' it starts the minute; in 'running' it accrues. */
+  /** Feed manual taps in — only accrues while 'running'. */
   registerSpeedTaps: (delta: number) => void;
   /** End the running minute: fold the count into bestCpm and show the result screen. */
   finalizeSpeed: () => void;
@@ -739,17 +743,20 @@ export const useGame = create<GameState>((set, get) => {
       return { isRecord: true, reward };
     },
 
-    armSpeed: () => set({ speedPhase: 'armed', speedTaps: 0, speedEndsAt: 0, speedResult: null }),
+    // Pressing the chip starts a 3·2·1·GO countdown (speedEndsAt doubles as the
+    // countdown target while phase is 'countdown'); at GO the controller calls
+    // beginSpeedTest and the minute proper begins.
+    armSpeed: () => set({ speedPhase: 'countdown', speedTaps: 0, speedEndsAt: Date.now() + speedCountdownMs, speedResult: null }),
+    beginSpeedTest: () => {
+      const s = get();
+      if (s.speedPhase !== 'countdown') return;
+      set({ speedPhase: 'running', speedEndsAt: Date.now() + cpmWindowMs, speedTaps: 0 });
+    },
     cancelSpeed: () => set({ speedPhase: 'off', speedTaps: 0, speedEndsAt: 0, speedResult: null }),
     registerSpeedTaps: (delta) => {
       if (delta <= 0) return;
       const s = get();
-      if (s.speedPhase === 'armed') {
-        // First tap starts the minute.
-        set({ speedPhase: 'running', speedEndsAt: Date.now() + cpmWindowMs, speedTaps: delta });
-      } else if (s.speedPhase === 'running') {
-        set({ speedTaps: s.speedTaps + delta });
-      }
+      if (s.speedPhase === 'running') set({ speedTaps: s.speedTaps + delta });
     },
     finalizeSpeed: () => {
       const s = get();

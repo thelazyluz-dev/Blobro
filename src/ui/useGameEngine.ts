@@ -96,7 +96,7 @@ export function useGameEngine(): boolean {
           useGame.getState().markMilestonesShown(fresh.map((m) => m.goo));
           const top = fresh[fresh.length - 1];
           const sp = useGame.getState().speedPhase;
-          if (sp === 'armed' || sp === 'running') {
+          if (sp === 'countdown' || sp === 'running') {
             // Mid speed-test: a full-screen takeover would freeze the tapping.
             // The fact is already marked shown (so it never re-fires); just
             // acknowledge it with a non-blocking toast.
@@ -146,7 +146,7 @@ export function useGameEngine(): boolean {
           // Mid speed-test: still AWARD the creature, but skip the full-screen
           // reveal (it would eat taps and break the run) — a toast instead.
           const sp = useGame.getState().speedPhase;
-          const inTest = sp === 'armed' || sp === 'running';
+          const inTest = sp === 'countdown' || sp === 'running';
           useGame.getState().grantUnlock(c.id, !inTest);
           const muted = useGame.getState().muted;
           if (inTest) {

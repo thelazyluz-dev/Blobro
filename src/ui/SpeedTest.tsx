@@ -1,12 +1,12 @@
 // ⚡ Speed test — a deliberate, fixed-minute tapping challenge (owner request).
 //
-// This file is split into a CONTROLLER (the start chip + the effects that watch
-// taps, run the countdown and celebrate) and three VIEW layers that read the
-// shared runtime from the store so they can render around the blob:
-//   • SpeedRing        — a countdown ring drawn around the main blob
-//   • SpeedFocusOverlay — a full-screen "focus mode": dims everything but the blob,
-//                         with a big timer, live tap count and encouragement
-//   • SpeedResult       — a dedicated result screen (record / try-again)
+// This file is split into a CONTROLLER (the start chip + the effects that run the
+// 3·2·1·GO countdown, watch taps, tick tension and celebrate) and view layers
+// that read the shared runtime from the store so they can render around the blob:
+//   • SpeedRing         — a countdown ring drawn around the main blob
+//   • SpeedFocusOverlay — full-screen "focus mode": dims all but the blob, big
+//                         timer, live tap count, 3·2·1·GO, milestone flashes
+//   • SpeedResult       — a dedicated result screen (record / try-again / share)
 //
 // Taps are counted from the store's `clicks` counter (manual taps only — the
 // robot hand never touches it), so the hot tap path is untouched. The record
@@ -21,19 +21,19 @@ import { haptic } from './haptics';
 import { useReducedMotion } from './useReducedMotion';
 
 const WINDOW_S = Math.round(cpmWindowMs / 1000);
-const MILESTONE_EVERY = 50; // a little zap + buzz every N taps, for encouragement
+const MILESTONE_EVERY = 50; // a little zap + buzz + flash every N taps
 
 /**
- * The start chip AND the renderless controller. It watches manual taps and
- * drives the store's speed runtime (armSpeed / registerSpeedTaps / finalizeSpeed);
- * the visible ring, focus overlay and result screen are separate components that
- * read that runtime.
+ * The start chip AND the renderless controller. It runs the countdown, watches
+ * manual taps and drives the store's speed runtime; the ring, focus overlay and
+ * result screen are separate components that read that runtime.
  */
 export function SpeedTest() {
   const phase = useGame((s) => s.speedPhase);
   const clicks = useGame((s) => s.clicks);
   const muted = useGame((s) => s.muted);
   const armSpeed = useGame((s) => s.armSpeed);
+  const beginSpeedTest = useGame((s) => s.beginSpeedTest);
   const registerSpeedTaps = useGame((s) => s.registerSpeedTaps);
   const finalizeSpeed = useGame((s) => s.finalizeSpeed);
 
@@ -41,28 +41,45 @@ export function SpeedTest() {
   const nextMilestone = useRef(MILESTONE_EVERY);
   const resultShown = useRef(false);
 
-  // Count manual taps → feed the store. GO! zap on the first tap, a little crit
-  // zap at each 50-tap milestone.
+  // Count manual taps → feed the store; a crit zap at each 50-tap milestone.
   useEffect(() => {
     const delta = clicks - lastClicks.current;
     lastClicks.current = clicks;
-    if (delta <= 0) return;
-    if (phase === 'armed') {
-      nextMilestone.current = MILESTONE_EVERY;
-      registerSpeedTaps(delta); // starts the minute
-      playBonus(muted); // GO!
-      haptic(20);
-    } else if (phase === 'running') {
-      registerSpeedTaps(delta);
-      if (useGame.getState().speedTaps >= nextMilestone.current) {
-        nextMilestone.current += MILESTONE_EVERY;
-        playCrit(muted);
-        haptic(12);
-      }
+    if (delta <= 0 || phase !== 'running') return;
+    registerSpeedTaps(delta);
+    if (useGame.getState().speedTaps >= nextMilestone.current) {
+      nextMilestone.current += MILESTONE_EVERY;
+      playCrit(muted);
+      haptic(12);
     }
   }, [clicks, phase, muted, registerSpeedTaps]);
 
-  // Countdown: tension ticks in the final 5s, finalize at zero.
+  // 3·2·1·GO countdown → start the minute.
+  useEffect(() => {
+    if (phase !== 'countdown') return;
+    nextMilestone.current = MILESTONE_EVERY;
+    let lastN = -1;
+    const id = window.setInterval(() => {
+      const left = useGame.getState().speedEndsAt - Date.now();
+      if (left <= 0) {
+        window.clearInterval(id);
+        beginSpeedTest();
+        playBonus(muted); // GO!
+        haptic([0, 20, 20, 40]);
+        return;
+      }
+      const n = Math.ceil(left / 1000);
+      if (n !== lastN) {
+        lastN = n;
+        playRainDrop(muted); // 3.. 2.. 1..
+        haptic(8);
+      }
+    }, 80);
+    return () => window.clearInterval(id);
+  }, [phase, muted, beginSpeedTest]);
+
+  // Countdown-to-zero: tension ticks in the final 10s (heartbeat in the last 3),
+  // finalize at zero.
   useEffect(() => {
     if (phase !== 'running') return;
     let lastTick = -1;
@@ -74,10 +91,10 @@ export function SpeedTest() {
         return;
       }
       const secs = Math.ceil(left / 1000);
-      if (secs <= 5 && secs !== lastTick) {
+      if (secs <= 10 && secs !== lastTick) {
         lastTick = secs;
-        playRainDrop(muted); // ticking clock
-        haptic(8);
+        playRainDrop(muted);
+        haptic(secs <= 3 ? [0, 10, 40, 10] : 8); // heartbeat in the final 3s
       }
     }, 200);
     return () => window.clearInterval(id);
@@ -106,7 +123,7 @@ export function SpeedTest() {
     return (
       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cy/15 px-3.5 py-1.5 text-sm ring-1 ring-cy/40">
         <span className="text-cy">⚡</span>
-        <span className="text-bone">{phase === 'armed' ? 'הַתְחֵל לְהַקִּישׁ!' : 'מְהִירוּת…'}</span>
+        <span className="text-bone">{phase === 'countdown' ? 'מַתְכּוֹנֵן…' : 'מְהִירוּת…'}</span>
       </span>
     );
   }
@@ -123,15 +140,14 @@ export function SpeedTest() {
   );
 }
 
-/** True while a test is armed or counting down (used to lift the blob above the dim). */
+/** True while a test is counting down or running (used to lift the blob above the dim). */
 export function useSpeedActive() {
-  return useGame((s) => s.speedPhase === 'armed' || s.speedPhase === 'running');
+  return useGame((s) => s.speedPhase === 'countdown' || s.speedPhase === 'running');
 }
 
 /**
- * The countdown ring, drawn around the main blob (rendered inside the blob's
- * container so it lines up at any size). Drains over the minute and shifts
- * cyan → gold → hot-pink as time runs low.
+ * The countdown ring, drawn around the main blob. Full during the 3·2·1, then
+ * drains over the minute, shifting cyan → gold → hot-pink as time runs low.
  */
 export function SpeedRing() {
   const phase = useGame((s) => s.speedPhase);
@@ -139,11 +155,11 @@ export function SpeedRing() {
   const [frac, setFrac] = useState(1); // fraction of time LEFT
 
   useEffect(() => {
-    if (phase === 'armed') {
+    if (phase !== 'running') {
       setFrac(1);
       return;
     }
-    if (phase !== 'running' || reduced) return;
+    if (reduced) return;
     // A countdown ring doesn't need 60fps — a ~10fps interval drains it just as
     // smoothly with a fraction of the re-renders (matters while the whole screen
     // is being tapped hard).
@@ -155,7 +171,7 @@ export function SpeedRing() {
     return () => window.clearInterval(id);
   }, [phase, reduced]);
 
-  if (phase !== 'armed' && phase !== 'running') return null;
+  if (phase !== 'countdown' && phase !== 'running') return null;
   const R = 46;
   const C = 2 * Math.PI * R;
   const color = frac > 0.5 ? '#00E5FF' : frac > 0.25 ? '#FFD84D' : '#FF2E88';
@@ -185,9 +201,10 @@ export function SpeedRing() {
 
 /**
  * Focus mode: dims the rest of the screen (the blob is lifted above this) and
- * shows the big timer, live tap count and a "you're beating your record" hint.
- * The dim itself is purely visual (pointer-events-none) so only the blob is
- * tappable during the minute.
+ * shows the 3·2·1·GO, the big timer, live tap count, "beat your record" hint and
+ * a milestone flash. The dim is visual-only (pointer-events-none) so only the
+ * blob taps — but a full-screen surface behind it makes the WHOLE screen a tap
+ * target during the run.
  */
 export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Element>) => void }) {
   const phase = useGame((s) => s.speedPhase);
@@ -195,7 +212,11 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
   const bestCpm = useGame((s) => s.bestCpm);
   const cancelSpeed = useGame((s) => s.cancelSpeed);
   const [secLeft, setSecLeft] = useState(WINDOW_S);
+  const [count, setCount] = useState(3); // 3·2·1 (0 → GO!)
+  const [flash, setFlash] = useState(0); // last 50-tap milestone flashed
+  const flashRef = useRef(0);
 
+  // Live timer while running.
   useEffect(() => {
     if (phase !== 'running') {
       setSecLeft(WINDOW_S);
@@ -203,14 +224,37 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
     }
     const id = window.setInterval(() => {
       setSecLeft(Math.max(0, Math.ceil((useGame.getState().speedEndsAt - Date.now()) / 1000)));
-    }, 250);
+    }, 200);
     return () => window.clearInterval(id);
   }, [phase]);
 
-  if (phase !== 'armed' && phase !== 'running') return null;
+  // Live 3·2·1·GO number while counting down.
+  useEffect(() => {
+    if (phase !== 'countdown') return;
+    const id = window.setInterval(() => {
+      setCount(Math.max(0, Math.ceil((useGame.getState().speedEndsAt - Date.now()) / 1000)));
+    }, 80);
+    return () => window.clearInterval(id);
+  }, [phase]);
+
+  // Milestone flash — a single fading text at each 50 (no particles, stays cheap).
+  useEffect(() => {
+    if (phase !== 'running') {
+      flashRef.current = 0;
+      return;
+    }
+    const milestone = Math.floor(taps / MILESTONE_EVERY) * MILESTONE_EVERY;
+    if (milestone >= MILESTONE_EVERY && milestone !== flashRef.current) {
+      flashRef.current = milestone;
+      setFlash(milestone);
+      const t = window.setTimeout(() => setFlash(0), 650);
+      return () => window.clearTimeout(t);
+    }
+  }, [taps, phase]);
+
+  if (phase !== 'countdown' && phase !== 'running') return null;
   const running = phase === 'running';
   const urgent = running && secLeft <= 5;
-  // Pace projection — are you on track to beat your record?
   const elapsed = Math.max(0.001, WINDOW_S - secLeft);
   const projected = running ? Math.round((taps / elapsed) * WINDOW_S) : 0;
   const ahead = running && bestCpm > 0 && projected >= bestCpm;
@@ -218,13 +262,9 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
   return (
     <>
       <div className="pointer-events-none fixed inset-0 z-20 bg-void/70 backdrop-blur-[2px]" aria-hidden />
-      {/* The WHOLE screen is the tap target during a test (owner request): a
-          full-screen surface behind the blob that fires the same tap handler, so
-          a tap anywhere counts. The blob (z-30) sits above it and keeps its own
-          feedback; only the cancel button (z-40) is exempt. */}
+      {/* Whole-screen tap surface (owner request) — a tap ANYWHERE counts. */}
       <div className="fixed inset-0 z-[25]" onPointerDown={onTap} aria-label="הַקֵּשׁ בְּכָל מָקוֹם" role="button" />
-      {/* Top HUD. The solid gradient backing means the timer / "start tapping"
-          text is NEVER hidden behind the header the way it was before. */}
+      {/* Top HUD, on a solid gradient so it's never hidden behind the header. */}
       <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-12 pt-16">
         {running ? (
           <>
@@ -242,11 +282,19 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
               ))}
           </>
         ) : (
-          <div className="anim-breathe font-display text-4xl text-cy">הַתְחֵל לְהַקִּישׁ בְּכָל מָקוֹם! ⚡</div>
+          <div className="anim-count-pop font-display text-8xl text-cy" key={count}>
+            {count > 0 ? count : 'GO!'}
+          </div>
         )}
       </div>
-      {/* The only escape — deliberately low so it never sits under a tapping thumb. */}
-      <div className="fixed inset-x-0 bottom-8 z-40 flex justify-center">
+      {/* Milestone flash — big, cheap, fades. */}
+      {flash > 0 && (
+        <div className="pointer-events-none fixed inset-x-0 top-1/3 z-40 text-center">
+          <span className="anim-count-pop font-display text-6xl text-goo text-glow-pop">🔥 {flash}!</span>
+        </div>
+      )}
+      {/* The only escape — kept ABOVE the bottom nav so it's never hidden by it. */}
+      <div className="fixed inset-x-0 bottom-24 z-40 flex justify-center">
         <button
           type="button"
           onClick={cancelSpeed}
@@ -257,6 +305,21 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
       </div>
     </>
   );
+}
+
+/** Fire-and-forget: share the result text, or copy it if the Web Share API is absent. */
+async function shareResult(taps: number, isRecord: boolean) {
+  const text = `${isRecord ? '🏆 שִׂיא חָדָשׁ! ' : ''}עָשִׂיתִי ${taps} הַקָּשׁוֹת בְּדַקָּה בְּבּלוֹרְבּוֹ! ⚡ https://bl-or-bo.com`;
+  try {
+    const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> };
+    if (nav.share) {
+      await nav.share({ title: 'בלורבו — מבחן מהירות', text });
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+    }
+  } catch {
+    // User dismissed the share sheet, or clipboard denied — nothing to do.
+  }
 }
 
 /** The dedicated result screen shown when a minute ends. */
@@ -293,12 +356,20 @@ export function SpeedResult() {
           </button>
           <button
             type="button"
-            onClick={cancelSpeed}
-            className="flex-1 rounded-full bg-black/30 py-2.5 text-bone ring-1 ring-bone/20 active:scale-95"
+            onClick={() => shareResult(taps, isRecord)}
+            className="rounded-full bg-goo/20 px-4 py-2.5 text-goo ring-1 ring-goo/40 active:scale-95"
+            aria-label="שתף תוצאה"
           >
-            סְגוֹר
+            שַׁתֵּף 📤
           </button>
         </div>
+        <button
+          type="button"
+          onClick={cancelSpeed}
+          className="mt-2 w-full rounded-full bg-black/30 py-2 text-sm text-bone/70 ring-1 ring-bone/20 active:scale-95"
+        >
+          סְגוֹר
+        </button>
       </div>
     </div>
   );

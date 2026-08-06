@@ -55,24 +55,27 @@ describe('finishSpeedTest', () => {
 });
 
 describe('speed-test phase machine', () => {
-  it('arms, starts the minute on the first tap, accrues, then shows a result', () => {
+  it('countdown → running → result, accruing taps only while running', () => {
     const g = () => useGame.getState();
     g().armSpeed();
-    expect(g().speedPhase).toBe('armed');
+    expect(g().speedPhase).toBe('countdown');
     expect(g().speedTaps).toBe(0);
 
-    // First tap starts the countdown.
-    g().registerSpeedTaps(1);
+    // Taps during the 3·2·1 countdown are ignored.
+    g().registerSpeedTaps(5);
+    expect(g().speedTaps).toBe(0);
+
+    // GO: the minute proper begins.
+    g().beginSpeedTest();
     expect(g().speedPhase).toBe('running');
-    expect(g().speedTaps).toBe(1);
     expect(g().speedEndsAt).toBeGreaterThan(Date.now());
 
-    // Further taps accrue.
-    g().registerSpeedTaps(9);
-    expect(g().speedTaps).toBe(10);
+    // Now taps accrue.
+    g().registerSpeedTaps(10);
+    g().registerSpeedTaps(240); // total 250 > bestCpm 100
+    expect(g().speedTaps).toBe(250);
 
     // Finalizing folds the count into the record and opens the result screen.
-    g().registerSpeedTaps(240); // total 250 > bestCpm 100
     g().finalizeSpeed();
     expect(g().speedPhase).toBe('result');
     expect(g().speedResult?.taps).toBe(250);
@@ -80,15 +83,15 @@ describe('speed-test phase machine', () => {
     expect(g().bestCpm).toBe(250);
   });
 
-  it('does not count taps before it is armed, and cancel returns to off', () => {
+  it('beginSpeedTest is a no-op unless counting down; cancel clears everything', () => {
     const g = () => useGame.getState();
     g().cancelSpeed();
     expect(g().speedPhase).toBe('off');
-    g().registerSpeedTaps(50); // ignored while off
-    expect(g().speedTaps).toBe(0);
+    g().beginSpeedTest(); // nothing to begin
     expect(g().speedPhase).toBe('off');
 
     g().armSpeed();
+    g().beginSpeedTest();
     g().registerSpeedTaps(5);
     g().cancelSpeed();
     expect(g().speedPhase).toBe('off');
