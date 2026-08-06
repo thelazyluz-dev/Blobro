@@ -29,6 +29,8 @@ export {
   gooPerSec,
   modifiersFrom,
   ownedCreatureIncome,
+  rebirthGlobalMult,
+  totalRebirths,
   wealthPaybackMult,
 } from '../../src/game/economy';
 

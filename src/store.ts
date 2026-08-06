@@ -59,6 +59,7 @@ import {
   gooPerSec,
   levelUpToCost,
   modifiersFrom,
+  rebirthGlobalMult,
 } from './game/economy';
 import { formatGoo } from './game/format';
 import { currentEvent } from './game/events';
@@ -1572,6 +1573,8 @@ const modsOf = (s: GameState): Modifiers => {
   // hatching, never costs, so it's safe to fold in here).
   const ev = currentEvent(Date.now());
   if (ev.luckBonus > 0) m.luck = Math.min(luckCap, m.luck + ev.luckBonus);
+  // Global rebirth income bonus — every rebirth across the roster, always on.
+  m.rebirthMultiplier = rebirthGlobalMult(s.characters);
   // The equipped main creature's ability (tap/income/crit/luck fold into the
   // modifiers here; combo/bonus are applied where those mechanics live).
   const ab = selectActiveAbility(s);
@@ -1605,24 +1608,12 @@ export const selectAdBonus = (s: GameState) => {
 export const selectGooPerSec = (s: GameState) =>
   gooPerSec(s.characters, modsOf(s)) * currentEvent(Date.now()).incomeMult * adMultOf(s, Date.now());
 /**
- * The TOTAL fraction that rebirths add to passive income right now, aggregated
- * across the WHOLE roster (each reborn creature's +10%/rebirth is always live on
- * its own income, regardless of which creature is the main). It's the real
- * weighted increase to total goo/sec — total-with-rebirths / total-without − 1 —
- * so a mix of reborn and non-reborn creatures reads honestly. Event/ad
- * multipliers cancel in the ratio, so this uses the raw creature income.
+ * The GLOBAL income bonus from rebirths as a fraction (e.g. 1.6 = +160%): every
+ * rebirth across the whole roster counts, always on, regardless of which
+ * creature is the main or what level a reborn creature sits at. Exactly
+ * (counted rebirths) × rebirthIncomeBonus — see rebirthGlobalMult.
  */
-export const selectRebirthIncomeBonus = (s: GameState): number => {
-  const m = modsOf(s);
-  const withReb = gooPerSec(s.characters, m);
-  if (withReb <= 0) return 0;
-  const stripped: OwnedCharacters = {};
-  for (const [id, held] of Object.entries(s.characters)) {
-    if (held) stripped[id as CharId] = { level: held.level, evolution: held.evolution };
-  }
-  const withoutReb = gooPerSec(stripped, m);
-  return withoutReb > 0 ? withReb / withoutReb - 1 : 0;
-};
+export const selectRebirthIncomeBonus = (s: GameState): number => rebirthGlobalMult(s.characters) - 1;
 /** The active permanent income bonus (star) as a fraction, e.g. 0.2 = +20%. */
 export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
 export const selectEggCost = (s: GameState) =>

@@ -3,7 +3,7 @@
 // felt by real players.
 
 import { describe, expect, it } from 'vitest';
-import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier, rebirthCap, rebirthIncomeBonus } from './balance';
+import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier, rebirthCap, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
 import {
   autoClicksPerSec,
   charIncome,
@@ -14,9 +14,11 @@ import {
   levelUpToCost,
   modifiersFrom,
   ownedCreatureIncome,
-  rebirthIncomeMult,
+  rebirthGlobalMult,
+  totalRebirths,
   wealthPaybackMult,
 } from './economy';
+import { characters } from './characters';
 import { defaultUpgrades } from './upgrades';
 import type { Modifiers } from './types';
 
@@ -113,37 +115,33 @@ describe('costs', () => {
   });
 });
 
-describe('rebirth income bonus (mastering loop)', () => {
-  it('adds +rebirthIncomeBonus per rebirth, ×1 at zero', () => {
-    expect(rebirthIncomeMult(0)).toBe(1);
-    for (const reb of [1, 4, 10]) {
-      expect(rebirthIncomeMult(reb)).toBeCloseTo(1 + rebirthIncomeBonus * reb, 10);
-    }
+describe('rebirth GLOBAL income bonus (mastering loop)', () => {
+  it('sums +rebirthIncomeBonus per rebirth across the whole roster', () => {
+    expect(rebirthGlobalMult({})).toBe(1);
+    expect(rebirthGlobalMult({ blombo: { level: 5, rebirths: 3 } })).toBeCloseTo(1 + rebirthIncomeBonus * 3, 10);
+    // Every reborn creature counts, always — not just one.
+    expect(
+      rebirthGlobalMult({ blombo: { level: 5, rebirths: 1 }, fizzik: { level: 5, rebirths: 2 }, nono: { level: 5, rebirths: 4 } }),
+    ).toBeCloseTo(1 + rebirthIncomeBonus * 7, 10);
   });
 
-  it('clamps at rebirthCap — a forged count cannot exceed it (anti-cheat)', () => {
-    const atCap = rebirthIncomeMult(rebirthCap);
-    for (const forged of [rebirthCap + 1, 1000, 1e9]) {
-      expect(rebirthIncomeMult(forged)).toBe(atCap);
-    }
+  it('clamps each creature to rebirthCap and the sum to rebirthGlobalCap (anti-cheat)', () => {
+    // One forged creature is capped at rebirthCap.
+    expect(totalRebirths({ blombo: { level: 1, rebirths: 1e9 } })).toBe(rebirthCap);
+    // The whole roster maxed is capped at rebirthGlobalCap.
+    const maxed = Object.fromEntries(characters.map((c) => [c.id, { level: 1, rebirths: rebirthCap }]));
+    expect(totalRebirths(maxed)).toBe(rebirthGlobalCap);
+    expect(rebirthGlobalMult(maxed)).toBeCloseTo(1 + rebirthGlobalCap * rebirthIncomeBonus, 10);
   });
 
-  it('ownedCreatureIncome folds the bonus through', () => {
-    const plain = ownedCreatureIncome('rare', { level: 20 }, 1);
-    const reborn = ownedCreatureIncome('rare', { level: 20, rebirths: 5 }, 1);
-    expect(reborn).toBeCloseTo(plain * rebirthIncomeMult(5), 6);
-  });
-
-  it('a reborn creature still costs a sensible amount to level (not floored to 1)', () => {
-    // Regression: the "next level" must carry the same rebirths, or the gain
-    // goes negative and the cost floors to 1 goo — the "every level costs 1 goo
-    // after a rebirth" bug. A reborn creature should cost MORE (its income, and
-    // thus the level's gain, is higher), never a trivial 1.
-    const rate = 1e7;
-    const plain = creatureLevelCost('rare', { level: 12, evolution: 1 }, mods(), rate);
-    const reborn = creatureLevelCost('rare', { level: 12, evolution: 1, rebirths: 3 }, mods(), rate);
-    expect(reborn).toBeGreaterThan(1);
-    expect(reborn).toBeGreaterThan(plain);
-    expect(reborn).toBeCloseTo(plain * rebirthIncomeMult(3), -1);
+  it('folds into total income but NOT into a single creature\'s base income', () => {
+    // ownedCreatureIncome is now rebirth-free (the bonus is global, via m).
+    expect(ownedCreatureIncome('rare', { level: 20 }, 1)).toBe(ownedCreatureIncome('rare', { level: 20 }, 1));
+    // gooPerSec applies the global multiplier.
+    const owned = { blombo: { level: 20, rebirths: 5 } };
+    const m = mods({ rebirthMultiplier: rebirthGlobalMult(owned) });
+    const withGlobal = gooPerSec(owned, m);
+    const without = gooPerSec(owned, mods());
+    expect(withGlobal / without).toBeCloseTo(1 + rebirthIncomeBonus * 5, 6);
   });
 });

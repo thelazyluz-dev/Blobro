@@ -84,10 +84,19 @@ export const rebirthCap = 20;
 // the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a
 // time (the equipped main), so this only ever boosts the player's chosen star.
 export const abilityRebirthBonus = 0.25;
-// +10% permanent passive income for THAT creature per rebirth (×3 at the cap).
-// This is what turns rebirth from "reset punishment" into "grow past where you
-// were" — the reason the loop feels rewarding to a kid rather than punishing.
+// +10% permanent income PER REBIRTH, applied GLOBALLY to all passive income —
+// every rebirth on any creature counts, all the time, no matter which creature
+// is the main or what level it's currently at (owner decision). This is what
+// makes a rebirth feel rewarding immediately: reset a creature, and its rebirth
+// still boosts your whole income even while you rebuild it. (The per-creature
+// ABILITY boost, abilityRebirthBonus above, stays tied to the equipped main.)
 export const rebirthIncomeBonus = 0.1;
+// The total rebirths counted toward the GLOBAL income bonus is capped here, so
+// the bonus (and therefore the anti-cheat income ceiling) can't run away: max
+// +rebirthGlobalCap × rebirthIncomeBonus = +500% (×6). A single creature is
+// still capped at rebirthCap (20) for its own ability; this caps the SUM across
+// the roster that feeds the global income multiplier.
+export const rebirthGlobalCap = 50;
 
 // --- Direct creature leveling (goo sink) --------------------------------------
 // Besides hatching duplicates, a creature can be levelled straight up with goo.

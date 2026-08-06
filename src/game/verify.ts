@@ -29,7 +29,7 @@ import { abilityOf } from './abilities';
 import { charactersById } from './characters';
 import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
 import { EVENTS } from './events';
-import { autoClicksPerSec, effectiveClickPower, gooPerSec, modifiersFrom } from './economy';
+import { autoClicksPerSec, effectiveClickPower, gooPerSec, modifiersFrom, rebirthGlobalMult } from './economy';
 import { starBonusFor } from './achievements';
 import type { SaveState } from './types';
 
@@ -74,6 +74,10 @@ function modsFor(save: SaveState) {
     backgroundIncomeBonus(save.equippedBackground),
     save.prestigeCrystals,
   );
+  // Global rebirth income bonus, exactly as the client's modsOf does. Clamped
+  // inside rebirthGlobalMult (per-creature + global caps), so a forged rebirth
+  // count can't inflate the ceiling past the legitimate maximum.
+  m.rebirthMultiplier = rebirthGlobalMult(save.characters);
   // Fold the equipped-main creature's ability, exactly as the client's modsOf
   // does (store.ts) — otherwise the ceiling is structurally blind to up to +40%
   // tap/income a real player legitimately earns, so it would drift from the game

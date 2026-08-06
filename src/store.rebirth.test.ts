@@ -67,26 +67,26 @@ describe('rebirthCreature', () => {
   });
 });
 
-describe('selectRebirthIncomeBonus (total across the roster)', () => {
+describe('selectRebirthIncomeBonus (GLOBAL total across the roster)', () => {
   it('is 0 when no creature has been reborn', () => {
     useGame.setState({ characters: { blombo: { level: 20 }, fizzik: { level: 10 } } });
     expect(selectRebirthIncomeBonus(useGame.getState())).toBe(0);
   });
 
-  it('equals the single creature\'s bonus when it is the only one', () => {
-    // One creature, 5 rebirths → its income is ×1.5, so the roster total is +50%.
-    useGame.setState({ characters: { blombo: { level: 20, rebirths: 5 } } });
-    expect(selectRebirthIncomeBonus(useGame.getState())).toBeCloseTo(0.5, 6);
-  });
-
-  it('is a weighted total when only some creatures are reborn', () => {
-    // Every reborn creature contributes ALL the time, regardless of the main.
+  it('is the SUM of every rebirth × 10%, always on (not weighted by income)', () => {
+    // 10 rebirths anywhere → +100% global, regardless of that creature's level
+    // or which is the main. A non-reborn creature does NOT dilute it.
     useGame.setState({
-      characters: { blombo: { level: 20, rebirths: 10 }, fizzik: { level: 20 } },
+      characters: { blombo: { level: 1, rebirths: 10 }, fizzik: { level: 900 } },
       equippedMain: null,
     });
-    const pct = selectRebirthIncomeBonus(useGame.getState());
-    expect(pct).toBeGreaterThan(0);
-    expect(pct).toBeLessThan(1); // below +100% because fizzik (not reborn) dilutes it
+    expect(selectRebirthIncomeBonus(useGame.getState())).toBeCloseTo(1.0, 6);
+  });
+
+  it('adds up across creatures', () => {
+    useGame.setState({
+      characters: { blombo: { level: 5, rebirths: 3 }, fizzik: { level: 5, rebirths: 2 }, nono: { level: 5, rebirths: 4 } },
+    });
+    expect(selectRebirthIncomeBonus(useGame.getState())).toBeCloseTo(0.9, 6); // 9 rebirths → +90%
   });
 });

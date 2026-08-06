@@ -26,6 +26,7 @@ import {
   gooPerSec,
   modifiersFrom,
   ownedCreatureIncome,
+  rebirthGlobalMult,
   wealthPaybackMult,
 } from './economy';
 import { currentEvent, eventStateAt } from './events';
@@ -222,6 +223,12 @@ describe('golden vectors — abilityOf (all creatures)', () => {
 describe('golden vectors — abilityOf with rebirths (mastering loop)', () => {
   it.each(vectors.abilityOfRebirth)('matches for $id ($rarity) at $rebirths rebirths', (c: any) => {
     expect(abilityOf(c.id, c.rarity, c.rebirths)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors — rebirthGlobalMult (global rebirth income)', () => {
+  it.each(vectors.rebirthGlobalMult)('matches for a given roster', (c: any) => {
+    expect(rebirthGlobalMult(c.owned)).toEqual(c.expected);
   });
 });
 

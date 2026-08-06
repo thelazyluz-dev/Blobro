@@ -26,6 +26,7 @@ import {
   paybackGrowthPerDecade,
   prestigeCrystalBonus,
   rebirthCap,
+  rebirthGlobalCap,
   rebirthIncomeBonus,
   tapProductionShare,
   upgradeConfig,
@@ -51,6 +52,10 @@ export function modifiersFrom(
     incomeMultiplier: (1 + upgradeConfig.nurture.effectPerLevel * upgrades.nurture) * (1 + incomeCosmeticBonus),
     starMultiplier: 1 + achievementStarBonus,
     prestigeMultiplier: 1 + Math.max(0, prestigeCrystals) * prestigeCrystalBonus,
+    // Global rebirth bonus depends on the whole roster, which modifiersFrom
+    // doesn't see — the caller (modsOf / verify's modsFor) sets this from
+    // rebirthGlobalMult(characters). Default 1 = no rebirths.
+    rebirthMultiplier: 1,
     critChance: Math.min(critChanceCap, critBaseChance + upgradeConfig.crit.effectPerLevel * upgrades.crit),
     luck: Math.min(luckCap, upgradeConfig.luck.effectPerLevel * upgrades.luck),
   };
@@ -126,30 +131,41 @@ export function evolveIncomeMult(evolution = 0): number {
 }
 
 /**
- * Income × from a creature's rebirth count (the mastering loop): each rebirth
- * adds a permanent flat income bonus. Clamped to rebirthCap HERE — same as
- * abilityOf — so the game and the anti-cheat ceiling agree and a forged count
- * can't inflate income past the cap. Default 0 → ×1 (existing callers/vectors
- * unchanged).
+ * Total rebirths across the whole roster that count toward the GLOBAL income
+ * bonus. Each creature is clamped to rebirthCap (its own ability cap), and the
+ * SUM is clamped to rebirthGlobalCap — both clamps live HERE, in the shared pure
+ * rule, so the game and the anti-cheat ceiling agree and a forged save can't
+ * inflate income past the cap.
  */
-export function rebirthIncomeMult(rebirths = 0): number {
-  const reb = Number.isFinite(rebirths) ? Math.min(Math.max(0, Math.floor(rebirths)), rebirthCap) : 0;
-  return 1 + rebirthIncomeBonus * reb;
+export function totalRebirths(owned: OwnedCharacters): number {
+  let sum = 0;
+  for (const def of characters) {
+    const r = owned[def.id]?.rebirths;
+    if (r && Number.isFinite(r)) sum += Math.min(Math.max(0, Math.floor(r)), rebirthCap);
+  }
+  return Math.min(sum, rebirthGlobalCap);
+}
+
+/**
+ * The GLOBAL income multiplier from rebirths: +rebirthIncomeBonus per counted
+ * rebirth, applied to ALL passive income, always — regardless of which creature
+ * is the main or what level a reborn creature currently sits at. This is what
+ * makes rebirthing feel rewarding the moment you do it.
+ */
+export function rebirthGlobalMult(owned: OwnedCharacters): number {
+  return 1 + totalRebirths(owned) * rebirthIncomeBonus;
 }
 
 /** A single owned creature's income, including its evolution (shiny) bonus and
  * its per-creature income multiplier (1 for egg creatures, higher for unlocks). */
 export function ownedCreatureIncome(
   rarity: Rarity,
-  held: { level: number; evolution?: number; rebirths?: number },
+  held: { level: number; evolution?: number },
   incomeMult = 1,
 ): number {
-  return (
-    charIncome(rarity, held.level) *
-    evolveIncomeMult(held.evolution) *
-    incomeMult *
-    rebirthIncomeMult(held.rebirths)
-  );
+  // Rebirth income is GLOBAL now (see rebirthGlobalMult, folded via
+  // m.rebirthMultiplier in creatureIncome) — no longer a per-creature factor.
+  return charIncome(rarity, held.level) * evolveIncomeMult(held.evolution) * incomeMult;
 }
 
 /**
@@ -169,6 +185,7 @@ export function creatureContribution(
     m.incomeMultiplier *
     m.starMultiplier *
     m.prestigeMultiplier *
+    m.rebirthMultiplier *
     globalMultiplier
   );
 }
@@ -181,7 +198,7 @@ export function creatureIncome(owned: OwnedCharacters, m: Modifiers): number {
     const held = owned[def.id];
     if (held) sum += ownedCreatureIncome(def.rarity, held, incomeMultOf(def));
   }
-  return sum * m.incomeMultiplier * m.starMultiplier * m.prestigeMultiplier * globalMultiplier;
+  return sum * m.incomeMultiplier * m.starMultiplier * m.prestigeMultiplier * m.rebirthMultiplier * globalMultiplier;
 }
 
 /**

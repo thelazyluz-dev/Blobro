@@ -486,7 +486,9 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           const abBase = abilityOf(id, def.rarity, 0);
           const meta = ABILITY_META[ab.type];
           const abilityAdd = abilityPct(ab) - abilityPct(abBase);
-          const incomeAdd = Math.round(rebirthIncomeBonus * rebirths * 100);
+          // Each rebirth adds +10% to your GLOBAL income (always on) — this is
+          // THIS creature's contribution to that total.
+          const incomeAdd = Math.round(rebirthIncomeBonus * Math.min(rebirths, rebirthCap) * 100);
           return (
             <div className="mt-3 rounded-2xl bg-pop/10 px-3 py-2 ring-1 ring-pop/30">
               <div className="flex items-center justify-between gap-2">
@@ -502,7 +504,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
               <div className="mt-0.5 font-display text-base text-pop">{meta.descHe(abilityPct(ab))}</div>
               {rebirths > 0 && (
                 <div className="mt-1 text-xs font-bold text-cy">
-                  🔄 מִלֵּידָה מֵחָדָשׁ: +{abilityAdd}% יְכֹלֶת · +{incomeAdd}% הַכְנָסָה
+                  🔄 מִלֵּידָה מֵחָדָשׁ: +{abilityAdd}% יְכֹלֶת · +{incomeAdd}% לַהַכְנָסָה הַכְּלָלִית
                 </div>
               )}
             </div>

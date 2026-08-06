@@ -135,6 +135,7 @@ export interface Modifiers {
   incomeMultiplier: number; // from the "nurture" upgrade (creatures only)
   starMultiplier: number; // from achievements — applies to everything
   prestigeMultiplier: number; // from 💎 crystals — applies to everything, forever
+  rebirthMultiplier: number; // GLOBAL income bonus from rebirths across the whole roster
   critChance: number; // 0..1, chance a tap crits
   luck: number; // 0..luckCap, hatch-odds shift toward rare/legendary
 }

@@ -42,6 +42,7 @@ import {
   gooPerSec,
   modifiersFrom,
   ownedCreatureIncome,
+  rebirthGlobalMult,
   wealthPaybackMult,
 } from '../src/game/economy';
 import { currentEvent, eventStateAt } from '../src/game/events';
@@ -164,11 +165,6 @@ const ownedCreatureIncomeCases: {
   { rarity: 'common', held: { level: 500, evolution: 0 }, incomeMult: 1 },
   { rarity: 'uncommon', held: { level: 3 }, incomeMult: 2 },
   { rarity: 'legendary', held: { level: 1 }, incomeMult: 1 },
-  // Rebirth income bonus (mastering loop): +10%/rebirth, clamped to rebirthCap.
-  { rarity: 'common', held: { level: 1, rebirths: 1 }, incomeMult: 1 },
-  { rarity: 'rare', held: { level: 25, evolution: 2, rebirths: 5 }, incomeMult: 1 },
-  { rarity: 'legendary', held: { level: 1, rebirths: 20 }, incomeMult: 1 }, // at the cap
-  { rarity: 'legendary', held: { level: 1, rebirths: 999 }, incomeMult: 1 }, // clamped to the cap
 ].map((c) => ({ ...c, expected: ownedCreatureIncome(c.rarity, c.held, c.incomeMult) }));
 
 // ── creatureContribution ─────────────────────────────────────────────────
@@ -425,6 +421,19 @@ const buyableEggsCases = [
   { goo: 1e9, acquired: 100, maxCount: 5 }, // maxCount binds
   { goo: 50, acquired: 0, maxCount: 200 },
 ].map((c) => ({ ...c, expected: buyableEggs(c.goo, c.acquired, c.maxCount, eggCost) }));
+
+// ── rebirthGlobalMult — the GLOBAL rebirth income multiplier ──────────────
+// +rebirthIncomeBonus per counted rebirth across the roster; each creature is
+// clamped to rebirthCap and the SUM to rebirthGlobalCap. These vectors pin the
+// summation and BOTH clamps for the client and the Worker.
+const rebirthGlobalMultCases: { owned: OwnedCharacters; expected: number }[] = [
+  { owned: {} },
+  { owned: { blombo: { level: 20 } } }, // no rebirths → 1
+  { owned: { blombo: { level: 20, rebirths: 3 } } }, // +30%
+  { owned: { blombo: { level: 20, rebirths: 1 }, fizzik: { level: 5, rebirths: 2 }, nono: { level: 8, rebirths: 4 } } }, // sums to 7 → +70%
+  { owned: { blombo: { level: 1, rebirths: 999 } } }, // one creature clamped to rebirthCap
+  { owned: Object.fromEntries(characters.map((c) => [c.id, { level: 1, rebirths: 20 }])) as OwnedCharacters }, // sum clamped to rebirthGlobalCap
+].map((c) => ({ ...c, expected: rebirthGlobalMult(c.owned) }));
 
 // ── abilityOf — every creature ───────────────────────────────────────────
 const abilityOfCases = characters.map((def) => ({
@@ -792,6 +801,7 @@ const vectors = {
   buyableEggs: buyableEggsCases,
   abilityOf: abilityOfCases,
   abilityOfRebirth: abilityOfRebirthCases,
+  rebirthGlobalMult: rebirthGlobalMultCases,
   starBonusFor: starBonusForCases,
   isComplete: isCompleteCases,
   computeOffline: computeOfflineCases,
