@@ -86,7 +86,15 @@ import {
 } from './auth';
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
 // — see worker/src/rules.ts for why this is never reimplemented locally.
-import { CURRENT_VERSION, isCleanNickname, maxCpm, migrate, ownsImpossibleCreatures, verifySaveDelta } from './rules';
+import {
+  CURRENT_VERSION,
+  isCleanNickname,
+  maxCpm,
+  migrate,
+  ownsImpossibleCreatures,
+  plausibilityCeiling,
+  verifySaveDelta,
+} from './rules';
 
 export interface Env {
   DB: D1Database;
@@ -1199,12 +1207,16 @@ async function handleAdminEdit(request: Request, env: Env): Promise<Response> {
     const save = migrate(tryParseJson(row.payload), now);
     if (hasGoo) save.goo = clamp(Math.floor(body!.goo as number), 0, MAX_GOO);
     if (hasClicks) save.clicks = Math.max(0, Math.min(1e12, Math.floor(body!.clicks as number)));
-    // Nudge lifetimeGoo strictly above its previous value (kept ≥ held goo).
     // The client only ADOPTS the cloud save when its lifetimeGoo exceeds the
-    // local one (decideMergeWinner) — a clicks-only edit otherwise tied and the
-    // local save won on reload, so "nothing changed". The +1 makes the edit win;
-    // the tester should reload promptly (before earning more locally).
-    save.lifetimeGoo = clamp(Math.max(Number(save.lifetimeGoo) || 0, save.goo) + 1, 0, MAX_GOO);
+    // LOCAL (in-memory) one (decideMergeWinner). Between the player's last 60s
+    // checkpoint and their reload, local can have earned up to ~a minute of
+    // income, so a tiny +1 nudge lost the race — that's why the edit "took a few
+    // tries". Nudge lifetimeGoo by a generous buffer (≈90s of the account's own
+    // income, min 1000) so the edited save wins on the FIRST try for any prompt
+    // reload, without needing to know the local value.
+    const income = plausibilityCeiling(save, 0).passivePerSec;
+    const nudge = Math.max(1000, (Number.isFinite(income) ? income : 0) * 90);
+    save.lifetimeGoo = clamp(Math.max(Number(save.lifetimeGoo) || 0, save.goo) + nudge, 0, MAX_GOO);
 
     const sanitized = migrate(save, now);
     const payload = JSON.stringify(sanitized);
