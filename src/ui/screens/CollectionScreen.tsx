@@ -205,7 +205,9 @@ export function CollectionScreen() {
                   const rebirths = held.rebirths ?? 0;
                   const reborn = rebirths > 0;
                   const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
-                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow, incomeMultOf(def));
+                  // Cap at 100 — the badge only shows up to "99+", and the full
+                  // 999-deep loop ×25 tiles ran on every 10Hz tick (perf).
+                  const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow, incomeMultOf(def), 100);
                   // Ready to evolve = reached the next stage's level threshold AND
                   // you can afford it right now. Shown only as a pulsing gold frame
                   // (like the evolve button), so it means "you can evolve this now".

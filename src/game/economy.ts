@@ -287,6 +287,12 @@ export function evolveCost(
  * How many consecutive levels the player could buy for one creature with `goo`
  * on hand — the number shown as the little badge on its collection tile.
  * (Capped so a huge bank doesn't buy a runaway number in one press.)
+ *
+ * `maxCount` bounds the loop. It defaults to 999 (the real "level up to max"
+ * count used by the store action, and what every golden vector pins). The grid
+ * badge, which only ever shows up to "99+", passes a small cap so a rich player
+ * doesn't pay for ~999 cost computations per tile on every 10Hz passive tick —
+ * that recompute, ×25 tiles, was a real collection-tab frame drain.
  */
 export function affordableCreatureLevels(
   rarity: Rarity,
@@ -295,10 +301,11 @@ export function affordableCreatureLevels(
   goo: number,
   gooPerSecValue: number,
   incomeMult = 1,
+  maxCount = 999,
 ): number {
   let count = 0;
   let spent = 0;
-  while (count < 999) {
+  while (count < maxCount) {
     const cost = creatureLevelCost(rarity, { ...held, level: held.level + count }, m, gooPerSecValue, incomeMult);
     if (spent + cost > goo) break;
     spent += cost;

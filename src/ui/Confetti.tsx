@@ -25,6 +25,13 @@ const PALETTES: Record<ConfettiKind, string[]> = {
 
 let pieceId = 0;
 
+// Hard ceiling on how many pieces animate at once. Bursts accumulate (a rapid
+// string of celebrations — e.g. evolving many creatures quickly — fires many
+// triggerConfetti calls inside the 2.4s cleanup window), and without a cap the
+// on-screen node count grows unbounded and the frame rate collapses. Keeping the
+// newest MAX_PIECES bounds the work regardless of how fast the player evolves.
+const MAX_PIECES = 90;
+
 export function Confetti() {
   const bursts = useGame((s) => s.confettiBursts);
   const kind = useGame((s) => s.confettiKind);
@@ -45,7 +52,10 @@ export function Confetti() {
       size: 8 + Math.random() * 10,
       round: Math.random() < 0.4,
     }));
-    setPieces((prev) => [...prev, ...batch]);
+    setPieces((prev) => {
+      const next = [...prev, ...batch];
+      return next.length > MAX_PIECES ? next.slice(next.length - MAX_PIECES) : next;
+    });
     const ids = new Set(batch.map((p) => p.id));
     const t = window.setTimeout(
       () => setPieces((prev) => prev.filter((p) => !ids.has(p.id))),
