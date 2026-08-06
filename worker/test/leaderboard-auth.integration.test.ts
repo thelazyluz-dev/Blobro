@@ -241,6 +241,24 @@ describe('GET /admin/stats — owner dashboard, bearer-gated & aggregate-only', 
       expect(Object.keys(row).sort()).toEqual(['name', 'score']);
     }
   });
+
+  it('reflects fresh save progress without a new /submit (reads the saves table)', async () => {
+    const cookie = await signUp();
+    // Join the board once — scores.goo is now 1,111.
+    await putSave(cookie, 0, save({ goo: 1_111, lifetimeGoo: 9_999_999 }));
+    await submit(cookie, { name: 'פְרֶשׁ' });
+    // Keep playing: the 60s checkpoint save updates, but the player never reopens
+    // the leaderboard, so /submit is NOT called again.
+    await putSave(cookie, 1, save({ goo: 7_654_321, lifetimeGoo: 9_999_999 }));
+
+    const res = await stats('test-admin-token');
+    const body = (await res.json()) as { topGoo: Array<{ name: string | null; score: number }> };
+    const row = body.topGoo.find((r) => r.name === 'פְרֶשׁ');
+    expect(row).toBeDefined();
+    // The dashboard shows the FRESH held goo from the save (7,654,321), not the
+    // stale 1,111 that /submit last wrote to the scores table.
+    expect(row!.score).toBe(7_654_321);
+  });
 });
 
 describe('GET /top stays public', () => {

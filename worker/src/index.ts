@@ -1051,11 +1051,38 @@ async function handleAdminStats(request: Request, env: Env): Promise<Response> {
       count('SELECT COUNT(*) AS c FROM users WHERE created >= ?1', now - 7 * 86_400_000),
       count('SELECT COUNT(*) AS c FROM scores'),
     ]);
-    const [topGoo, topClicks, ads] = await Promise.all([
-      rows('SELECT name, goo AS score FROM scores ORDER BY goo DESC, updated ASC LIMIT 10'),
-      rows('SELECT name, clicks AS score FROM scores ORDER BY clicks DESC, updated ASC LIMIT 10'),
+    // Top lists come from the authoritative `saves` table (checkpointed ~60s),
+    // NOT from `scores`. `scores` is only written when a player OPENS their
+    // leaderboard (/submit), so a scores-based dashboard was stale until each
+    // tester happened to peek at the board. `saves` carries denormalized fresh
+    // `clicks` and `lifetime_goo`, and the held goo lives in the payload — so
+    // this reflects current progress every refresh, no board-open required.
+    // The public nickname is joined in from `scores` via each account's derived
+    // leaderboard code (a hash, so it can't be a SQL join); accounts that never
+    // joined the board simply have no nickname yet.
+    const [gooCandidates, clickRows, scoreNames, ads] = await Promise.all([
+      rows('SELECT user_id, payload FROM saves ORDER BY lifetime_goo DESC LIMIT 25'),
+      rows('SELECT user_id, clicks FROM saves ORDER BY clicks DESC LIMIT 10'),
+      rows('SELECT code, name FROM scores'),
       rows('SELECT purpose, outcome, COUNT(*) AS count FROM ad_events WHERE created >= ?1 GROUP BY purpose, outcome', now - 7 * 86_400_000),
     ]);
+    const nameByCode = new Map<string, string>();
+    for (const r of scoreNames as Array<{ code: string; name: string }>) nameByCode.set(String(r.code), String(r.name));
+    const nameFor = (userId: string) => nameByCode.get(leaderboardCodeFor(userId)) ?? null;
+
+    const topClicks = (clickRows as Array<{ user_id: string; clicks: number }>).map((r) => ({
+      name: nameFor(String(r.user_id)),
+      score: Number(r.clicks) || 0,
+    }));
+    // The board shows HELD goo (current balance), which is a payload field — read
+    // it from the top candidates and re-sort, so the number matches the board.
+    const topGoo = (gooCandidates as Array<{ user_id: string; payload: string }>)
+      .map((r) => {
+        const parsed = tryParseJson(String(r.payload)) as { goo?: unknown } | null;
+        return { name: nameFor(String(r.user_id)), score: clamp(Number(parsed?.goo) || 0, 0, MAX_GOO) };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
 
     return authJson(
       { generatedAt: now, accounts, activeNow, active24h, newAccounts7d, boardSize, topGoo, topClicks, ads },
