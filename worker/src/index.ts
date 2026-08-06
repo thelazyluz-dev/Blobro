@@ -1199,8 +1199,12 @@ async function handleAdminEdit(request: Request, env: Env): Promise<Response> {
     const save = migrate(tryParseJson(row.payload), now);
     if (hasGoo) save.goo = clamp(Math.floor(body!.goo as number), 0, MAX_GOO);
     if (hasClicks) save.clicks = Math.max(0, Math.min(1e12, Math.floor(body!.clicks as number)));
-    // Keep lifetimeGoo ≥ held goo and monotonic.
-    save.lifetimeGoo = clamp(Math.max(Number(save.lifetimeGoo) || 0, save.goo), 0, MAX_GOO);
+    // Nudge lifetimeGoo strictly above its previous value (kept ≥ held goo).
+    // The client only ADOPTS the cloud save when its lifetimeGoo exceeds the
+    // local one (decideMergeWinner) — a clicks-only edit otherwise tied and the
+    // local save won on reload, so "nothing changed". The +1 makes the edit win;
+    // the tester should reload promptly (before earning more locally).
+    save.lifetimeGoo = clamp(Math.max(Number(save.lifetimeGoo) || 0, save.goo) + 1, 0, MAX_GOO);
 
     const sanitized = migrate(save, now);
     const payload = JSON.stringify(sanitized);
