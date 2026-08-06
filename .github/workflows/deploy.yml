@@ -12,14 +12,27 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; newer runs supersede in-progress ones.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # NEVER cancel a Pages deploy mid-flight. Cancelling a run while
+  # actions/deploy-pages is mid-deployment leaves that deployment stuck
+  # "in_progress" server-side, and then EVERY later run's deploy-pages waits on
+  # it and times out ("deployment_in_progress → Timeout reached, aborting!").
+  # That was the cascade that failed runs #208–#211. Queue instead of cancel.
+  cancel-in-progress: false
 
 jobs:
-  build:
+  # Build AND deploy in ONE job. Previously these were split (build → deploy),
+  # and the separate deploy job kept failing at "Getting action download info →
+  # Service Unavailable" while resolving actions/deploy-pages — even though the
+  # build job resolved all of ITS actions fine on the same run. Putting
+  # deploy-pages in the same job resolves it in that working phase, and drops a
+  # whole runner-provision + action-resolution round-trip.
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,14 +54,6 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
 
