@@ -15,6 +15,7 @@ import {
   critMultiplier,
   dailyGiftDay7Eggs,
   eggBuyMaxPerPress,
+  achievementRewardSeconds,
   evolveLevels,
   frenzyDurationMs,
   frenzyMultiplier,
@@ -448,6 +449,19 @@ function snapshot(s: GameState, now: number): SaveState {
     muted: s.muted,
     rng: s.rng,
   };
+}
+
+/**
+ * Goo a grind achievement actually pays: the larger of its fixed grant and a
+ * fixed number of seconds of the player's CURRENT income. Keeps a badge worth
+ * claiming deep into the game (a fixed 600 goo is nothing once you earn
+ * millions/sec). Star ladders grant a permanent %, never goo, so they pay 0
+ * here. Same income-scaled shape the daily gift uses.
+ */
+function achievementGooReward(def: { gooReward: number }, income: number): number {
+  if (def.gooReward <= 0) return 0;
+  const scaled = Math.round(Math.max(0, income) * achievementRewardSeconds);
+  return Math.max(def.gooReward, Number.isFinite(scaled) ? scaled : 0);
 }
 
 export const useGame = create<GameState>((set, get) => {
@@ -1288,10 +1302,11 @@ export const useGame = create<GameState>((set, get) => {
       if (s.achievements.includes(id)) return;
       const def = achievementsById.get(id);
       if (!def || !isComplete(def, achContextOf(s))) return;
+      const reward = achievementGooReward(def, gooPerSec(s.characters, mods()));
       set({
         achievements: [...s.achievements, id],
-        goo: s.goo + def.gooReward,
-        lifetimeGoo: s.lifetimeGoo + def.gooReward,
+        goo: s.goo + reward,
+        lifetimeGoo: s.lifetimeGoo + reward,
       });
       // Star ladders grant a permanent income %; grind ladders grant one-time
       // goo — the toast must name whichever one this badge actually paid.
@@ -1299,7 +1314,7 @@ export const useGame = create<GameState>((set, get) => {
         text:
           def.starReward > 0
             ? `${def.nameHe} · ‎+${starPctHe(def.starReward)} הכנסה לנצח!`
-            : `${def.nameHe} · ‎+${formatGoo(def.gooReward)} גּוּ!`,
+            : `${def.nameHe} · ‎+${formatGoo(reward)} גּוּ!`,
         icon: def.icon,
         tone: 'star',
       });
@@ -1310,7 +1325,8 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const ready = newlyCompleted(new Set(s.achievements), achContextOf(s));
       if (ready.length === 0) return;
-      const grant = ready.reduce((sum, a) => sum + a.gooReward, 0);
+      const income = gooPerSec(s.characters, mods());
+      const grant = ready.reduce((sum, a) => sum + achievementGooReward(a, income), 0);
       const stars = ready.reduce((sum, a) => sum + a.starReward, 0);
       set({
         achievements: [...s.achievements, ...ready.map((a) => a.id)],

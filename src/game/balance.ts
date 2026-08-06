@@ -346,6 +346,11 @@ export const achievementStarPerTier = 0.015; // +1.5% income per difficulty tier
 export const achievementGooBase = 200; // tier-1 goo grant…
 export const achievementGooGrowth = 3; // …× this per tier (kept modest so a single
 // claim never bombs the economy and completions stay spread out, not bursty)
+// A grind-ladder goo reward is paid as max(the fixed grant above, this many
+// seconds of your CURRENT income) — so a badge stays meaningful deep into the
+// game instead of paying a laughable 600 goo to a player earning millions/sec.
+// Same income-scaled shape the daily gift already uses. Tunable.
+export const achievementRewardSeconds = 180;
 
 // Ladders are tuned so a new badge pops every few minutes across a whole
 // session — never a front-loaded rush then silence. The action-paced ladders
