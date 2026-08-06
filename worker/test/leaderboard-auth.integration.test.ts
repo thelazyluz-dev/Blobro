@@ -270,6 +270,22 @@ describe('GET /top stays public', () => {
   });
 });
 
+describe('GET /boards — all three top-10 lists in one cached call', () => {
+  it('is public and returns goo/clicks/cpm arrays', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ goo: 12_345, lifetimeGoo: 12_345, clicks: 777 }));
+    await submit(cookie, { name: 'אֶלּוּף' });
+
+    const res = await call('/boards');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=30');
+    const body = (await res.json()) as Record<string, Array<{ name: string; score: number }>>;
+    for (const k of ['goo', 'clicks', 'cpm']) expect(Array.isArray(body[k])).toBe(true);
+    // The player we just seeded leads the goo board.
+    expect(body.goo.some((e) => e.name === 'אֶלּוּף')).toBe(true);
+  });
+});
+
 // ── Enforcement (PR 6, minimal) ─────────────────────────────────────────────
 // The audit stopped being purely shadow: an account with a rate-violation on
 // record keeps its cloud save but is not published to the board. These tests

@@ -21,6 +21,7 @@ import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
 import { SettingsButton, SettingsOverlay } from './ui/SettingsOverlay';
 import { Toaster } from './ui/Toaster';
 import { UnlockReveal } from './ui/UnlockReveal';
+import { useChampionWatch } from './ui/useChampionWatch';
 import { useEventMusic } from './ui/useEventMusic';
 import { useFrenzyAudio } from './ui/useFrenzyAudio';
 import { ClickScreen } from './ui/screens/ClickScreen';
@@ -50,6 +51,7 @@ export function App() {
   const authChecked = useGame((s) => s.authChecked);
   useFrenzyAudio();
   useEventMusic();
+  useChampionWatch();
 
   // Hydrate identity from the local cache instantly, then reconcile with the
   // server in the background (see store.initAuth / net/auth.ts). Runs

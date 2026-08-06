@@ -166,3 +166,23 @@ export async function fetchTop(by: Metric, limit = 50): Promise<GlobalEntry[] | 
   }
 }
 
+/** All three boards' top-10 in one cached call — feeds the "new #1" watcher. */
+export async function fetchBoards(): Promise<Record<Metric, GlobalEntry[]> | null> {
+  if (!hasGlobalLeaderboard()) return null;
+  try {
+    const res = await fetch(`${BASE()}/boards`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as Record<string, unknown>;
+    const clean = (raw: unknown): GlobalEntry[] =>
+      Array.isArray(raw)
+        ? raw
+            .map((e) => e as Record<string, unknown>)
+            .filter((e) => typeof e.name === 'string' && typeof e.score === 'number')
+            .map((e) => ({ name: e.name as string, score: e.score as number }))
+        : [];
+    return { goo: clean(data.goo), clicks: clean(data.clicks), cpm: clean(data.cpm) };
+  } catch {
+    return null;
+  }
+}
+

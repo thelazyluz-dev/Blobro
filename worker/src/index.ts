@@ -305,6 +305,16 @@ export default {
       }
     }
 
+    // ── All three boards' top-10 at once (public, cached) ─────────────────
+    // One request feeds the client's "new #1" watcher for every board.
+    if (url.pathname === '/boards' && request.method === 'GET') {
+      try {
+        return await handleBoards(env);
+      } catch {
+        return json({ error: 'db' }, 500);
+      }
+    }
+
     // ── A player's own rank in a metric ───────────────────────────────────
     // ── Your own rank in a metric (session required) ──────────────────────
     if (url.pathname === '/rank' && request.method === 'GET') {
@@ -1242,6 +1252,26 @@ async function cachedTotalScores(env: Env): Promise<number> {
   const value = total?.c ?? 0;
   totalScoresCache = { value, at: now };
   return value;
+}
+
+// ── All three boards' top-10 in one cached call (GET /boards) ────────────────
+// Feeds the client's "new #1" watcher: it polls this, and when a board's leader
+// changes AND the player is in that board's top-10, it shows a toast. Cached
+// in-isolate (same trade-off as the total/histogram) so continuous polling by
+// many clients costs at most one grouped read per board per 30s, not per poll.
+const BOARDS_TTL_MS = 30_000;
+let boardsCache: { data: unknown; at: number } | null = null;
+async function handleBoards(env: Env): Promise<Response> {
+  const now = Date.now();
+  const headers = { 'Cache-Control': 'public, max-age=30' };
+  if (boardsCache && now - boardsCache.at < BOARDS_TTL_MS) return json(boardsCache.data, 200, headers);
+  const top = async (col: Board) =>
+    ((await env.DB.prepare(`SELECT name, ${col} AS score FROM scores ORDER BY ${col} DESC, updated ASC LIMIT 10`).all())
+      .results ?? []);
+  const [goo, clicks, cpm] = await Promise.all([top('goo'), top('clicks'), top('cpm')]);
+  const data = { generatedAt: now, goo, clicks, cpm };
+  boardsCache = { data, at: now };
+  return json(data, 200, headers);
 }
 
 // ── Approximate ranks from a once-a-minute score histogram ──────────────────
