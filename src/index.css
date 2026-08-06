@@ -542,10 +542,10 @@ body {
   animation: blorbo-sparkle 2.4s ease-in-out infinite;
 }
 @keyframes blorbo-aura-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 0.9; }
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
-.creature-aura {
+.creature-wings {
   animation: blorbo-aura-pulse 3.2s ease-in-out infinite;
 }
 
@@ -628,7 +628,7 @@ body {
   .blob-pupils,
   .creature-eyes,
   .creature-sparkle,
-  .creature-aura,
+  .creature-wings,
   .anim-tap-hint,
   .anim-rebirth-halo,
   .evo-spark,

@@ -7,7 +7,7 @@
 
 export type CosmeticKind = 'blob' | 'background' | 'accessory' | 'sound';
 export type BlobShape = 'goo' | 'round' | 'star' | 'ghost' | 'spiky' | 'heart';
-export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo' | 'sparkles' | 'aura';
+export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo' | 'sparkles' | 'wings';
 
 /**
  * Taps a player must have made — ever — before an item can be bought at all.
@@ -303,8 +303,11 @@ export const accessories: Accessory[] = [
   // price (sparkles between crown and halo; aura at the very top).
   { id: 'acc-sparkles', kind: 'accessory', nameHe: 'נִצְנוּצֵי קְרִיסְטָל', cost: 250_000_000_000,
     requiresClicks: 90_000, clickBonus: 0.22, art: 'sparkles' },
-  { id: 'acc-aura', kind: 'accessory', nameHe: 'הִלַּת קְרִיסְטָל', cost: 40_000_000_000_000,
-    requiresClicks: 220_000, clickBonus: 0.34, art: 'aura' },
+  // Was a full jeweled "aura" ring — retired because it visually collided with
+  // the rebirth mastery halo on the main screen. Same id/price/bonus (owners
+  // keep it), now crystal WINGS: premium, and lateral so it never fights a ring.
+  { id: 'acc-aura', kind: 'accessory', nameHe: 'כַּנְפֵי קְרִיסְטָל', cost: 40_000_000_000_000,
+    requiresClicks: 220_000, clickBonus: 0.34, art: 'wings' },
 ];
 
 // Sound packs: each is a different 8-bit combo melody that plays once your tap
