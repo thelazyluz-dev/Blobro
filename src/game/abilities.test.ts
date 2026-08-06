@@ -51,7 +51,10 @@ describe('creature abilities', () => {
     for (const def of characters) {
       const a = abilityOf(def.id, def.rarity);
       expect(a.value).toBeGreaterThan(0);
-      expect(a.value).toBeLessThanOrEqual(1); // never more than +100%
+      // Standard-curve creatures never exceed +100%; the hand-tuned overrides
+      // (e.g. Tapuzi's extreme tap) may go higher, but still stay sanely bounded.
+      const cap = def.id in ABILITY_VALUE_OVERRIDE ? 5 : 1;
+      expect(a.value).toBeLessThanOrEqual(cap);
       expect(abilityPct(a)).toBeGreaterThan(0);
     }
   });
@@ -68,7 +71,7 @@ describe('creature abilities', () => {
     expect(def.unlockClicks).toBe(50_000);
     const a = abilityOf('tapuzi', 'rare');
     expect(a.type).toBe('tap');
-    expect(a.value).toBe(1); // +100% — far past a normal rare's +25%, via the override
+    expect(a.value).toBe(3); // +300% — far past a normal rare's +25%, via the override
   });
 });
 

@@ -77,7 +77,7 @@ export const ABILITY_TYPE_BY_ID: Record<CharId, AbilityType> = {
 // +25% — the reward for grinding it out at 50k taps. Everything not listed here
 // uses the rarity-tiered VALUES table, so existing creatures stay byte-identical.
 export const ABILITY_VALUE_OVERRIDE: Partial<Record<CharId, number>> = {
-  tapuzi: 1.0, // +100% click power (×2) when displayed — "extreme", as the owner asked
+  tapuzi: 3.0, // +300% click power (×4) when displayed — "extreme", as the owner asked
 };
 
 /**
