@@ -261,6 +261,50 @@ describe('GET /admin/stats — owner dashboard, bearer-gated & aggregate-only', 
   });
 });
 
+describe('POST /admin/edit — testing tool: set a player’s goo/clicks by nickname', () => {
+  const edit = (token: string | undefined, body: unknown) =>
+    call('/admin/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    });
+
+  it('rejects a missing or wrong token', async () => {
+    expect((await edit(undefined, { nickname: 'x', goo: 1 })).status).toBe(401);
+    expect((await edit('nope', { nickname: 'x', goo: 1 })).status).toBe(401);
+  });
+
+  it('404s an unknown nickname', async () => {
+    expect((await edit('test-admin-token', { nickname: 'לא-קיים-בכלל', goo: 1 })).status).toBe(404);
+  });
+
+  it('overwrites held goo + clicks, keeps lifetimeGoo ≥ goo, and the dashboard reflects it', async () => {
+    const cookie = await signUp();
+    await putSave(cookie, 0, save({ goo: 100, lifetimeGoo: 5_000, clicks: 300 }));
+    await submit(cookie, { name: 'עֲרִיכָה' });
+
+    const res = await edit('test-admin-token', { nickname: 'עֲרִיכָה', goo: 999_999, clicks: 12_345 });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; goo: number; clicks: number; lifetimeGoo: number };
+    expect(body.ok).toBe(true);
+    expect(body.goo).toBe(999_999);
+    expect(body.clicks).toBe(12_345);
+    expect(body.lifetimeGoo).toBeGreaterThanOrEqual(999_999); // raised to stay ≥ held goo
+
+    // Persisted: the dashboard (which reads the saves table) now shows it.
+    const stats = (await (await call('/admin/stats', { headers: { Authorization: 'Bearer test-admin-token' } })).json()) as {
+      topGoo: Array<{ name: string | null; score: number }>;
+      topClicks: Array<{ name: string | null; score: number }>;
+    };
+    expect(stats.topGoo.find((r) => r.name === 'עֲרִיכָה')?.score).toBe(999_999);
+    expect(stats.topClicks.find((r) => r.name === 'עֲרִיכָה')?.score).toBe(12_345);
+  });
+
+  it('rejects an edit with nothing to change', async () => {
+    expect((await edit('test-admin-token', { nickname: 'עֲרִיכָה' })).status).toBe(400);
+  });
+});
+
 describe('GET /top stays public', () => {
   it('needs no session — anyone can read the board', async () => {
     const res = await call('/top?by=goo');

@@ -31,7 +31,7 @@
       button { cursor: pointer; font-weight: 700; }
       button.primary { background: var(--cy); color: #04121a; border-color: transparent; }
       button.ghost { background: var(--panel); color: var(--muted); }
-      .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 16px; }
+      .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 12px 14px; }
       /* login */
       #login { max-width: 360px; margin: 12vh auto 0; text-align: center; }
       #login h1 { margin-bottom: 4px; }
@@ -40,13 +40,21 @@
       .err { color: var(--hot); font-size: .85rem; min-height: 1.2em; }
       /* dashboard */
       #dash { display: none; }
-      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
-      .kpi { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 14px 16px; }
-      .kpi .l { font-size: .76rem; color: var(--muted); font-weight: 600; }
-      .kpi .v { font-size: 1.8rem; font-weight: 800; margin-top: 4px; }
+      /* Compact stat chips — a whole row of numbers, not a quarter-page each. */
+      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; margin: 14px 0; }
+      .kpi { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; padding: 8px 10px; }
+      .kpi .l { font-size: .68rem; color: var(--muted); font-weight: 600; }
+      .kpi .v { font-size: 1.3rem; font-weight: 800; margin-top: 2px; line-height: 1.1; }
       .kpi.now .v { color: var(--goo); } .kpi.gold .v { color: var(--gold); } .kpi.cy .v { color: var(--cy); }
-      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-      h2 { font-size: 1rem; margin: 0 0 10px; }
+      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+      h2 { font-size: .92rem; margin: 0 0 8px; }
+      /* Player editor */
+      .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .edit-grid label { font-size: .72rem; color: var(--muted); display: block; margin-bottom: 3px; }
+      .edit-grid input { width: 100%; padding: 8px 10px; }
+      .edit-grid .full { grid-column: 1 / -1; }
+      .ok { color: var(--goo); font-size: .82rem; min-height: 1.2em; }
+      .rev { color: var(--gold); font-weight: 800; }
       table { width: 100%; border-collapse: collapse; font-size: .9rem; }
       th, td { text-align: start; padding: 7px 8px; border-bottom: 1px solid var(--hair); }
       th { color: var(--muted); font-size: .75rem; font-weight: 700; }
@@ -113,7 +121,20 @@
 
         <div class="card" style="margin-top:14px;">
           <h2>🎬 פרסומות — 7 ימים אחרונים <span class="pill">מצרפי, ללא זיהוי</span></h2>
+          <div id="adRevenue" class="sub" style="margin-bottom:10px;">—</div>
           <table><thead><tr><th>מטרה</th><th>תוצאה</th><th class="n">כמות</th></tr></thead><tbody id="ads"></tbody></table>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <h2>🛠️ עריכת שחקן <span class="pill">לבדיקות בלבד</span></h2>
+          <div class="sub" style="margin-bottom:10px;">כתוב את הכינוי (כמו בטבלה) ומה לשנות. שדה ריק = ללא שינוי. ה-lifetimeGoo תמיד יישאר ≥ הגו. השחקן צריך לרענן את המשחק כדי לראות את השינוי.</div>
+          <div class="edit-grid">
+            <div class="full"><label for="edNick">כינוי</label><input id="edNick" placeholder="הכינוי בטבלה" /></div>
+            <div><label for="edGoo">גו</label><input id="edGoo" type="number" inputmode="numeric" placeholder="ללא שינוי" /></div>
+            <div><label for="edClicks">לחיצות</label><input id="edClicks" type="number" inputmode="numeric" placeholder="ללא שינוי" /></div>
+            <div class="full"><button class="primary" id="edSave">שמור שינויים</button></div>
+            <div class="full ok" id="edMsg"></div>
+          </div>
         </div>
 
         <div class="foot" id="foot"></div>
@@ -126,6 +147,25 @@
       const KEY = 'blorbo-admin-token';
       const $ = (id) => document.getElementById(id);
       const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
+
+      // Compact number with the SAME suffix scale the game uses (K/M/B/T/Qa/Qi…),
+      // so a player's goo reads "12.3M" instead of a wall of digits. Exact value
+      // stays available on hover (title=).
+      const UNITS = [[1e33,'Dc'],[1e30,'No'],[1e27,'Oc'],[1e24,'Sp'],[1e21,'Sx'],[1e18,'Qi'],[1e15,'Qa'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+      function short(n) {
+        n = Number(n) || 0;
+        if (n < 1000) return String(Math.round(n));
+        for (const [v, s] of UNITS) {
+          if (n >= v) { const x = n / v; return (x < 10 ? x.toFixed(2) : x < 100 ? x.toFixed(1) : Math.round(x)) + s; }
+        }
+        return String(Math.round(n));
+      }
+
+      // Rewarded, child-directed inventory pays little and fills poorly — budget
+      // the LOW end (see CLAUDE.md). Revenue is estimated from COMPLETED views
+      // (outcome 'reward') × an eCPM range, per 1000 views.
+      const RPM_LOW = 3, RPM_HIGH = 8; // $ per 1000 completed rewarded views
+      const usd = (n) => '$' + (n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString('en-US'));
       const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
       let timer = 0;
@@ -229,17 +269,83 @@
 
         const list = (rows) =>
           rows && rows.length
-            ? rows.map((r, i) => `<tr><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td class="n">${fmt(r.score)}</td></tr>`).join('')
+            ? rows
+                .map(
+                  (r, i) =>
+                    `<tr><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td class="n" title="${fmt(r.score)}">${short(r.score)}</td></tr>`,
+                )
+                .join('')
             : '';
         $('topGoo').innerHTML = list(d.topGoo) || '<tr><td colspan="3" class="empty">אין נתונים עדיין</td></tr>';
         $('topClicks').innerHTML = list(d.topClicks) || '<tr><td colspan="3" class="empty">אין נתונים עדיין</td></tr>';
 
-        $('ads').innerHTML =
-          d.ads && d.ads.length
-            ? d.ads.map((a) => `<tr><td>${esc(a.purpose)}</td><td>${esc(a.outcome)}</td><td class="n">${fmt(a.count)}</td></tr>`).join('')
-            : '<tr><td colspan="3" class="empty">אין אירועי פרסומת עדיין (הפרסומות עוד לא פעילות)</td></tr>';
+        renderAds(d.ads);
 
         $('stamp').textContent = 'עודכן ' + new Date(d.generatedAt).toLocaleString('he-IL');
+      }
+
+      const AD_PURPOSE = { boost: 'בּוֹנוּס הַכְפָּלָה', offline: 'רֶוַח לֹא-פָּעִיל', egg: 'בֵּיצָה' };
+      const AD_OUTCOME = { shown: 'הוּצַג', reward: 'הוּשְׁלַם (תַּגְמוּל)', cancel: 'בּוּטַל', no_fill: 'אֵין מְלַאי' };
+      function renderAds(ads) {
+        if (!ads || !ads.length) {
+          $('adRevenue').textContent = 'אין אירועי פרסומת עדיין (הפרסומות עוד לא פעילות).';
+          $('ads').innerHTML = '<tr><td colspan="3" class="empty">אין נתונים</td></tr>';
+          return;
+        }
+        // Revenue is estimated from COMPLETED views (outcome 'reward'), which is
+        // the monetizable action for rewarded ads.
+        const completed = ads.filter((a) => a.outcome === 'reward').reduce((s, a) => s + (Number(a.count) || 0), 0);
+        const shown = ads.filter((a) => a.outcome === 'shown').reduce((s, a) => s + (Number(a.count) || 0), 0);
+        const low7 = (completed * RPM_LOW) / 1000, high7 = (completed * RPM_HIGH) / 1000;
+        const scale = 30 / 7; // 7-day window → rough monthly
+        $('adRevenue').innerHTML =
+          `<strong>${fmt(completed)}</strong> צְפִיּוֹת שֶׁהוּשְׁלְמוּ · ` +
+          `צָפִי הַכְנָסָה: <strong>${usd(low7)}–${usd(high7)}</strong> (7 יָמִים) · ` +
+          `~<strong>${usd(low7 * scale)}–${usd(high7 * scale)}</strong> לְחֹדֶשׁ ` +
+          `<span class="pill">eCPM $${RPM_LOW}–$${RPM_HIGH}, הַעֲרָכָה</span>` +
+          (shown ? `<br><small style="color:var(--faint)">${fmt(shown)} הַצָּגוֹת · תַּגְמוּל מִתּוֹךְ הַצָּגוֹת: ${Math.min(100, Math.round((completed / shown) * 100))}%</small>` : '');
+        // Rows sorted by count, with Hebrew labels.
+        $('ads').innerHTML = [...ads]
+          .sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
+          .map(
+            (a) =>
+              `<tr><td>${AD_PURPOSE[a.purpose] || esc(a.purpose)}</td>` +
+              `<td>${AD_OUTCOME[a.outcome] || esc(a.outcome)}</td>` +
+              `<td class="n">${fmt(a.count)}</td></tr>`,
+          )
+          .join('');
+      }
+
+      async function saveEdit() {
+        const token = sessionStorage.getItem(KEY);
+        if (!token) return showLogin();
+        const nickname = $('edNick').value.trim();
+        const gooRaw = $('edGoo').value.trim();
+        const clicksRaw = $('edClicks').value.trim();
+        $('edMsg').style.color = 'var(--hot)';
+        if (!nickname) { $('edMsg').textContent = 'צריך כינוי'; return; }
+        if (gooRaw === '' && clicksRaw === '') { $('edMsg').textContent = 'לא הוזן מה לשנות'; return; }
+        const body = { nickname };
+        if (gooRaw !== '') body.goo = Number(gooRaw);
+        if (clicksRaw !== '') body.clicks = Number(clicksRaw);
+        $('edMsg').style.color = 'var(--muted)';
+        $('edMsg').textContent = 'שומר…';
+        try {
+          const res = await fetch(`${API}/admin/edit`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (res.status === 404) { $('edMsg').style.color = 'var(--hot)'; $('edMsg').textContent = 'לא נמצא שחקן עם הכינוי הזה (רק מי שכבר בטבלה)'; return; }
+          if (!res.ok) { $('edMsg').style.color = 'var(--hot)'; $('edMsg').textContent = 'שגיאה (' + res.status + ')'; return; }
+          $('edMsg').style.color = 'var(--goo)';
+          $('edMsg').innerHTML = `✓ עודכן ${esc(nickname)} — גו ${short(d.goo)} · לחיצות ${fmt(d.clicks)} <span class="rev">rev ${d.rev}</span> (השחקן ירענן כדי לראות)`;
+          refresh();
+        } catch (e) {
+          $('edMsg').style.color = 'var(--hot)';
+          $('edMsg').textContent = 'לא ניתן להתחבר לשרת';
+        }
       }
 
       function showDash() {
@@ -286,6 +392,7 @@
       };
       $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('enter').click(); });
       $('refresh').onclick = refresh;
+      $('edSave').onclick = saveEdit;
       $('logout').onclick = () => { sessionStorage.removeItem(KEY); showLogin(); };
 
       // Resume a session token on reload.

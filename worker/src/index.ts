@@ -253,7 +253,8 @@ export default {
       url.pathname === '/ad-event' ||
       url.pathname === '/admin/stats' ||
       url.pathname === '/admin/barred' ||
-      url.pathname === '/admin/release';
+      url.pathname === '/admin/release' ||
+      url.pathname === '/admin/edit';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -356,6 +357,10 @@ export default {
     }
     if (url.pathname === '/admin/release' && request.method === 'POST') {
       return handleAdminRelease(request, env);
+    }
+    // A testing convenience: overwrite a player's held goo / clicks by nickname.
+    if (url.pathname === '/admin/edit' && request.method === 'POST') {
+      return handleAdminEdit(request, env);
     }
 
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
@@ -1155,6 +1160,63 @@ async function handleAdminRelease(request: Request, env: Env): Promise<Response>
   try {
     const res = await env.DB.prepare('DELETE FROM save_audit WHERE user_id = ?1 AND ok = 0').bind(userId).run();
     return authJson({ ok: true, released: res.meta?.changes ?? 0 }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// POST /admin/edit { nickname, goo?, clicks? } — a TESTING convenience: overwrite
+// a player's held goo and/or tap count, identified by their PUBLIC leaderboard
+// nickname (no id or PII ever crosses the wire — the nickname is already public).
+// It patches the stored save payload + denormalized columns and bumps `rev` so
+// the player's next load adopts it. `lifetimeGoo` is only ever RAISED to stay
+// ≥ the held goo (monotonic — an edit can never look like a rewound save, so it
+// can't corrupt an account or trip the audit). Nickname → account resolves via
+// the scores.code = de-hyphenated user_id relation (leaderboardCodeFor).
+async function handleAdminEdit(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
+  const body = await readJsonObject(request);
+  const nickname = typeof body?.nickname === 'string' ? body.nickname.trim() : '';
+  if (!nickname) return authJson({ error: 'bad-nickname' }, 400, origin);
+  const hasGoo = typeof body?.goo === 'number' && Number.isFinite(body.goo);
+  const hasClicks = typeof body?.clicks === 'number' && Number.isFinite(body.clicks);
+  if (!hasGoo && !hasClicks) return authJson({ error: 'nothing-to-edit' }, 400, origin);
+
+  try {
+    // Resolve nickname → the account's save. Only players who reached the board
+    // (have a nickname) are addressable — exactly the ones the owner can see.
+    const row = await env.DB.prepare(
+      `SELECT sv.user_id AS userId, sv.rev AS rev, sv.payload AS payload
+         FROM saves sv JOIN scores sc ON sc.code = REPLACE(sv.user_id, '-', '')
+        WHERE sc.name = ?1 LIMIT 1`,
+    )
+      .bind(nickname)
+      .first<{ userId: string; rev: number; payload: string }>();
+    if (!row) return authJson({ error: 'not-found' }, 404, origin);
+
+    const now = Date.now();
+    const save = migrate(tryParseJson(row.payload), now);
+    if (hasGoo) save.goo = clamp(Math.floor(body!.goo as number), 0, MAX_GOO);
+    if (hasClicks) save.clicks = Math.max(0, Math.min(1e12, Math.floor(body!.clicks as number)));
+    // Keep lifetimeGoo ≥ held goo and monotonic.
+    save.lifetimeGoo = clamp(Math.max(Number(save.lifetimeGoo) || 0, save.goo), 0, MAX_GOO);
+
+    const sanitized = migrate(save, now);
+    const payload = JSON.stringify(sanitized);
+    const newRev = (Number(row.rev) || 0) + 1;
+    await env.DB.prepare(
+      `UPDATE saves SET rev = ?2, version = ?3, lifetime_goo = ?4, clicks = ?5, payload = ?6, updated = ?7
+        WHERE user_id = ?1`,
+    )
+      .bind(row.userId, newRev, CURRENT_VERSION, sanitized.lifetimeGoo, sanitized.clicks, payload, now)
+      .run();
+
+    return authJson(
+      { ok: true, nickname, goo: sanitized.goo, clicks: sanitized.clicks, lifetimeGoo: sanitized.lifetimeGoo, rev: newRev },
+      200,
+      origin,
+    );
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }
