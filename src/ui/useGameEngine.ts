@@ -139,25 +139,42 @@ export function useGameEngine(): boolean {
   // it with a full celebration (rarer creatures need many more taps).
   useEffect(() => {
     if (!loaded) return;
-    const unsub = useGame.subscribe((s, prev) => {
-      if (s.clicks === prev.clicks) return;
-      for (const c of unlockCreatures) {
-        if (c.unlockClicks != null && s.clicks >= c.unlockClicks && !s.characters[c.id]) {
-          // Mid speed-test: still AWARD the creature, but skip the full-screen
-          // reveal (it would eat taps and break the run) — a toast instead.
-          const sp = useGame.getState().speedPhase;
-          const inTest = sp === 'countdown' || sp === 'running';
-          useGame.getState().grantUnlock(c.id, !inTest);
-          const muted = useGame.getState().muted;
-          if (inTest) {
-            useGame.getState().pushToast({ text: `${c.nameHe} נִפְתַּח! ⭐`, icon: '🎉', tone: 'star' });
-          } else {
-            playMilestone(muted);
-            speakName(c.nameHe, muted);
-          }
-          break; // one at a time (taps increment by one)
+    // Grant EVERY owed creature whose tap threshold is met but isn't owned yet.
+    // Normal play crosses one threshold per tap (owed has one) — same as before —
+    // but a BULK clicks jump (an admin edit, or a cross-device merge) can cross
+    // several at once, and the old one-per-change loop (plus the fact the load
+    // jump landed before this subscription attached) meant such creatures never
+    // unlocked. Reveal only the highest so modals never stack, and never take
+    // over the screen mid speed-test.
+    const sweep = () => {
+      const s = useGame.getState();
+      const owed = unlockCreatures.filter(
+        (c) => c.unlockClicks != null && s.clicks >= c.unlockClicks && !s.characters[c.id],
+      );
+      if (owed.length === 0) return;
+      const inTest = s.speedPhase === 'countdown' || s.speedPhase === 'running';
+      const muted = s.muted;
+      owed.forEach((c, i) => {
+        const reveal = i === owed.length - 1 && !inTest;
+        useGame.getState().grantUnlock(c.id, reveal);
+      });
+      const top = owed[owed.length - 1];
+      if (inTest) {
+        useGame.getState().pushToast({ text: `${top.nameHe} נִפְתַּח! ⭐`, icon: '🎉', tone: 'star' });
+      } else {
+        playMilestone(muted);
+        speakName(top.nameHe, muted);
+        if (owed.length > 1) {
+          useGame.getState().pushToast({ text: `נִפְתְּחוּ ${owed.length} יְצוּרִים! 🎉`, icon: '⭐', tone: 'star' });
         }
       }
+    };
+    // Initial sweep: catch clicks that were set DURING load (an admin edit or a
+    // merge lands as one jump before this subscription is attached).
+    sweep();
+    const unsub = useGame.subscribe((s, prev) => {
+      if (s.clicks === prev.clicks) return;
+      sweep();
     });
     return unsub;
   }, [loaded]);
