@@ -65,9 +65,19 @@ export const ABILITY_TYPE_BY_ID: Record<CharId, AbilityType> = {
   gongoni: 'luck',
   mataru: 'income',
   gefenaou: 'bonus',
+  tapuzi: 'tap',
   oziouh: 'tap',
   baraku: 'crit',
   idanosau: 'income',
+};
+
+// Per-creature ability-value overrides (fraction), for creatures whose ability
+// is intentionally off the standard rarity curve. Tapuzi is the "click-power
+// champion": an EXTREME tap bonus (double taps) that far exceeds a normal rare's
+// +25% — the reward for grinding it out at 50k taps. Everything not listed here
+// uses the rarity-tiered VALUES table, so existing creatures stay byte-identical.
+export const ABILITY_VALUE_OVERRIDE: Partial<Record<CharId, number>> = {
+  tapuzi: 1.0, // +100% click power (×2) when displayed — "extreme", as the owner asked
 };
 
 /**
@@ -83,7 +93,8 @@ export const ABILITY_TYPE_BY_ID: Record<CharId, AbilityType> = {
 export function abilityOf(id: CharId, rarity: Rarity, rebirths = 0): Ability {
   const type = ABILITY_TYPE_BY_ID[id] ?? 'income';
   const reb = Number.isFinite(rebirths) ? Math.min(Math.max(0, Math.floor(rebirths)), rebirthCap) : 0;
-  return { type, value: VALUES[type][TIER[rarity]] * (1 + abilityRebirthBonus * reb) };
+  const base = ABILITY_VALUE_OVERRIDE[id] ?? VALUES[type][TIER[rarity]];
+  return { type, value: base * (1 + abilityRebirthBonus * reb) };
 }
 
 /** Percentage to display for an ability value. */

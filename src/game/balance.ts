@@ -352,12 +352,14 @@ export const achievementGooGrowth = 3; // …× this per tier (kept modest so a 
 // (clicks/hatches/bonuses/shinies) advance with play, so they carry the
 // mid-and-late-game cadence; lifetime-goo stays open-ended for the long haul.
 export const achievementGoals = {
-  // Runs to all 24 creatures (16 egg-hatchable + 8 click-unlock). It used to
+  // Runs to all 25 creatures (16 egg-hatchable + 9 click-unlock). It used to
   // stop at 16, so the click-unlock grind — up to a 500K-tap legendary — paid no
   // achievement/star at all, and the "collected everything" line could never
   // fire. Top tier == TOTAL_CREATURES, so nameFor's all-collected branch lands.
-  collection: [4, 8, 12, 16, 20, 24],
-  shinies: [1, 3, 6, 10, 16, 20, 24],
+  // The 24 tier is kept alongside the new 25 so nobody who already claimed
+  // "collection-24" loses that star when a creature is added.
+  collection: [4, 8, 12, 16, 20, 24, 25],
+  shinies: [1, 3, 6, 10, 16, 20, 24, 25],
   // open-ended, all the way to a DECILLION (1e33) — the "first to a decillion"
   // challenge target. Extended past the old 6e23 top (owner-approved) so the
   // months-long endgame climb keeps handing out a badge every ~2 decades
@@ -372,7 +374,7 @@ export const achievementGoals = {
   // Creatures taken to MAX evolution (stage 4 == level 100) — the single
   // hardest per-creature grind, which the binary "shiny" flag couldn't see.
   // A goo (grind) ladder, not a star, so it doesn't inflate the permanent bonus.
-  maxevolved: [1, 3, 6, 12, 24],
+  maxevolved: [1, 3, 6, 12, 24, 25],
 } as const;
 
 // --- Offline income ----------------------------------------------------------

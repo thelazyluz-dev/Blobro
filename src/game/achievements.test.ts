@@ -3,7 +3,7 @@ import { achievements, isComplete, newlyCompleted, progressValue, starBonusFor }
 import type { AchievementContext } from './achievements';
 import { collectionOrder } from './characters';
 
-const TOTAL = collectionOrder.length; // 24
+const TOTAL = collectionOrder.length; // 25
 
 // A zeroed context; spread over to exercise one field at a time.
 const zero: AchievementContext = {
@@ -19,7 +19,7 @@ describe('achievement ladders', () => {
   it('pins the session-tuned ladder values (a balance.ts typo must not slip through)', () => {
     const goals = (k: string) =>
       achievements.filter((a) => a.kind === k).map((a) => a.goal);
-    expect(goals('maxevolved')).toEqual([1, 3, 6, 12, 24]);
+    expect(goals('maxevolved')).toEqual([1, 3, 6, 12, 24, 25]);
     expect(Math.max(...goals('lifetime'))).toBe(1e33); // the "first to a decillion" challenge target
   });
 

@@ -209,6 +209,15 @@ export const characters: CharacterDef[] = [
     sound: { waveform: 'sine', notes: [440, 554, 659, 880], durations: [0.09, 0.09, 0.1, 0.16], filter: 2600, decay: 0.28 },
   },
   {
+    id: 'tapuzi',
+    nameHe: 'תַּפּוּזִי',
+    nameLatin: 'Tapuzi',
+    descHe: 'תַּפּוּז שְׁרִירִי וְשָׂמֵחַ בְּחָלוּק — אַלּוּף הַלְּחִיצוֹת',
+    rarity: 'rare',
+    unlockClicks: 50_000,
+    sound: { waveform: 'sawtooth', notes: [392, 523, 784], durations: [0.1, 0.1, 0.18], filter: 3200, decay: 0.3 },
+  },
+  {
     id: 'oziouh',
     nameHe: 'אוֹזִיוּ',
     nameLatin: 'Oziouh',

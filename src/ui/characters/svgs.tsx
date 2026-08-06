@@ -425,6 +425,43 @@ const Gefenaou: FC<BodyProps> = ({ className }) => (
   </svg>
 );
 
+// Tapuzi — a muscly, happy orange in a karate robe (the click-power champ).
+const Tapuzi: FC<BodyProps> = ({ className }) => (
+  <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    {/* stem + leaf */}
+    <path d="M50 24 L50 17" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M50 20 Q60 12 69 18 Q60 27 50 23 Z" fill="#A3FF12" stroke={OUT} strokeWidth="3" {...S} />
+    {/* flexed arms + fists (drawn behind the body so only the biceps show) */}
+    <path d="M28 58 Q9 58 11 42 Q12 32 24 34 Q34 36 33 48" fill="#FF7A1A" stroke={OUT} strokeWidth="4" {...S} />
+    <path d="M72 58 Q91 58 89 42 Q88 32 76 34 Q66 36 67 48" fill="#FF7A1A" stroke={OUT} strokeWidth="4" {...S} />
+    <circle cx="21" cy="33" r="6.5" fill="#FF9A3A" stroke={OUT} strokeWidth="3.5" />
+    <circle cx="79" cy="33" r="6.5" fill="#FF9A3A" stroke={OUT} strokeWidth="3.5" />
+    {/* round orange body */}
+    <circle cx="50" cy="52" r="30" fill="#FF8A1E" stroke={OUT} strokeWidth="4" />
+    {/* karate gi over the lower body, with a V neckline */}
+    <path d="M32 58 Q31 77 41 84 Q50 88 59 84 Q69 77 68 58 L50 70 Z" fill="#FFF4E0" stroke={OUT} strokeWidth="3.5" {...S} />
+    <path d="M32 58 L50 70 L68 58" fill="none" stroke={OUT} strokeWidth="2.5" {...S} />
+    {/* red master's belt + knot */}
+    <rect x="34" y="75" width="32" height="7" rx="2" fill="#E5342A" stroke={OUT} strokeWidth="3" />
+    <rect x="46" y="76" width="8" height="6" rx="1.5" fill="#C4271F" stroke={OUT} strokeWidth="2.5" />
+    <path d="M48 82 l-3 6 M52 82 l3 6" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    {/* determined eyebrows */}
+    <path d="M36 41 Q42 38 47 42" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    <path d="M53 42 Q58 38 64 41" fill="none" stroke={OUT} strokeWidth="3" {...S} />
+    {/* eyes */}
+    <circle cx="42" cy="48" r="5" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <circle cx="58" cy="48" r="5" fill="#FFF4E0" stroke={OUT} strokeWidth="2.5" />
+    <g className="creature-eyes">
+      <circle cx="43" cy="49" r="2.3" fill="#150A22" />
+      <circle cx="57" cy="49" r="2.3" fill="#150A22" />
+    </g>
+    {/* big happy smile + cheeks */}
+    <path d="M40 56 q10 9 20 0" fill="none" stroke={OUT} strokeWidth="3.4" {...S} />
+    <circle cx="33" cy="55" r="2.6" fill="#FFB870" />
+    <circle cx="67" cy="55" r="2.6" fill="#FFB870" />
+  </svg>
+);
+
 // Oziouh — a muscly power star.
 const Oziouh: FC<BodyProps> = ({ className }) => (
   <svg viewBox="0 0 100 100" className={className} aria-hidden>
@@ -503,6 +540,7 @@ export const CHARACTER_BODIES: Record<CharId, FC<BodyProps>> = {
   gongoni: Gongoni,
   mataru: Mataru,
   gefenaou: Gefenaou,
+  tapuzi: Tapuzi,
   oziouh: Oziouh,
   baraku: Baraku,
   idanosau: Idanosau,

@@ -26,6 +26,7 @@ export type CharId =
   | 'gongoni'
   | 'mataru'
   | 'gefenaou'
+  | 'tapuzi'
   | 'oziouh'
   | 'baraku'
   | 'idanosau';

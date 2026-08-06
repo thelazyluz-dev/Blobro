@@ -2,7 +2,7 @@
 // mis-tiered entry would silently give a player nothing (or too much).
 
 import { describe, expect, it } from 'vitest';
-import { ABILITY_META, ABILITY_TYPE_BY_ID, abilityOf, abilityPct } from './abilities';
+import { ABILITY_META, ABILITY_TYPE_BY_ID, ABILITY_VALUE_OVERRIDE, abilityOf, abilityPct } from './abilities';
 import { abilityRebirthBonus, rebirthCap } from './balance';
 import { characters, charactersById } from './characters';
 import { isCleanNickname } from './profanity';
@@ -23,8 +23,13 @@ describe('creature abilities', () => {
 
   it('rarer creatures grant a strictly stronger version of the same ability', () => {
     // Compare within a type across rarities using a representative creature.
+    // Creatures with an intentional value override (e.g. Tapuzi, the "click-power
+    // champion" rare whose extreme tap deliberately exceeds a legendary's) are
+    // excluded — this invariant is about the standard rarity curve, not the
+    // hand-tuned exceptions.
     const byType: Record<string, { rarity: string; value: number }[]> = {};
     for (const def of characters) {
+      if (def.id in ABILITY_VALUE_OVERRIDE) continue;
       const a = abilityOf(def.id, def.rarity);
       (byType[a.type] ??= []).push({ rarity: def.rarity, value: a.value });
     }
@@ -55,6 +60,15 @@ describe('creature abilities', () => {
     const id = characters[0].id;
     const r = charactersById[id].rarity;
     expect(abilityOf(id, r)).toEqual(abilityOf(id, r));
+  });
+
+  it('Tapuzi is a 50k-click rare with an extreme (×2) click-power ability', () => {
+    const def = charactersById.tapuzi;
+    expect(def.rarity).toBe('rare');
+    expect(def.unlockClicks).toBe(50_000);
+    const a = abilityOf('tapuzi', 'rare');
+    expect(a.type).toBe('tap');
+    expect(a.value).toBe(1); // +100% — far past a normal rare's +25%, via the override
   });
 });
 
