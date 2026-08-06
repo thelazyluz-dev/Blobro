@@ -144,14 +144,15 @@ export function SpeedRing() {
       return;
     }
     if (phase !== 'running' || reduced) return;
-    let raf = 0;
-    const tick = () => {
+    // A countdown ring doesn't need 60fps — a ~10fps interval drains it just as
+    // smoothly with a fraction of the re-renders (matters while the whole screen
+    // is being tapped hard).
+    const id = window.setInterval(() => {
       const left = useGame.getState().speedEndsAt - Date.now();
       setFrac(Math.max(0, Math.min(1, left / cpmWindowMs)));
-      if (left > 0) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+      if (left <= 0) window.clearInterval(id);
+    }, 100);
+    return () => window.clearInterval(id);
   }, [phase, reduced]);
 
   if (phase !== 'armed' && phase !== 'running') return null;
@@ -233,7 +234,12 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
             <div className="text-2xl text-bone tabular">
               {taps} <span className="text-bone/60">הַקָּשׁוֹת</span>
             </div>
-            {ahead && <div className="anim-breathe font-display text-goo">🔥 מוֹבִיל עַל הַשִּׂיא!</div>}
+            {bestCpm > 0 &&
+              (ahead ? (
+                <div className="anim-breathe font-display text-goo">🔥 מוֹבִיל עַל הַשִּׂיא ({bestCpm})!</div>
+              ) : (
+                <div className="text-sm text-bone/50">שִׂיא לִשְׁבֹּר: {bestCpm}</div>
+              ))}
           </>
         ) : (
           <div className="anim-breathe font-display text-4xl text-cy">הַתְחֵל לְהַקִּישׁ בְּכָל מָקוֹם! ⚡</div>

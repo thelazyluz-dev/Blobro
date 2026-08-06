@@ -306,9 +306,13 @@ export function ClickScreen() {
     // Combo milestone: cash in the whole streak — a lump sum worth
     // (milestone × current tap value). Early ramp, then every comboRepeatEvery
     // forever, so long streaks keep paying past 1000.
+    // During a speed test the WHOLE screen is a tap target and taps come fast —
+    // the combo-milestone confetti + burst on top of that is what made it lag.
+    // The test has its own feedback (ring, counter, 50-tap zaps), so skip it.
     const isMilestone =
-      comboMilestones.includes(c.count) ||
-      (c.count >= comboRepeatEvery && c.count % comboRepeatEvery === 0);
+      !speedActive &&
+      (comboMilestones.includes(c.count) ||
+        (c.count >= comboRepeatEvery && c.count % comboRepeatEvery === 0));
     if (isMilestone) {
       const comboMult = activeAbility?.type === 'combo' ? 1 + activeAbility.value : 1;
       const amount = c.count * clickRef.current * comboRewardMult * comboMult;
@@ -330,7 +334,11 @@ export function ClickScreen() {
     if (crit) haptic([0, 30, 20, 50]);
     else if (frenzy) haptic(12);
 
-    if (reduced) return;
+    // Skip the crit flash / squash / floaters / particles during a speed test:
+    // at speed-test tap rates (5–19 particles PER tap) these saturate the main
+    // thread — the very lag testers reported. The countdown ring + live counter
+    // carry the feedback instead.
+    if (reduced || speedActive) return;
 
     if (crit) {
       setCritFlash(true);

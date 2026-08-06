@@ -95,7 +95,13 @@ export function useGameEngine(): boolean {
           // Mark all newly-passed milestones so none re-fire, show the biggest.
           useGame.getState().markMilestonesShown(fresh.map((m) => m.goo));
           const top = fresh[fresh.length - 1];
-          if (!useGame.getState().milestone) {
+          const sp = useGame.getState().speedPhase;
+          if (sp === 'armed' || sp === 'running') {
+            // Mid speed-test: a full-screen takeover would freeze the tapping.
+            // The fact is already marked shown (so it never re-fires); just
+            // acknowledge it with a non-blocking toast.
+            useGame.getState().pushToast({ text: 'יַעַד גָּדוֹל נִשְׁבַּר! 🏆', icon: '🎉', tone: 'star' });
+          } else if (!useGame.getState().milestone) {
             useGame.getState().showMilestone(top);
             playMilestone(muted);
             useGame.getState().triggerConfetti('rainbow');
@@ -137,10 +143,18 @@ export function useGameEngine(): boolean {
       if (s.clicks === prev.clicks) return;
       for (const c of unlockCreatures) {
         if (c.unlockClicks != null && s.clicks >= c.unlockClicks && !s.characters[c.id]) {
-          useGame.getState().grantUnlock(c.id, true);
+          // Mid speed-test: still AWARD the creature, but skip the full-screen
+          // reveal (it would eat taps and break the run) — a toast instead.
+          const sp = useGame.getState().speedPhase;
+          const inTest = sp === 'armed' || sp === 'running';
+          useGame.getState().grantUnlock(c.id, !inTest);
           const muted = useGame.getState().muted;
-          playMilestone(muted);
-          speakName(c.nameHe, muted);
+          if (inTest) {
+            useGame.getState().pushToast({ text: `${c.nameHe} נִפְתַּח! ⭐`, icon: '🎉', tone: 'star' });
+          } else {
+            playMilestone(muted);
+            speakName(c.nameHe, muted);
+          }
           break; // one at a time (taps increment by one)
         }
       }
