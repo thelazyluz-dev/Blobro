@@ -28,21 +28,28 @@ beforeEach(() => {
   useGame.setState({ ...defaultSaveState(Date.now()), loaded: true, bestCpm: 100 });
 });
 
-describe('recordSpeedTest', () => {
-  it('sets a new record and reports it', () => {
-    const isRecord = useGame.getState().recordSpeedTest(250);
+describe('finishSpeedTest', () => {
+  it('sets a new record, pays an income-scaled goo bonus, and lights a frenzy', () => {
+    const before = useGame.getState().goo;
+    const { isRecord, reward } = useGame.getState().finishSpeedTest(250);
     expect(isRecord).toBe(true);
     expect(useGame.getState().bestCpm).toBe(250);
+    expect(reward).toBeGreaterThanOrEqual(100); // floored
+    expect(useGame.getState().goo).toBe(before + reward);
+    expect(useGame.getState().frenzyUntil).toBeGreaterThan(Date.now());
   });
 
-  it('does not lower an existing record', () => {
-    const isRecord = useGame.getState().recordSpeedTest(80);
+  it('pays nothing and keeps the record for a non-record minute', () => {
+    const before = useGame.getState().goo;
+    const { isRecord, reward } = useGame.getState().finishSpeedTest(80);
     expect(isRecord).toBe(false);
+    expect(reward).toBe(0);
     expect(useGame.getState().bestCpm).toBe(100);
+    expect(useGame.getState().goo).toBe(before);
   });
 
   it('clamps an implausible count to the physical ceiling (anti-cheat)', () => {
-    useGame.getState().recordSpeedTest(1e9);
+    useGame.getState().finishSpeedTest(1e9);
     expect(useGame.getState().bestCpm).toBe(maxCpm);
   });
 });

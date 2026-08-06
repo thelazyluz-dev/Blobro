@@ -218,8 +218,12 @@ interface GameState {
   saveGame: () => Promise<void>;
   setTab: (tab: Tab) => void;
   click: () => { gain: number; frenzy: boolean; crit: boolean };
-  /** Record the result of a fixed-minute speed test; true if it's a new best. */
-  recordSpeedTest: (taps: number) => boolean;
+  /**
+   * Finish a fixed-minute speed test. Folds the count into bestCpm (clamped to
+   * the physical ceiling) and, on a NEW record, pays an income-scaled goo bonus
+   * and lights a short frenzy. Returns what happened so the UI can celebrate.
+   */
+  finishSpeedTest: (taps: number) => { isRecord: boolean; reward: number };
   buyUpgrade: (id: UpgradeId) => void;
   buyEgg: () => void;
   buyEggsMax: () => void;
@@ -668,14 +672,26 @@ export const useGame = create<GameState>((set, get) => {
 
     // The fixed-minute speed test (⚡ board). Its measured tap count feeds the
     // SAME bestCpm record the rolling window does — clamped to the physical
-    // ceiling so an over-count can't reach the board. Returns whether it beat
-    // the old best (so the UI can celebrate).
-    recordSpeedTest: (taps) => {
+    // ceiling so an over-count can't reach the board. A NEW record pays an
+    // income-scaled goo bonus (with a floor) and lights a short frenzy, so the
+    // challenge is worth doing, not just a number. A non-record pays nothing
+    // extra — the per-tap goo you earned during the minute is the reward — so
+    // repeating minutes can't farm a passive bonus. The bonus is a one-off far
+    // inside the plausibility ceiling (which assumes a permanent frenzy anyway).
+    finishSpeedTest: (taps) => {
       const s = get();
       const capped = Math.min(Math.max(0, Math.floor(taps)), maxCpm);
       const isRecord = capped > s.bestCpm;
-      if (isRecord) set({ bestCpm: capped });
-      return isRecord;
+      if (!isRecord) return { isRecord: false, reward: 0 };
+      const perSec = gooPerSec(s.characters, mods());
+      const reward = Math.max(100, Math.round(perSec * 45)); // ~45s of income, floored
+      set({
+        bestCpm: capped,
+        goo: s.goo + reward,
+        lifetimeGoo: s.lifetimeGoo + reward,
+        frenzyUntil: Date.now() + frenzyDurationMs,
+      });
+      return { isRecord: true, reward };
     },
 
     buyUpgrade: (id) => {
