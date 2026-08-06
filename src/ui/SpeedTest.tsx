@@ -1,14 +1,16 @@
 // ⚡ Speed test — a deliberate, fixed-minute tapping challenge (owner request).
 //
-// Press the button to arm it; the 60-second countdown starts only once you begin
-// tapping, and shows the time left, your live tap count, and whether your pace is
-// beating your record. It escalates in the final seconds (colour + ticks), and
-// at the end a NEW record gets confetti + a goo bonus + a short frenzy —
-// otherwise it re-arms so the next tap immediately starts another minute.
+// This file is split into a CONTROLLER (the start chip + the effects that watch
+// taps, run the countdown and celebrate) and three VIEW layers that read the
+// shared runtime from the store so they can render around the blob:
+//   • SpeedRing        — a countdown ring drawn around the main blob
+//   • SpeedFocusOverlay — a full-screen "focus mode": dims everything but the blob,
+//                         with a big timer, live tap count and encouragement
+//   • SpeedResult       — a dedicated result screen (record / try-again)
 //
-// Taps are counted by watching the store's `clicks` counter (manual taps only —
-// the robot hand never touches it), so the hot tap path is untouched. The result
-// feeds the SAME bestCpm record the passive rolling window does (game/cpm.ts).
+// Taps are counted from the store's `clicks` counter (manual taps only — the
+// robot hand never touches it), so the hot tap path is untouched. The record
+// feeds the SAME bestCpm the passive rolling window does (game/cpm.ts).
 
 import { useEffect, useRef, useState } from 'react';
 import { playBonus, playCrit, playMilestone, playPurchase, playRainDrop } from '../audio/sfx';
@@ -16,144 +18,274 @@ import { cpmWindowMs } from '../game/cpm';
 import { formatGoo } from '../game/format';
 import { useGame } from '../store';
 import { haptic } from './haptics';
+import { useReducedMotion } from './useReducedMotion';
 
-type Mode = 'off' | 'armed' | 'running';
-const WINDOW_S = cpmWindowMs / 1000;
+const WINDOW_S = Math.round(cpmWindowMs / 1000);
 const MILESTONE_EVERY = 50; // a little zap + buzz every N taps, for encouragement
 
+/**
+ * The start chip AND the renderless controller. It watches manual taps and
+ * drives the store's speed runtime (armSpeed / registerSpeedTaps / finalizeSpeed);
+ * the visible ring, focus overlay and result screen are separate components that
+ * read that runtime.
+ */
 export function SpeedTest() {
+  const phase = useGame((s) => s.speedPhase);
   const clicks = useGame((s) => s.clicks);
-  const bestCpm = useGame((s) => s.bestCpm);
   const muted = useGame((s) => s.muted);
-  const finishSpeedTest = useGame((s) => s.finishSpeedTest);
-  const pushToast = useGame((s) => s.pushToast);
-  const triggerConfetti = useGame((s) => s.triggerConfetti);
+  const armSpeed = useGame((s) => s.armSpeed);
+  const registerSpeedTaps = useGame((s) => s.registerSpeedTaps);
+  const finalizeSpeed = useGame((s) => s.finalizeSpeed);
 
-  const [mode, setMode] = useState<Mode>('off');
-  const [remaining, setRemaining] = useState(WINDOW_S);
-  const [tapCount, setTapCount] = useState(0);
-  const startAt = useRef(0);
-  const taps = useRef(0);
-  const nextMilestone = useRef(MILESTONE_EVERY);
   const lastClicks = useRef(clicks);
-  const lastTick = useRef(-1);
+  const nextMilestone = useRef(MILESTONE_EVERY);
+  const resultShown = useRef(false);
 
-  // Count manual taps from the clicks counter (no change to the tap action) and
-  // give a little "keep going" zap at each milestone.
+  // Count manual taps → feed the store. GO! zap on the first tap, a little crit
+  // zap at each 50-tap milestone.
   useEffect(() => {
     const delta = clicks - lastClicks.current;
     lastClicks.current = clicks;
     if (delta <= 0) return;
-    if (mode === 'armed') {
-      startAt.current = Date.now();
-      taps.current = delta;
+    if (phase === 'armed') {
       nextMilestone.current = MILESTONE_EVERY;
-      setTapCount(delta);
-      setMode('running');
+      registerSpeedTaps(delta); // starts the minute
       playBonus(muted); // GO!
       haptic(20);
-    } else if (mode === 'running') {
-      taps.current += delta;
-      setTapCount(taps.current);
-      if (taps.current >= nextMilestone.current) {
+    } else if (phase === 'running') {
+      registerSpeedTaps(delta);
+      if (useGame.getState().speedTaps >= nextMilestone.current) {
         nextMilestone.current += MILESTONE_EVERY;
         playCrit(muted);
         haptic(12);
       }
     }
-  }, [clicks, mode, muted]);
+  }, [clicks, phase, muted, registerSpeedTaps]);
 
-  // Countdown, final-seconds tension ticks, and end-of-minute evaluation.
+  // Countdown: tension ticks in the final 5s, finalize at zero.
   useEffect(() => {
-    if (mode !== 'running') return;
-    lastTick.current = -1;
+    if (phase !== 'running') return;
+    let lastTick = -1;
     const id = window.setInterval(() => {
-      const left = startAt.current + cpmWindowMs - Date.now();
-      if (left > 0) {
-        const secs = Math.ceil(left / 1000);
-        setRemaining(secs);
-        if (secs <= 5 && secs !== lastTick.current) {
-          lastTick.current = secs;
-          playRainDrop(muted); // ticking clock
-          haptic(8);
-        }
+      const left = useGame.getState().speedEndsAt - Date.now();
+      if (left <= 0) {
+        window.clearInterval(id);
+        finalizeSpeed();
         return;
       }
-      window.clearInterval(id);
-      const count = taps.current;
-      const { isRecord, reward } = finishSpeedTest(count);
-      if (isRecord) {
+      const secs = Math.ceil(left / 1000);
+      if (secs <= 5 && secs !== lastTick) {
+        lastTick = secs;
+        playRainDrop(muted); // ticking clock
+        haptic(8);
+      }
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [phase, muted, finalizeSpeed]);
+
+  // Celebrate once when we land on the result screen.
+  useEffect(() => {
+    if (phase === 'result' && !resultShown.current) {
+      resultShown.current = true;
+      const r = useGame.getState().speedResult;
+      if (r?.isRecord) {
         playMilestone(muted);
         haptic([0, 40, 30, 60]);
-        triggerConfetti('rainbow');
-        pushToast({ text: `🎉 שִׂיא חָדָשׁ! ${count} הַקָּשׁוֹת + ${formatGoo(reward)} גּוּ!`, icon: '⚡', tone: 'star' });
+        useGame.getState().triggerConfetti('rainbow');
       } else {
         playPurchase(muted);
         haptic(15);
-        pushToast({ text: `⚡ ${count} הַקָּשׁוֹת — הַשִּׂיא שֶׁלְּךָ ${Math.max(bestCpm, count)}`, icon: '⚡', tone: 'pop' });
       }
-      // Re-arm: the next tap starts a fresh minute (immediate for an active tapper).
-      taps.current = 0;
-      setTapCount(0);
-      setRemaining(WINDOW_S);
-      setMode('armed');
-    }, 200);
-    return () => window.clearInterval(id);
-  }, [mode, bestCpm, muted, finishSpeedTest, pushToast, triggerConfetti]);
+    }
+    if (phase !== 'result') resultShown.current = false;
+  }, [phase, muted]);
 
-  const arm = () => {
-    taps.current = 0;
-    setTapCount(0);
-    setRemaining(WINDOW_S);
-    setMode('armed');
-    haptic(10);
-  };
-  const stop = () => {
-    taps.current = 0;
-    setTapCount(0);
-    setMode('off');
-  };
-
-  if (mode === 'off') {
+  if (phase !== 'off') {
+    // While a test is live the chip is just a compact indicator — the real UI is
+    // the ring around the blob + the focus overlay.
     return (
-      <button
-        type="button"
-        onClick={arm}
-        className="anim-breathe inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cy/15 px-3.5 py-1.5 text-sm ring-1 ring-cy/40 active:scale-95"
-      >
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cy/15 px-3.5 py-1.5 text-sm ring-1 ring-cy/40">
         <span className="text-cy">⚡</span>
-        <span className="text-bone">מִבְחַן מְהִירוּת</span>
-      </button>
+        <span className="text-bone">{phase === 'armed' ? 'הַתְחֵל לְהַקִּישׁ!' : 'מְהִירוּת…'}</span>
+      </span>
     );
   }
 
-  // Pace vs record (are you on track to beat it?) + final-seconds tension colour.
-  const elapsed = Math.max(0.001, (Date.now() - startAt.current) / 1000);
-  const projected = Math.round((taps.current / elapsed) * WINDOW_S);
-  const ahead = bestCpm > 0 && projected >= bestCpm;
-  const urgent = remaining <= 5;
-  const warn = remaining <= 15;
-  const clock = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
-  const clockColor = urgent ? 'text-hot' : warn ? 'text-goo' : 'text-cy';
+  return (
+    <button
+      type="button"
+      onClick={armSpeed}
+      className="anim-breathe inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cy/15 px-3.5 py-1.5 text-sm ring-1 ring-cy/40 active:scale-95"
+    >
+      <span className="text-cy">⚡</span>
+      <span className="text-bone">מִבְחַן מְהִירוּת</span>
+    </button>
+  );
+}
+
+/** True while a test is armed or counting down (used to lift the blob above the dim). */
+export function useSpeedActive() {
+  return useGame((s) => s.speedPhase === 'armed' || s.speedPhase === 'running');
+}
+
+/**
+ * The countdown ring, drawn around the main blob (rendered inside the blob's
+ * container so it lines up at any size). Drains over the minute and shifts
+ * cyan → gold → hot-pink as time runs low.
+ */
+export function SpeedRing() {
+  const phase = useGame((s) => s.speedPhase);
+  const reduced = useReducedMotion();
+  const [frac, setFrac] = useState(1); // fraction of time LEFT
+
+  useEffect(() => {
+    if (phase === 'armed') {
+      setFrac(1);
+      return;
+    }
+    if (phase !== 'running' || reduced) return;
+    let raf = 0;
+    const tick = () => {
+      const left = useGame.getState().speedEndsAt - Date.now();
+      setFrac(Math.max(0, Math.min(1, left / cpmWindowMs)));
+      if (left > 0) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, reduced]);
+
+  if (phase !== 'armed' && phase !== 'running') return null;
+  const R = 46;
+  const C = 2 * Math.PI * R;
+  const color = frac > 0.5 ? '#00E5FF' : frac > 0.25 ? '#FFD84D' : '#FF2E88';
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90"
+      style={{ width: 300, height: 300 }}
+      aria-hidden
+    >
+      <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
+      <circle
+        cx="50"
+        cy="50"
+        r={R}
+        fill="none"
+        stroke={color}
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray={C}
+        strokeDashoffset={C * (1 - frac)}
+        style={{ filter: `drop-shadow(0 0 6px ${color})`, transition: reduced ? undefined : 'stroke 0.4s linear' }}
+      />
+    </svg>
+  );
+}
+
+/**
+ * Focus mode: dims the rest of the screen (the blob is lifted above this) and
+ * shows the big timer, live tap count and a "you're beating your record" hint.
+ * The dim itself is purely visual (pointer-events-none) so only the blob is
+ * tappable during the minute.
+ */
+export function SpeedFocusOverlay() {
+  const phase = useGame((s) => s.speedPhase);
+  const taps = useGame((s) => s.speedTaps);
+  const bestCpm = useGame((s) => s.bestCpm);
+  const cancelSpeed = useGame((s) => s.cancelSpeed);
+  const [secLeft, setSecLeft] = useState(WINDOW_S);
+
+  useEffect(() => {
+    if (phase !== 'running') {
+      setSecLeft(WINDOW_S);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setSecLeft(Math.max(0, Math.ceil((useGame.getState().speedEndsAt - Date.now()) / 1000)));
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [phase]);
+
+  if (phase !== 'armed' && phase !== 'running') return null;
+  const running = phase === 'running';
+  const urgent = running && secLeft <= 5;
+  // Pace projection — are you on track to beat your record?
+  const elapsed = Math.max(0.001, WINDOW_S - secLeft);
+  const projected = running ? Math.round((taps / elapsed) * WINDOW_S) : 0;
+  const ahead = running && bestCpm > 0 && projected >= bestCpm;
 
   return (
-    <div
-      className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm ring-1 ${
-        urgent ? 'bg-hot/15 ring-hot/50' : 'bg-cy/15 ring-cy/50'
-      }`}
-    >
-      <span className={urgent ? 'text-hot' : 'text-cy'}>⚡</span>
-      {mode === 'armed' ? (
-        <span className="anim-breathe text-bone">הַתְחֵל לְהַקִּישׁ!</span>
-      ) : (
-        <span className="tabular text-bone">
-          <span className={`font-display ${clockColor}`}>{clock}</span> · {tapCount}
-          {ahead && <span className="ms-1 text-goo">🔥 מוֹבִיל</span>}
-        </span>
-      )}
-      <button type="button" onClick={stop} aria-label="סגור מבחן מהירות" className="text-bone/50 active:scale-90">
-        ✕
-      </button>
+    <>
+      <div className="pointer-events-none fixed inset-0 z-20 bg-void/70 backdrop-blur-[2px]" aria-hidden />
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-30 flex flex-col items-center gap-1 pt-6">
+        {running ? (
+          <>
+            <div className={`font-display text-7xl tabular ${urgent ? 'anim-count-pop text-hot' : 'text-cy'}`}>
+              0:{String(secLeft).padStart(2, '0')}
+            </div>
+            <div className="text-2xl text-bone tabular">
+              {taps} <span className="text-bone/60">הַקָּשׁוֹת</span>
+            </div>
+            {ahead && <div className="anim-breathe font-display text-goo">🔥 מוֹבִיל עַל הַשִּׂיא!</div>}
+          </>
+        ) : (
+          <div className="anim-breathe font-display text-4xl text-cy">הַתְחֵל לְהַקִּישׁ! ⚡</div>
+        )}
+      </div>
+      <div className="fixed inset-x-0 bottom-24 z-30 flex justify-center">
+        <button
+          type="button"
+          onClick={cancelSpeed}
+          className="rounded-full bg-black/50 px-4 py-1.5 text-sm text-bone/70 ring-1 ring-bone/20 active:scale-95"
+        >
+          בִּטּוּל
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** The dedicated result screen shown when a minute ends. */
+export function SpeedResult() {
+  const phase = useGame((s) => s.speedPhase);
+  const result = useGame((s) => s.speedResult);
+  const bestCpm = useGame((s) => s.bestCpm);
+  const armSpeed = useGame((s) => s.armSpeed);
+  const cancelSpeed = useGame((s) => s.cancelSpeed);
+
+  if (phase !== 'result' || !result) return null;
+  const { taps, isRecord, reward } = result;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 p-6" onClick={cancelSpeed}>
+      <div className="surface anim-pop-in w-full max-w-xs rounded-3xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
+        <div className="text-6xl">{isRecord ? '🏆' : '⚡'}</div>
+        <div className={`mt-2 font-display text-2xl ${isRecord ? 'text-pop' : 'text-cy'}`}>
+          {isRecord ? 'שִׂיא חָדָשׁ!' : 'סִיּוּם!'}
+        </div>
+        <div className="mt-3 font-display text-6xl tabular text-goo">{taps}</div>
+        <div className="text-sm text-bone/60">הַקָּשׁוֹת בְּדַקָּה</div>
+        {isRecord ? (
+          <div className="mt-3 text-pop">+{formatGoo(reward)} גּוּ · פְרֶנְזִי! 🔥</div>
+        ) : (
+          <div className="mt-3 text-bone/60">הַשִּׂיא שֶׁלְּךָ: {bestCpm}</div>
+        )}
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={armSpeed}
+            className="flex-1 rounded-full bg-cy py-2.5 font-display text-void active:scale-95"
+          >
+            עוֹד פַּעַם ⚡
+          </button>
+          <button
+            type="button"
+            onClick={cancelSpeed}
+            className="flex-1 rounded-full bg-black/30 py-2.5 text-bone ring-1 ring-bone/20 active:scale-95"
+          >
+            סְגוֹר
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

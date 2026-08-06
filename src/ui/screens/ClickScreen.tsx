@@ -33,7 +33,7 @@ import { SmoothNumber } from '../SmoothNumber';
 import { BonusButton } from '../AdBonus';
 import { CharacterBody } from '../characters';
 import { AccessoryOverlay, MainBlob } from '../MainBlob';
-import { SpeedTest } from '../SpeedTest';
+import { SpeedFocusOverlay, SpeedResult, SpeedRing, SpeedTest, useSpeedActive } from '../SpeedTest';
 import { useReducedMotion } from '../useReducedMotion';
 
 const COMBO_WINDOW_MS = comboWindowMs;
@@ -87,6 +87,7 @@ export function ClickScreen() {
   const mainEvolution = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.evolution ?? 0) : 0));
   const mainRebirths = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.rebirths ?? 0) : 0));
   const reduced = useReducedMotion();
+  const speedActive = useSpeedActive(); // speed test armed/running → focus mode
 
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [autoFloaters, setAutoFloaters] = useState<{ id: number; amount: number }[]>([]);
@@ -498,7 +499,9 @@ export function ClickScreen() {
         </div>
       )}
 
-      <div className="relative flex flex-1 items-center justify-center">
+      {/* z-30 lifts the blob (and its countdown ring) above the speed-test focus
+          dim (z-20), so during a test the blob is the one bright, tappable thing. */}
+      <div className={`relative flex flex-1 items-center justify-center ${speedActive ? 'z-30' : ''}`}>
         <div
           className={`pointer-events-none absolute h-72 w-72 rounded-full ${reduced ? '' : 'anim-breathe'}`}
           style={{
@@ -507,6 +510,7 @@ export function ClickScreen() {
               : 'radial-gradient(circle, rgba(163,255,18,0.35), transparent 65%)',
           }}
         />
+        <SpeedRing />
 
         <button
           ref={blobRef}
@@ -665,6 +669,11 @@ export function ClickScreen() {
           <SpeedTest />
         </div>
       </div>
+
+      {/* Speed-test focus mode + result screen (fixed overlays; render nothing
+          unless a test is active). */}
+      <SpeedFocusOverlay />
+      <SpeedResult />
     </div>
   );
 }

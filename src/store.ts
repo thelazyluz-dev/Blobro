@@ -67,7 +67,7 @@ import { currentEvent } from './game/events';
 import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
-import { maxCpm, recordManualTap } from './game/cpm';
+import { cpmWindowMs, maxCpm, recordManualTap } from './game/cpm';
 import {
   bumpQuest,
   claimGift,
@@ -108,6 +108,14 @@ export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades' | 'shop';
 export type ProgressTab = 'stats' | 'achievements' | 'leaderboard';
 
 export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
+// Speed-test runtime phases: off (idle) → armed (waiting for the first tap) →
+// running (the minute is counting down) → result (the outcome screen).
+export type SpeedPhase = 'off' | 'armed' | 'running' | 'result';
+export interface SpeedResult {
+  taps: number;
+  isRecord: boolean;
+  reward: number;
+}
 export type ToastTone = 'goo' | 'star' | 'pop';
 export interface Toast {
   id: number;
@@ -213,6 +221,14 @@ interface GameState {
   // cheapest available levels, then a short cooldown keeps it from being spammed.
   upgradeAllReadyAt: number;
 
+  // Speed-test runtime (session-only, never persisted). Drives the countdown
+  // ring around the blob, the focus overlay and the result screen. The record
+  // itself lives in the persisted `bestCpm`; these are pure transient UI.
+  speedPhase: SpeedPhase;
+  speedTaps: number;
+  speedEndsAt: number; // epoch ms the running minute ends (0 unless running)
+  speedResult: SpeedResult | null;
+
   // --- actions ---
   loadGame: () => Promise<void>;
   saveGame: () => Promise<void>;
@@ -224,6 +240,14 @@ interface GameState {
    * and lights a short frenzy. Returns what happened so the UI can celebrate.
    */
   finishSpeedTest: (taps: number) => { isRecord: boolean; reward: number };
+  /** Arm the speed test — the countdown starts on the first tap (registerSpeedTaps). */
+  armSpeed: () => void;
+  /** Leave the speed test entirely (from any phase). */
+  cancelSpeed: () => void;
+  /** Feed manual taps in. From 'armed' it starts the minute; in 'running' it accrues. */
+  registerSpeedTaps: (delta: number) => void;
+  /** End the running minute: fold the count into bestCpm and show the result screen. */
+  finalizeSpeed: () => void;
   buyUpgrade: (id: UpgradeId) => void;
   buyEgg: () => void;
   buyEggsMax: () => void;
@@ -498,6 +522,10 @@ export const useGame = create<GameState>((set, get) => {
     magnitudePulse: 0,
     magnitudeExp: 0,
     upgradeAllReadyAt: 0,
+    speedPhase: 'off',
+    speedTaps: 0,
+    speedEndsAt: 0,
+    speedResult: null,
 
     loadGame: async () => {
       const now = Date.now();
@@ -695,6 +723,26 @@ export const useGame = create<GameState>((set, get) => {
         frenzyUntil: Date.now() + frenzyDurationMs,
       });
       return { isRecord: true, reward };
+    },
+
+    armSpeed: () => set({ speedPhase: 'armed', speedTaps: 0, speedEndsAt: 0, speedResult: null }),
+    cancelSpeed: () => set({ speedPhase: 'off', speedTaps: 0, speedEndsAt: 0, speedResult: null }),
+    registerSpeedTaps: (delta) => {
+      if (delta <= 0) return;
+      const s = get();
+      if (s.speedPhase === 'armed') {
+        // First tap starts the minute.
+        set({ speedPhase: 'running', speedEndsAt: Date.now() + cpmWindowMs, speedTaps: delta });
+      } else if (s.speedPhase === 'running') {
+        set({ speedTaps: s.speedTaps + delta });
+      }
+    },
+    finalizeSpeed: () => {
+      const s = get();
+      if (s.speedPhase !== 'running') return;
+      const taps = s.speedTaps;
+      const { isRecord, reward } = get().finishSpeedTest(taps);
+      set({ speedPhase: 'result', speedEndsAt: 0, speedResult: { taps, isRecord, reward } });
     },
 
     buyUpgrade: (id) => {

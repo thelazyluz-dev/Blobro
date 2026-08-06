@@ -53,3 +53,46 @@ describe('finishSpeedTest', () => {
     expect(useGame.getState().bestCpm).toBe(maxCpm);
   });
 });
+
+describe('speed-test phase machine', () => {
+  it('arms, starts the minute on the first tap, accrues, then shows a result', () => {
+    const g = () => useGame.getState();
+    g().armSpeed();
+    expect(g().speedPhase).toBe('armed');
+    expect(g().speedTaps).toBe(0);
+
+    // First tap starts the countdown.
+    g().registerSpeedTaps(1);
+    expect(g().speedPhase).toBe('running');
+    expect(g().speedTaps).toBe(1);
+    expect(g().speedEndsAt).toBeGreaterThan(Date.now());
+
+    // Further taps accrue.
+    g().registerSpeedTaps(9);
+    expect(g().speedTaps).toBe(10);
+
+    // Finalizing folds the count into the record and opens the result screen.
+    g().registerSpeedTaps(240); // total 250 > bestCpm 100
+    g().finalizeSpeed();
+    expect(g().speedPhase).toBe('result');
+    expect(g().speedResult?.taps).toBe(250);
+    expect(g().speedResult?.isRecord).toBe(true);
+    expect(g().bestCpm).toBe(250);
+  });
+
+  it('does not count taps before it is armed, and cancel returns to off', () => {
+    const g = () => useGame.getState();
+    g().cancelSpeed();
+    expect(g().speedPhase).toBe('off');
+    g().registerSpeedTaps(50); // ignored while off
+    expect(g().speedTaps).toBe(0);
+    expect(g().speedPhase).toBe('off');
+
+    g().armSpeed();
+    g().registerSpeedTaps(5);
+    g().cancelSpeed();
+    expect(g().speedPhase).toBe('off');
+    expect(g().speedTaps).toBe(0);
+    expect(g().speedResult).toBeNull();
+  });
+});
