@@ -33,6 +33,7 @@ import { SmoothNumber } from '../SmoothNumber';
 import { BonusButton } from '../AdBonus';
 import { CharacterBody } from '../characters';
 import { AccessoryOverlay, MainBlob } from '../MainBlob';
+import { SpeedTest } from '../SpeedTest';
 import { useReducedMotion } from '../useReducedMotion';
 
 const COMBO_WINDOW_MS = comboWindowMs;
@@ -661,6 +662,7 @@ export function ClickScreen() {
             <span className="text-pop">👆 {formatGoo(perClick)}</span>
             <span className="text-cy">ℹ️</span>
           </button>
+          <SpeedTest />
         </div>
       </div>
     </div>

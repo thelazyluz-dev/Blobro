@@ -67,7 +67,7 @@ import { currentEvent } from './game/events';
 import { buyableEggs, hatch, openEggs, type BatchResult, type HatchOutcome } from './game/hatching';
 import { type Milestone } from './game/milestones';
 import { computeOffline, type OfflineReport } from './game/offline';
-import { recordManualTap } from './game/cpm';
+import { maxCpm, recordManualTap } from './game/cpm';
 import {
   bumpQuest,
   claimGift,
@@ -218,6 +218,8 @@ interface GameState {
   saveGame: () => Promise<void>;
   setTab: (tab: Tab) => void;
   click: () => { gain: number; frenzy: boolean; crit: boolean };
+  /** Record the result of a fixed-minute speed test; true if it's a new best. */
+  recordSpeedTest: (taps: number) => boolean;
   buyUpgrade: (id: UpgradeId) => void;
   buyEgg: () => void;
   buyEggsMax: () => void;
@@ -662,6 +664,18 @@ export const useGame = create<GameState>((set, get) => {
         rng: rng.state(),
       });
       return { gain, frenzy, crit };
+    },
+
+    // The fixed-minute speed test (⚡ board). Its measured tap count feeds the
+    // SAME bestCpm record the rolling window does — clamped to the physical
+    // ceiling so an over-count can't reach the board. Returns whether it beat
+    // the old best (so the UI can celebrate).
+    recordSpeedTest: (taps) => {
+      const s = get();
+      const capped = Math.min(Math.max(0, Math.floor(taps)), maxCpm);
+      const isRecord = capped > s.bestCpm;
+      if (isRecord) set({ bestCpm: capped });
+      return isRecord;
     },
 
     buyUpgrade: (id) => {
