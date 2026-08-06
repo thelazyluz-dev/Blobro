@@ -23,7 +23,7 @@ import {
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
 import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
-import { selectGooPerSec, selectMods, useGame } from '../../store';
+import { selectCostMods, selectCostWealth, selectMods, useGame } from '../../store';
 import { CharacterBody } from '../characters';
 import { MainBlob } from '../MainBlob';
 import { haptic } from '../haptics';
@@ -43,14 +43,16 @@ export function CollectionScreen() {
   const setTab = useGame((s) => s.setTab);
   const goo = useGame((s) => s.goo);
   const clicks = useGame((s) => s.clicks);
-  const m = useGame(selectMods);
+  // Grid uses these ONLY for pricing/affordability — base (no displayed-creature
+  // ability), so a creature's cost is the same whether or not it's on screen.
+  const m = useGame(selectCostMods);
   const [selected, setSelected] = useState<CharId | null>(null);
 
   const ownedCount = collectionOrder.filter((id) => owned[id]).length;
   const total = collectionOrder.length;
 
   const upgradeAll = useGame((s) => s.upgradeAllCreatures);
-  const gooPerSecNow = useGame(selectGooPerSec);
+  const gooPerSecNow = useGame(selectCostWealth);
   const readyAt = useGame((s) => s.upgradeAllReadyAt);
 
   // A ticking "now" so the cooldown countdown updates once a second while locked.
@@ -239,19 +241,27 @@ export function CollectionScreen() {
                       {evolved && (
                         <span className="absolute end-1 top-1 text-sm">✨{stage}</span>
                       )}
-                      {reborn && (
-                        <span className="absolute end-1 bottom-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-void tabular ring-2 ring-void/50" style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}>
-                          🔄{rebirths}
-                        </span>
-                      )}
                       <CharacterBody id={id} className="h-12 w-12" evolution={stage} />
                       <span
                         className={`mt-1 max-w-full truncate px-1 text-[10px] ${evolved ? 'text-pop' : 'text-bone/80'}`}
                       >
                         {def.nameHe}
                       </span>
-                      <span className="text-[10px] text-pop tabular">
-                        {evolved ? '✨ ' : ''}רמה {held.level}
+                      {/* Level line. The mastery (🔄) count rides INLINE here, as a
+                          little chip beside the level, so it never covers the level
+                          number the way the old bottom-corner badge did. */}
+                      <span className="mt-0.5 flex max-w-full items-center justify-center gap-1 text-[10px] text-pop tabular">
+                        {reborn && (
+                          <span
+                            className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-void ring-1 ring-void/40"
+                            style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}
+                          >
+                            🔄{rebirths}
+                          </span>
+                        )}
+                        <span>
+                          {evolved ? '✨ ' : ''}רמה {held.level}
+                        </span>
                       </span>
                     </button>
                   );
@@ -314,8 +324,12 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const def = charactersById[id];
   const held = useGame((s) => s.characters[id]);
   const goo = useGame((s) => s.goo);
+  // `m` (with the displayed-creature ability) is for the income numbers shown.
+  // Costs use the base mods + base wealth so displaying a creature never moves
+  // its upgrade/evolution/rebirth price — the ability is a pure income win.
   const m = useGame(selectMods);
-  const rate = useGame(selectGooPerSec);
+  const costM = useGame(selectCostMods);
+  const costRate = useGame(selectCostWealth);
   const evolveCreature = useGame((s) => s.evolveCreature);
   const evolveWithLevelUp = useGame((s) => s.evolveWithLevelUp);
   const rebirthCreature = useGame((s) => s.rebirthCreature);
@@ -340,13 +354,13 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   // Rebirth (mastering loop): only at max evolution, and only below the cap.
   const rebirths = held.rebirths ?? 0;
   const eligibleRebirth = maxedEvolution && rebirths < rebirthCap;
-  const rebirthGooCost = eligibleRebirth ? rebirthCost(rebirths, rate) : 0;
+  const rebirthGooCost = eligibleRebirth ? rebirthCost(rebirths, costRate) : 0;
   const affordRebirth = goo >= rebirthGooCost;
   const canRebirth = eligibleRebirth && affordRebirth;
   const rebirthCapped = rebirths >= rebirthCap;
   const nextEvolveLevel = maxedEvolution ? Infinity : evolveLevels[stage];
   const canEvolve = !maxedEvolution && held.level >= nextEvolveLevel;
-  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, m, rate, im);
+  const evolveCostGoo = maxedEvolution ? 0 : evolveCost(def.rarity, held, costM, costRate, im);
   const affordEvolve = goo >= evolveCostGoo;
   const evolveMultNext = maxedEvolution ? 1 : evolveMultiplierByStage[stage + 1] / evolveMultiplierByStage[stage];
   // "Level up to the threshold AND evolve" in one press — offered when the
@@ -355,14 +369,14 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   // level (that's the state you'd evolve from), matching the store action.
   const combinedEvolveCost = maxedEvolution
     ? 0
-    : levelUpToCost(def.rarity, held, nextEvolveLevel, m, rate, im) +
-      evolveCost(def.rarity, { ...held, level: nextEvolveLevel }, m, rate, im);
+    : levelUpToCost(def.rarity, held, nextEvolveLevel, costM, costRate, im) +
+      evolveCost(def.rarity, { ...held, level: nextEvolveLevel }, costM, costRate, im);
   const canCombinedEvolve = !maxedEvolution && !canEvolve && goo >= combinedEvolveCost;
 
   // Direct goo leveling.
-  const levelCost = creatureLevelCost(def.rarity, held, m, rate, im);
+  const levelCost = creatureLevelCost(def.rarity, held, costM, costRate, im);
   const affordLevel = goo >= levelCost;
-  const affordN = affordableCreatureLevels(def.rarity, held, m, goo, rate, im);
+  const affordN = affordableCreatureLevels(def.rarity, held, costM, goo, costRate, im);
   const nextIncome = creatureContribution(def.rarity, { ...held, level: held.level + 1 }, m, im);
   const levelGain = nextIncome - income;
 
