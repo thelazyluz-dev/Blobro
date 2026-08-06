@@ -1604,6 +1604,25 @@ export const selectAdBonus = (s: GameState) => {
 // player sees (rate, tap power, egg price) match what they actually get.
 export const selectGooPerSec = (s: GameState) =>
   gooPerSec(s.characters, modsOf(s)) * currentEvent(Date.now()).incomeMult * adMultOf(s, Date.now());
+/**
+ * The TOTAL fraction that rebirths add to passive income right now, aggregated
+ * across the WHOLE roster (each reborn creature's +10%/rebirth is always live on
+ * its own income, regardless of which creature is the main). It's the real
+ * weighted increase to total goo/sec — total-with-rebirths / total-without − 1 —
+ * so a mix of reborn and non-reborn creatures reads honestly. Event/ad
+ * multipliers cancel in the ratio, so this uses the raw creature income.
+ */
+export const selectRebirthIncomeBonus = (s: GameState): number => {
+  const m = modsOf(s);
+  const withReb = gooPerSec(s.characters, m);
+  if (withReb <= 0) return 0;
+  const stripped: OwnedCharacters = {};
+  for (const [id, held] of Object.entries(s.characters)) {
+    if (held) stripped[id as CharId] = { level: held.level, evolution: held.evolution };
+  }
+  const withoutReb = gooPerSec(stripped, m);
+  return withoutReb > 0 ? withReb / withoutReb - 1 : 0;
+};
 /** The active permanent income bonus (star) as a fraction, e.g. 0.2 = +20%. */
 export const selectStarBonus = (s: GameState) => starBonusFor(s.achievements);
 export const selectEggCost = (s: GameState) =>

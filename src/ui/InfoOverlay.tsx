@@ -4,13 +4,14 @@
 
 import { createPortal } from 'react-dom';
 import { ABILITY_META, abilityPct } from '../game/abilities';
-import { autoClicksPerSec, rebirthIncomeMult } from '../game/economy';
+import { autoClicksPerSec } from '../game/economy';
 import { charactersById } from '../game/characters';
 import { formatGoo } from '../game/format';
 import {
   selectActiveAbility,
   selectClickPower,
   selectGooPerSec,
+  selectRebirthIncomeBonus,
   selectStarBonus,
   useGame,
 } from '../store';
@@ -57,14 +58,13 @@ export function InfoOverlay() {
   const ability = useGame(selectActiveAbility);
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const mainId = useGame((s) => s.equippedMain);
-  const mainRebirths = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.rebirths ?? 0) : 0));
+  // Rebirth income is per-creature and ALWAYS live for every reborn creature —
+  // not tied to the main — so this is the total boost across the whole roster.
+  const rebirthBonus = useGame(selectRebirthIncomeBonus);
 
   if (!open) return null;
 
-  // The reborn creature's permanent income bonus (its ability boost already
-  // shows in the ability row below). Shown as its own line so a player can see
-  // exactly what a rebirth adds.
-  const rebirthIncomePct = Math.round((rebirthIncomeMult(mainRebirths) - 1) * 100);
+  const rebirthIncomePct = Math.round(rebirthBonus * 100);
 
   const tapsPerSec = autoClicksPerSec(autoTapLevel);
   const robotRate = perClick * tapsPerSec;
@@ -107,7 +107,7 @@ export function InfoOverlay() {
           <div className="pt-2 text-center text-[11px] font-bold text-bone/45">בַּלְּחִיצוֹת</div>
           <Row icon="👆" label="כָּל נְגִיעָה שָׁוָה" value={formatGoo(perClick)} />
 
-          {(starBonus > 0 || ability || mainRebirths > 0) && (
+          {(starBonus > 0 || ability || rebirthIncomePct > 0) && (
             <div className="pt-2 text-center text-[11px] font-bold text-bone/45">הַבּוֹנוּסִים שֶׁלְּךָ</div>
           )}
           {starBonus > 0 && (
@@ -126,11 +126,11 @@ export function InfoOverlay() {
               value={`+${abilityPct(ability)}%`}
             />
           )}
-          {mainRebirths > 0 && (
+          {rebirthIncomePct > 0 && (
             <Row
               icon="🔄"
-              label={`לֵידָה מֵחָדָשׁ · ${mainName}`}
-              hint={`${mainRebirths} לֵידוֹת — בּוֹנוּס הַכְנָסָה קָבוּעַ (וְהַיְּכֹלֶת חֲזָקָה יוֹתֵר)`}
+              label="בּוֹנוּס לֵידָה מֵחָדָשׁ"
+              hint="מִכָּל הַדְּמוּיוֹת שֶׁעָשׂוּ לֵידָה — פּוֹעֵל עַל הַהַכְנָסָה כָּל הַזְּמַן"
               value={`+${rebirthIncomePct}%`}
             />
           )}

@@ -22,7 +22,7 @@ vi.mock('./net/save', async () => {
   return { ...actual, fetchCloudSave: async () => null, pushCloudSave: async () => ({ ok: false, conflict: null }) };
 });
 
-const { useGame } = await import('./store');
+const { useGame, selectRebirthIncomeBonus } = await import('./store');
 const { defaultSaveState } = await import('./game/save');
 const { maxEvolution, rebirthCap } = await import('./game/balance');
 
@@ -64,5 +64,29 @@ describe('rebirthCreature', () => {
     useGame.setState({ characters: {} });
     expect(() => useGame.getState().rebirthCreature('blombo')).not.toThrow();
     expect(useGame.getState().characters.blombo).toBeUndefined();
+  });
+});
+
+describe('selectRebirthIncomeBonus (total across the roster)', () => {
+  it('is 0 when no creature has been reborn', () => {
+    useGame.setState({ characters: { blombo: { level: 20 }, fizzik: { level: 10 } } });
+    expect(selectRebirthIncomeBonus(useGame.getState())).toBe(0);
+  });
+
+  it('equals the single creature\'s bonus when it is the only one', () => {
+    // One creature, 5 rebirths → its income is ×1.5, so the roster total is +50%.
+    useGame.setState({ characters: { blombo: { level: 20, rebirths: 5 } } });
+    expect(selectRebirthIncomeBonus(useGame.getState())).toBeCloseTo(0.5, 6);
+  });
+
+  it('is a weighted total when only some creatures are reborn', () => {
+    // Every reborn creature contributes ALL the time, regardless of the main.
+    useGame.setState({
+      characters: { blombo: { level: 20, rebirths: 10 }, fizzik: { level: 20 } },
+      equippedMain: null,
+    });
+    const pct = selectRebirthIncomeBonus(useGame.getState());
+    expect(pct).toBeGreaterThan(0);
+    expect(pct).toBeLessThan(1); // below +100% because fizzik (not reborn) dilutes it
   });
 });
