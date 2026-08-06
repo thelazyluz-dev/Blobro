@@ -56,20 +56,15 @@ jobs:
           path: dist
       - id: deployment
         uses: actions/deploy-pages@v4
-
-  sanity:
-    needs: deploy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          # Don't leave the GITHUB_TOKEN sitting in .git/config while npm ci
-          # runs hundreds of packages' install scripts.
-          persist-credentials: false
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      # Give Pages a moment to actually serve the new deployment before
-      # hitting it — deploy-pages can report success just ahead of propagation.
+      # Sanity-check the live site in the SAME job. Previously this was a
+      # separate `sanity` job, which meant a second runner + a second
+      # action-resolution round-trip ("Set up job" → "Getting action download
+      # info"). When GitHub's action-download service is degraded ("Failed to
+      # resolve action download info / Service Unavailable"), every extra job is
+      # another chance to fail on infra we don't control — so we keep the whole
+      # workflow to ONE job and resolve actions exactly once.
+      #
+      # Give Pages a moment to actually serve the new deployment before hitting
+      # it — deploy-pages can report success just ahead of propagation.
       - run: sleep 15
       - run: node scripts/sanity.mjs https://bl-or-bo.com
