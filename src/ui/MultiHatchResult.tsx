@@ -66,7 +66,7 @@ export function MultiHatchResult() {
     const rarity = charactersById[id].rarity;
     const gainedLevels = (result.levelUps[id] ?? 0) + (newSet.has(id) ? 1 : 0);
     const prevLevel = held.level - gainedLevels;
-    const before = prevLevel >= 1 ? creatureContribution(rarity, { level: prevLevel, evolution: held.evolution }, m) : 0;
+    const before = prevLevel >= 1 ? creatureContribution(rarity, { ...held, level: prevLevel }, m) : 0;
     return sum + (creatureContribution(rarity, held, m) - before);
   }, 0);
 

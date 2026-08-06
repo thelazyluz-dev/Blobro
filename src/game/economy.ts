@@ -217,13 +217,17 @@ export function wealthPaybackMult(gooPerSecValue: number): number {
  */
 export function creatureLevelCost(
   rarity: Rarity,
-  held: { level: number; evolution?: number },
+  held: { level: number; evolution?: number; rebirths?: number },
   m: Modifiers,
   gooPerSecValue: number,
   incomeMult = 1,
 ): number {
+  // Spread `held` so the "next level" carries the SAME rebirths (and evolution)
+  // as now — otherwise the next-level income drops the rebirth bonus, the gain
+  // goes negative, and the cost floors to 1 goo. That was the "every level costs
+  // 1 goo after a rebirth" bug.
   const gain =
-    creatureContribution(rarity, { level: held.level + 1, evolution: held.evolution }, m, incomeMult) -
+    creatureContribution(rarity, { ...held, level: held.level + 1 }, m, incomeMult) -
     creatureContribution(rarity, held, m, incomeMult);
   return Math.max(1, Math.round(gain * creatureLevelPaybackSeconds * wealthPaybackMult(gooPerSecValue)));
 }
@@ -231,14 +235,16 @@ export function creatureLevelCost(
 /** Goo cost to evolve to the next stage — a wealth-scaled payback of the boost. */
 export function evolveCost(
   rarity: Rarity,
-  held: { level: number; evolution?: number },
+  held: { level: number; evolution?: number; rebirths?: number },
   m: Modifiers,
   gooPerSecValue: number,
   incomeMult = 1,
 ): number {
   const stage = held.evolution ?? 0;
+  // Spread `held` so the next stage keeps the same rebirths — same reason as
+  // creatureLevelCost (a dropped rebirth bonus would poison the gain).
   const gain =
-    creatureContribution(rarity, { level: held.level, evolution: stage + 1 }, m, incomeMult) -
+    creatureContribution(rarity, { ...held, evolution: stage + 1 }, m, incomeMult) -
     creatureContribution(rarity, held, m, incomeMult);
   return Math.max(
     1,
@@ -253,7 +259,7 @@ export function evolveCost(
  */
 export function affordableCreatureLevels(
   rarity: Rarity,
-  held: { level: number; evolution?: number },
+  held: { level: number; evolution?: number; rebirths?: number },
   m: Modifiers,
   goo: number,
   gooPerSecValue: number,
@@ -262,7 +268,7 @@ export function affordableCreatureLevels(
   let count = 0;
   let spent = 0;
   while (count < 999) {
-    const cost = creatureLevelCost(rarity, { level: held.level + count, evolution: held.evolution }, m, gooPerSecValue, incomeMult);
+    const cost = creatureLevelCost(rarity, { ...held, level: held.level + count }, m, gooPerSecValue, incomeMult);
     if (spent + cost > goo) break;
     spent += cost;
     count += 1;

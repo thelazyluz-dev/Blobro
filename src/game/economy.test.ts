@@ -118,4 +118,17 @@ describe('rebirth income bonus (mastering loop)', () => {
     const reborn = ownedCreatureIncome('rare', { level: 20, rebirths: 5 }, 1);
     expect(reborn).toBeCloseTo(plain * rebirthIncomeMult(5), 6);
   });
+
+  it('a reborn creature still costs a sensible amount to level (not floored to 1)', () => {
+    // Regression: the "next level" must carry the same rebirths, or the gain
+    // goes negative and the cost floors to 1 goo — the "every level costs 1 goo
+    // after a rebirth" bug. A reborn creature should cost MORE (its income, and
+    // thus the level's gain, is higher), never a trivial 1.
+    const rate = 1e7;
+    const plain = creatureLevelCost('rare', { level: 12, evolution: 1 }, mods(), rate);
+    const reborn = creatureLevelCost('rare', { level: 12, evolution: 1, rebirths: 3 }, mods(), rate);
+    expect(reborn).toBeGreaterThan(1);
+    expect(reborn).toBeGreaterThan(plain);
+    expect(reborn).toBeCloseTo(plain * rebirthIncomeMult(3), -1);
+  });
 });

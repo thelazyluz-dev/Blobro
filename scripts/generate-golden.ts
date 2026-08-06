@@ -271,13 +271,27 @@ const levelCostHeld = { rarity: 'rare' as Rarity, held: { level: 12, evolution: 
 const evolveCostHeld = { rarity: 'uncommon' as Rarity, held: { level: 25, evolution: 0 } };
 const modParamsForCosts: ModParams = { upgrades: upgrades({ nurture: 6 }), achievementStarBonus: 0.02 };
 
-const creatureLevelCostCases = wealthLevels.map((gooPerSecValue) => ({
-  ...levelCostHeld,
-  modParams: modParamsForCosts,
-  gooPerSecValue,
-  incomeMult: 1,
-  expected: creatureLevelCost(levelCostHeld.rarity, levelCostHeld.held, mods(modParamsForCosts), gooPerSecValue, 1),
-}));
+// A reborn creature (rebirths > 0) MUST still cost a sensible, positive amount —
+// the "next level" has to carry the same rebirth bonus, or the gain goes
+// negative and the cost floors to 1 goo (the bug this locks against). Priced
+// at a high wealth level, where the bug was most visible.
+const rebornLevelCostHeld = { rarity: 'rare' as Rarity, held: { level: 12, evolution: 1, rebirths: 3 } };
+const creatureLevelCostCases = [
+  ...wealthLevels.map((gooPerSecValue) => ({
+    ...levelCostHeld,
+    modParams: modParamsForCosts,
+    gooPerSecValue,
+    incomeMult: 1,
+    expected: creatureLevelCost(levelCostHeld.rarity, levelCostHeld.held, mods(modParamsForCosts), gooPerSecValue, 1),
+  })),
+  ...[1e7, 1e12].map((gooPerSecValue) => ({
+    ...rebornLevelCostHeld,
+    modParams: modParamsForCosts,
+    gooPerSecValue,
+    incomeMult: 1,
+    expected: creatureLevelCost(rebornLevelCostHeld.rarity, rebornLevelCostHeld.held, mods(modParamsForCosts), gooPerSecValue, 1),
+  })),
+];
 
 // Every rarity, not just one: evolution now carries an explicit per-rarity
 // cost multiplier (balance.evolveRarityCostMult), so a vector set that only

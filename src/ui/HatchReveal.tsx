@@ -351,7 +351,7 @@ function RevealMessage({ outcome }: { outcome: HatchOutcome }) {
   // its true contribution to goo/sec, with all automation multipliers folded in.
   const delta = held
     ? creatureContribution(rarity, held, m) -
-      creatureContribution(rarity, { level: held.level - 1, evolution: held.evolution }, m)
+      creatureContribution(rarity, { ...held, level: held.level - 1 }, m)
     : 0;
   return (
     <>

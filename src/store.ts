@@ -829,7 +829,7 @@ export const useGame = create<GameState>((set, get) => {
       const n = affordableCreatureLevels(rarity, held, m, s.goo, rate, im);
       if (n <= 0) return;
       let spent = 0;
-      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { level: held.level + i, evolution: held.evolution }, m, rate, im);
+      for (let i = 0; i < n; i++) spent += creatureLevelCost(rarity, { ...held, level: held.level + i }, m, rate, im);
       set({
         goo: s.goo - spent,
         characters: { ...s.characters, [id]: { ...held, level: held.level + n } },

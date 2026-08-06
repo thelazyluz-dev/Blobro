@@ -336,7 +336,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const levelCost = creatureLevelCost(def.rarity, held, m, rate, im);
   const affordLevel = goo >= levelCost;
   const affordN = affordableCreatureLevels(def.rarity, held, m, goo, rate, im);
-  const nextIncome = creatureContribution(def.rarity, { level: held.level + 1, evolution: held.evolution }, m, im);
+  const nextIncome = creatureContribution(def.rarity, { ...held, level: held.level + 1 }, m, im);
   const levelGain = nextIncome - income;
 
   const onLevel = () => {
@@ -444,23 +444,33 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         <div className="mt-1 text-goo tabular">{formatGoo(income)} גּוּ/שנייה</div>
 
         {/* The special ability this creature grants when it's your main —
-            strengthened permanently by each rebirth (the mastering loop). */}
+            strengthened permanently by each rebirth (the mastering loop). We
+            show the ability NAME (so it's clear what it is) and, when reborn, a
+            permanent breakdown of exactly what the rebirths added. */}
         {(() => {
           const ab = abilityOf(id, def.rarity, rebirths);
+          const abBase = abilityOf(id, def.rarity, 0);
           const meta = ABILITY_META[ab.type];
+          const abilityAdd = abilityPct(ab) - abilityPct(abBase);
+          const incomeAdd = Math.round(rebirthIncomeBonus * rebirths * 100);
           return (
             <div className="mt-3 rounded-2xl bg-pop/10 px-3 py-2 ring-1 ring-pop/30">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-bone/55">יְכֹלֶת מְיֻחֶדֶת (כְּשֶׁמּוּצֶגֶת בַּמָּסָךְ)</div>
+                <div className="text-xs text-bone/55">
+                  {meta.icon} {meta.nameHe} <span className="text-bone/40">(כְּשֶׁמּוּצֶגֶת בַּמָּסָךְ)</span>
+                </div>
                 {rebirths > 0 && (
                   <div className="shrink-0 rounded-full bg-pop/25 px-2 py-0.5 text-xs font-bold text-pop tabular">
                     🔄 {rebirths}
                   </div>
                 )}
               </div>
-              <div className="mt-0.5 font-display text-base text-pop">
-                {meta.icon} {meta.descHe(abilityPct(ab))}
-              </div>
+              <div className="mt-0.5 font-display text-base text-pop">{meta.descHe(abilityPct(ab))}</div>
+              {rebirths > 0 && (
+                <div className="mt-1 text-xs font-bold text-cy">
+                  🔄 מִלֵּידָה מֵחָדָשׁ: +{abilityAdd}% יְכֹלֶת · +{incomeAdd}% הַכְנָסָה
+                </div>
+              )}
             </div>
           );
         })()}
