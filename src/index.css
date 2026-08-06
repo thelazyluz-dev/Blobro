@@ -520,6 +520,16 @@ body {
   animation: blorbo-tap-hint 1.1s ease-in-out infinite;
 }
 
+/* 🔄 Mastery halo — the rotating ring behind a reborn creature on the main
+   screen. Under reduced-motion the ring simply stops rotating (still a visible
+   badge of mastery). */
+@keyframes blorbo-rebirth-halo {
+  to { transform: rotate(360deg); }
+}
+.anim-rebirth-halo {
+  animation: blorbo-rebirth-halo 6s linear infinite;
+}
+
 /* 💎 Crystal-exclusive accessories (prestige-only). A gentle twinkle/breathe so
    the status reads as "special" without distracting. Still under reduced-motion. */
 @keyframes blorbo-sparkle {
@@ -620,6 +630,7 @@ body {
   .creature-sparkle,
   .creature-aura,
   .anim-tap-hint,
+  .anim-rebirth-halo,
   .evo-spark,
   .anim-shell-fall,
   .anim-evolve-glow,

@@ -84,6 +84,7 @@ export function ClickScreen() {
   // otherwise we fall back to the classic green blob.
   const mainCreature = useGame((s) => (s.equippedMain && s.characters[s.equippedMain] ? s.equippedMain : null));
   const mainEvolution = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.evolution ?? 0) : 0));
+  const mainRebirths = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.rebirths ?? 0) : 0));
   const reduced = useReducedMotion();
 
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -530,6 +531,29 @@ export function ClickScreen() {
             {mainCreature ? (
               // Creature on the main screen — the worn accessory layers on top.
               <span className="relative block h-[252px] w-[252px]">
+                {/* Mastery indicator for a reborn creature: a soft rotating
+                    halo ring behind it + a count badge — a pretty signal, not
+                    just text (owner request). Both purely decorative. */}
+                {mainRebirths > 0 && (
+                  <>
+                    <span
+                      aria-hidden
+                      className={`pointer-events-none absolute -inset-2 rounded-full ${reduced ? '' : 'anim-rebirth-halo'}`}
+                      style={{
+                        background: 'conic-gradient(from 0deg,#33E1FF,#FF2E88,#FFD84D,#33E1FF)',
+                        WebkitMask: 'radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 8px))',
+                        mask: 'radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 8px))',
+                        opacity: 0.9,
+                      }}
+                    />
+                    <span
+                      className="anim-breathe pointer-events-none absolute -top-1 end-0 z-20 flex items-center gap-0.5 rounded-full px-2 py-0.5 font-display text-sm text-void"
+                      style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)', boxShadow: '0 0 16px -2px #FF2E88' }}
+                    >
+                      🔄 {mainRebirths}
+                    </span>
+                  </>
+                )}
                 <CharacterBody id={mainCreature} className="h-full w-full" evolution={mainEvolution} />
                 {/* Creatures sit lower in their box than the classic blob does,
                     so the accessory is nudged down and in a touch — otherwise a

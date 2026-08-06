@@ -198,6 +198,8 @@ export function CollectionScreen() {
                   }
                   const stage = held.evolution ?? 0;
                   const evolved = stage > 0;
+                  const rebirths = held.rebirths ?? 0;
+                  const reborn = rebirths > 0;
                   const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
                   const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow, incomeMultOf(def));
                   // Ready to evolve = reached the next stage's level threshold AND
@@ -217,9 +219,14 @@ export function CollectionScreen() {
                       }`}
                       style={{
                         backgroundColor: '#170a29',
-                        boxShadow: evolved
-                          ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
-                          : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
+                        // Reborn creatures (the mastering loop) get a distinct
+                        // magenta "mastery" frame that wins over gold/rarity, so
+                        // you can spot a reborn one across the grid at a glance.
+                        boxShadow: reborn
+                          ? `inset 0 0 0 2px #FF2E88, 0 0 22px -3px #FF2E88`
+                          : evolved
+                            ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
+                            : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
                       }}
                     >
                       {canLevel > 0 && (
@@ -229,6 +236,11 @@ export function CollectionScreen() {
                       )}
                       {evolved && (
                         <span className="absolute end-1 top-1 text-sm">✨{stage}</span>
+                      )}
+                      {reborn && (
+                        <span className="absolute end-1 bottom-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-void tabular ring-2 ring-void/50" style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}>
+                          🔄{rebirths}
+                        </span>
                       )}
                       <CharacterBody id={id} className="h-12 w-12" evolution={stage} />
                       <span
