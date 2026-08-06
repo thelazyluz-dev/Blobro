@@ -530,7 +530,7 @@ body {
   animation: blorbo-rebirth-halo 6s linear infinite;
 }
 
-/* 💎 Crystal-exclusive accessories (prestige-only). A gentle twinkle/breathe so
+/* Premium late-game accessories (bought with goo). A gentle twinkle/breathe so
    the status reads as "special" without distracting. Still under reduced-motion. */
 @keyframes blorbo-sparkle {
   0%, 100% { opacity: 0.55; }

@@ -214,7 +214,7 @@ function AccessoryArtEl({ art }: { art: AccessoryArt }) {
           <ellipse cx="100" cy="16" rx="36" ry="11" fill="none" stroke="#FFF4E0" strokeWidth="2" opacity="0.7" />
         </>
       );
-    // 💎 Crystal-exclusive (prestige-only). Cyan/white to read as "crystal".
+    // Premium late-game cosmetic (bought with goo). Cyan/white "crystal" look.
     case 'sparkles':
       // Four-point sparkles scattered around the head — twinkle without covering
       // the face. A tiny CSS shimmer, disabled under reduced-motion (index.css).

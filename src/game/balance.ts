@@ -12,13 +12,13 @@ import type { Rarity, UpgradeId } from './types';
  */
 export const globalMultiplier = 1; // prestige hook — do not remove
 
-// The prestige mechanic was removed from the app (owner decision). This
-// per-crystal bonus remains ONLY as dormant save-compat: `prestigeCrystals`
-// stays a save field (never earned anymore, 0 for new players), and
-// modifiersFrom still folds it through — so an old save that carries crystals
-// keeps its (tiny) historical bonus rather than silently changing. No UI, no
-// way to gain more.
-export const prestigeCrystalBonus = 0.05;
+// The prestige/crystal mechanic was CANCELLED (owner decision). This bonus is
+// now 0, so a crystal is worth nothing: prestigeMultiplier is always 1 and the
+// dormant `prestigeCrystals` save field can no longer inflate anyone's income
+// (old testers who still carry crystals no longer get a hidden, unearnable
+// boost — they're now consistent with every new player, who has 0). The field
+// stays for save-compat; it simply has no effect. Was 0.05.
+export const prestigeCrystalBonus = 0;
 
 // --- Clicking ----------------------------------------------------------------
 // clickPower = (clickBase + fingerBonus(level)) × clickMultiplier × star × globalMultiplier

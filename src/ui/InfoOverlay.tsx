@@ -4,7 +4,7 @@
 
 import { createPortal } from 'react-dom';
 import { ABILITY_META, abilityPct } from '../game/abilities';
-import { autoClicksPerSec } from '../game/economy';
+import { autoClicksPerSec, rebirthIncomeMult } from '../game/economy';
 import { charactersById } from '../game/characters';
 import { formatGoo } from '../game/format';
 import {
@@ -57,8 +57,14 @@ export function InfoOverlay() {
   const ability = useGame(selectActiveAbility);
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const mainId = useGame((s) => s.equippedMain);
+  const mainRebirths = useGame((s) => (s.equippedMain ? (s.characters[s.equippedMain]?.rebirths ?? 0) : 0));
 
   if (!open) return null;
+
+  // The reborn creature's permanent income bonus (its ability boost already
+  // shows in the ability row below). Shown as its own line so a player can see
+  // exactly what a rebirth adds.
+  const rebirthIncomePct = Math.round((rebirthIncomeMult(mainRebirths) - 1) * 100);
 
   const tapsPerSec = autoClicksPerSec(autoTapLevel);
   const robotRate = perClick * tapsPerSec;
@@ -101,7 +107,7 @@ export function InfoOverlay() {
           <div className="pt-2 text-center text-[11px] font-bold text-bone/45">בַּלְּחִיצוֹת</div>
           <Row icon="👆" label="כָּל נְגִיעָה שָׁוָה" value={formatGoo(perClick)} />
 
-          {(starBonus > 0 || ability) && (
+          {(starBonus > 0 || ability || mainRebirths > 0) && (
             <div className="pt-2 text-center text-[11px] font-bold text-bone/45">הַבּוֹנוּסִים שֶׁלְּךָ</div>
           )}
           {starBonus > 0 && (
@@ -118,6 +124,14 @@ export function InfoOverlay() {
               label={`יְכֹלֶת שֶׁל ${mainName}`}
               hint={ABILITY_META[ability.type].descHe(abilityPct(ability))}
               value={`+${abilityPct(ability)}%`}
+            />
+          )}
+          {mainRebirths > 0 && (
+            <Row
+              icon="🔄"
+              label={`לֵידָה מֵחָדָשׁ · ${mainName}`}
+              hint={`${mainRebirths} לֵידוֹת — בּוֹנוּס הַכְנָסָה קָבוּעַ (וְהַיְּכֹלֶת חֲזָקָה יוֹתֵר)`}
+              value={`+${rebirthIncomePct}%`}
             />
           )}
 
