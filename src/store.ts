@@ -428,6 +428,9 @@ function snapshot(s: GameState, now: number): SaveState {
 
 export const useGame = create<GameState>((set, get) => {
   const mods = (): Modifiers => modsOf(get());
+  // Modifiers + wealth reference for pricing — exclude the active-creature
+  // ability so displaying a creature never changes what its upgrades cost.
+  const costMods = (): Modifiers => baseModsOf(get());
 
   return {
     goo: 0,
@@ -803,7 +806,7 @@ export const useGame = create<GameState>((set, get) => {
       const stage = held.evolution ?? 0;
       if (stage >= maxEvolution || held.level < evolveLevels[stage]) return; // not eligible yet
       const def = charactersById[id];
-      const m = mods();
+      const m = costMods();
       const cost = evolveCost(def.rarity, held, m, gooPerSec(s.characters, m), incomeMultById(id));
       if (s.goo < cost) return;
       set({
@@ -828,7 +831,7 @@ export const useGame = create<GameState>((set, get) => {
       if (stage >= maxEvolution) return;
       const target = evolveLevels[stage];
       const def = charactersById[id];
-      const m = mods();
+      const m = costMods();
       const rate = gooPerSec(s.characters, m);
       const im = incomeMultById(id);
       const levelsCost = levelUpToCost(def.rarity, held, target, m, rate, im);
@@ -862,7 +865,7 @@ export const useGame = create<GameState>((set, get) => {
       const stage = held.evolution ?? 0;
       const reb = held.rebirths ?? 0;
       if (stage < maxEvolution || reb >= rebirthCap) return; // not eligible / already capped
-      const cost = rebirthCost(reb, gooPerSec(s.characters, mods()));
+      const cost = rebirthCost(reb, gooPerSec(s.characters, costMods()));
       if (s.goo < cost) return; // can't afford
       const def = charactersById[id];
       set({
@@ -878,7 +881,7 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const held = s.characters[id];
       if (!held) return;
-      const m = mods();
+      const m = costMods();
       const cost = creatureLevelCost(charactersById[id].rarity, held, m, gooPerSec(s.characters, m), incomeMultById(id));
       if (s.goo < cost) return;
       set({
@@ -894,7 +897,7 @@ export const useGame = create<GameState>((set, get) => {
       const held = s.characters[id];
       if (!held) return;
       const rarity = charactersById[id].rarity;
-      const m = mods();
+      const m = costMods();
       const rate = gooPerSec(s.characters, m);
       const im = incomeMultById(id);
       const n = affordableCreatureLevels(rarity, held, m, s.goo, rate, im);
@@ -916,7 +919,7 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const now = Date.now();
       if (now < s.upgradeAllReadyAt) return; // still cooling down
-      const m = mods();
+      const m = costMods();
       const rate = gooPerSec(s.characters, m);
       let goo = s.goo;
       const chars: OwnedCharacters = { ...s.characters };
@@ -1595,7 +1598,14 @@ export const selectActiveAbility = (s: GameState): Ability | null => {
 };
 
 // Convenience selectors used across screens.
-const modsOf = (s: GameState): Modifiers => {
+/**
+ * Modifiers WITHOUT the equipped-main creature's active ability — the "base"
+ * a creature has regardless of what you display. Used for PRICING, so that
+ * choosing a creature to show on screen (which turns its ability on) never
+ * changes what its upgrades/evolutions cost. The display bonus is a pure
+ * benefit: income goes up, the price does not follow it.
+ */
+const baseModsOf = (s: GameState): Modifiers => {
   const m = modifiersFrom(
     s.upgrades,
     starBonusFor(s.achievements),
@@ -1609,6 +1619,11 @@ const modsOf = (s: GameState): Modifiers => {
   if (ev.luckBonus > 0) m.luck = Math.min(luckCap, m.luck + ev.luckBonus);
   // Global rebirth income bonus — every rebirth across the roster, always on.
   m.rebirthMultiplier = rebirthGlobalMult(s.characters);
+  return m;
+};
+
+const modsOf = (s: GameState): Modifiers => {
+  const m = baseModsOf(s);
   // The equipped main creature's ability (tap/income/crit/luck fold into the
   // modifiers here; combo/bonus are applied where those mechanics live).
   const ab = selectActiveAbility(s);
@@ -1621,6 +1636,15 @@ const modsOf = (s: GameState): Modifiers => {
   return m;
 };
 export const selectMods = (s: GameState): Modifiers => modsOf(s);
+/**
+ * Modifiers and wealth reference used for PRICING creature upgrades/evolutions.
+ * Both exclude the active-creature ability (and event/ad, which modsOf already
+ * omits), so a creature's cost is identical whether or not it is the one shown
+ * on screen — see baseModsOf. `selectMods`/`selectGooPerSec` still include the
+ * ability for the numbers that represent actual power (income, tap).
+ */
+export const selectCostMods = (s: GameState): Modifiers => baseModsOf(s);
+export const selectCostWealth = (s: GameState): number => gooPerSec(s.characters, baseModsOf(s));
 
 /** The rewarded-bonus multiplier active right now (adRewardMult while live, else 1). */
 const adMultOf = (s: GameState, now: number): number => (now < s.adRewardUntil ? adRewardMult : 1);
