@@ -22,9 +22,10 @@ vi.mock('./net/save', async () => {
   return { ...actual, fetchCloudSave: async () => null, pushCloudSave: async () => ({ ok: false, conflict: null }) };
 });
 
-const { useGame, selectRebirthIncomeBonus } = await import('./store');
+const { useGame, selectRebirthIncomeBonus, selectGooPerSec } = await import('./store');
 const { defaultSaveState } = await import('./game/save');
 const { maxEvolution, rebirthCap } = await import('./game/balance');
+const { rebirthCost } = await import('./game/economy');
 
 const NOW = 1_754_000_000_000;
 
@@ -34,17 +35,35 @@ beforeEach(() => {
 });
 
 describe('rebirthCreature', () => {
+  const RICH = 1e30; // enough goo to afford the rebirth cost in these tests
+
   it('resets a max-evolved creature to level 1 / stage 0 and banks a rebirth', () => {
-    useGame.setState({ characters: { blombo: { level: 137, evolution: maxEvolution } } });
+    useGame.setState({ characters: { blombo: { level: 137, evolution: maxEvolution } }, goo: RICH });
     useGame.getState().rebirthCreature('blombo');
     const held = useGame.getState().characters.blombo;
     expect(held).toEqual({ level: 1, rebirths: 1 });
   });
 
   it('stacks rebirths across the loop', () => {
-    useGame.setState({ characters: { blombo: { level: 100, evolution: maxEvolution, rebirths: 3 } } });
+    useGame.setState({ characters: { blombo: { level: 100, evolution: maxEvolution, rebirths: 3 } }, goo: RICH });
     useGame.getState().rebirthCreature('blombo');
     expect(useGame.getState().characters.blombo).toEqual({ level: 1, rebirths: 4 });
+  });
+
+  it('costs goo (wealth-scaled) and refuses when you cannot afford it', () => {
+    useGame.setState({ characters: { blombo: { level: 100, evolution: maxEvolution } }, goo: 0 });
+    useGame.getState().rebirthCreature('blombo');
+    // Too poor → no rebirth happened.
+    expect(useGame.getState().characters.blombo).toEqual({ level: 100, evolution: maxEvolution });
+    // Rich enough → it deducts a positive cost and rebirths. (Modest goo so the
+    // deduction is visible — against 1e30 it would round away in float.)
+    const rate = selectGooPerSec(useGame.getState());
+    const cost = rebirthCost(0, rate);
+    expect(cost).toBeGreaterThan(0);
+    useGame.setState({ goo: cost + 5000 });
+    useGame.getState().rebirthCreature('blombo');
+    expect(useGame.getState().characters.blombo?.rebirths).toBe(1);
+    expect(useGame.getState().goo).toBe(5000);
   });
 
   it('refuses when the creature is not fully evolved', () => {

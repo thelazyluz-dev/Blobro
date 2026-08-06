@@ -59,6 +59,7 @@ import {
   gooPerSec,
   levelUpToCost,
   modifiersFrom,
+  rebirthCost,
   rebirthGlobalMult,
 } from './game/economy';
 import { formatGoo } from './game/format';
@@ -820,10 +821,10 @@ export const useGame = create<GameState>((set, get) => {
 
     // Rebirth a fully-evolved creature (the "mastering" loop): it resets to
     // level 1 / stage 0, and in exchange its ability gains a permanent level and
-    // it earns a permanent income bonus (see abilityOf / rebirthIncomeMult). The
-    // COST is the reset itself — there is no goo price. Only offered at max
-    // evolution and below the cap; both re-checked here so a stale UI can't
-    // over-rebirth.
+    // it adds to the GLOBAL income bonus. Costs goo (wealth-scaled, escalating —
+    // see rebirthCost) so it can't be spammed. Only offered at max evolution and
+    // below the cap, and only when affordable; all re-checked here so a stale UI
+    // can't over-rebirth or overspend.
     rebirthCreature: (id) => {
       const s = get();
       const held = s.characters[id];
@@ -831,8 +832,11 @@ export const useGame = create<GameState>((set, get) => {
       const stage = held.evolution ?? 0;
       const reb = held.rebirths ?? 0;
       if (stage < maxEvolution || reb >= rebirthCap) return; // not eligible / already capped
+      const cost = rebirthCost(reb, gooPerSec(s.characters, mods()));
+      if (s.goo < cost) return; // can't afford
       const def = charactersById[id];
       set({
+        goo: s.goo - cost,
         characters: { ...s.characters, [id]: { level: minCharLevel, rebirths: reb + 1 } },
       });
       get().pushToast({ text: `${def.nameHe} נוֹלַד מֵחָדָשׁ! 🔄 (לֵידָה ${reb + 1})`, icon: '🔄', tone: 'star' });

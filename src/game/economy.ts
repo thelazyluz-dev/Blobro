@@ -26,6 +26,8 @@ import {
   paybackGrowthPerDecade,
   prestigeCrystalBonus,
   rebirthCap,
+  rebirthCostGrowth,
+  rebirthCostSeconds,
   rebirthGlobalCap,
   rebirthIncomeBonus,
   tapProductionShare,
@@ -154,6 +156,18 @@ export function totalRebirths(owned: OwnedCharacters): number {
  */
 export function rebirthGlobalMult(owned: OwnedCharacters): number {
   return 1 + totalRebirths(owned) * rebirthIncomeBonus;
+}
+
+/**
+ * Goo cost of the NEXT rebirth on a creature that has already been reborn
+ * `rebirthsSoFar` times, given the player's current total income/sec. Priced as
+ * seconds of income (wealth-scaled) escalating per rebirth, so rebirthing is a
+ * real, paced investment at any depth rather than a free spam once you're rich.
+ */
+export function rebirthCost(rebirthsSoFar: number, gooPerSecValue: number): number {
+  const n = Math.max(0, Math.floor(rebirthsSoFar));
+  const rate = Math.max(0, gooPerSecValue);
+  return Math.max(1, Math.round(rate * rebirthCostSeconds * Math.pow(rebirthCostGrowth, n)));
 }
 
 /** A single owned creature's income, including its evolution (shiny) bonus and

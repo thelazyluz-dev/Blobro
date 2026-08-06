@@ -18,6 +18,7 @@ import {
   evolveCost,
   levelUpToCost,
   ownedCreatureIncome,
+  rebirthCost,
 } from '../../game/economy';
 import { formatGoo } from '../../game/format';
 import type { CharId, Rarity } from '../../game/types';
@@ -338,7 +339,10 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const maxedEvolution = stage >= maxEvolution;
   // Rebirth (mastering loop): only at max evolution, and only below the cap.
   const rebirths = held.rebirths ?? 0;
-  const canRebirth = maxedEvolution && rebirths < rebirthCap;
+  const eligibleRebirth = maxedEvolution && rebirths < rebirthCap;
+  const rebirthGooCost = eligibleRebirth ? rebirthCost(rebirths, rate) : 0;
+  const affordRebirth = goo >= rebirthGooCost;
+  const canRebirth = eligibleRebirth && affordRebirth;
   const rebirthCapped = rebirths >= rebirthCap;
   const nextEvolveLevel = maxedEvolution ? Infinity : evolveLevels[stage];
   const canEvolve = !maxedEvolution && held.level >= nextEvolveLevel;
@@ -408,6 +412,10 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
 
   const onRebirth = () => {
     const muted = useGame.getState().muted;
+    if (!affordRebirth) {
+      playError(muted);
+      return;
+    }
     if (!confirmRebirth) {
       setConfirmRebirth(true); // first tap arms the confirm
       return;
@@ -580,23 +588,28 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             creature to level 1 but permanently strengthens its ability (+income
             too), so it ends up stronger than before. Two-tap confirm because it
             wipes the creature's levels. */}
-        {canRebirth && (
+        {eligibleRebirth && (
           <button
             type="button"
             onClick={onRebirth}
-            className={`btn mt-3 flex w-full flex-col items-center py-2.5 text-void ${
-              confirmRebirth ? 'anim-evolve-glow' : ''
+            className={`btn mt-3 flex w-full flex-col items-center py-2.5 ${
+              affordRebirth ? `text-void ${confirmRebirth ? 'anim-evolve-glow' : ''}` : 'bg-black/30 text-bone/45 ring-hairline'
             }`}
-            style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}
+            style={affordRebirth ? { background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' } : undefined}
           >
-            {confirmRebirth ? (
+            {!affordRebirth ? (
+              <>
+                <span className="text-lg">🔄 לֵידָה מֵחָדָשׁ</span>
+                <span className="text-xs tabular">חָסֵר {formatGoo(rebirthGooCost - goo)} גּוּ</span>
+              </>
+            ) : confirmRebirth ? (
               <>
                 <span className="text-lg">בְּטוּחִים? 🔄 חוֹזֵר לְרָמָה 1</span>
                 <span className="text-xs">הַיְּכֹלֶת תִּתְחַזֵּק לָנֶצַח — לַחֲצוּ שׁוּב</span>
               </>
             ) : (
               <>
-                <span className="text-lg">🔄 לֵידָה מֵחָדָשׁ</span>
+                <span className="text-lg">🔄 לֵידָה מֵחָדָשׁ — {formatGoo(rebirthGooCost)} גּוּ</span>
                 <span className="text-xs tabular">
                   יְכֹלֶת חֲזָקָה יוֹתֵר + {Math.round(rebirthIncomeBonus * 100)}% הַכְנָסָה לָנֶצַח
                 </span>

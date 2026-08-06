@@ -3,7 +3,7 @@
 // felt by real players.
 
 import { describe, expect, it } from 'vitest';
-import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier, rebirthCap, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
+import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier, rebirthCap, rebirthCostGrowth, rebirthCostSeconds, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
 import {
   autoClicksPerSec,
   charIncome,
@@ -14,6 +14,7 @@ import {
   levelUpToCost,
   modifiersFrom,
   ownedCreatureIncome,
+  rebirthCost,
   rebirthGlobalMult,
   totalRebirths,
   wealthPaybackMult,
@@ -132,6 +133,17 @@ describe('rebirth GLOBAL income bonus (mastering loop)', () => {
     const maxed = Object.fromEntries(characters.map((c) => [c.id, { level: 1, rebirths: rebirthCap }]));
     expect(totalRebirths(maxed)).toBe(rebirthGlobalCap);
     expect(rebirthGlobalMult(maxed)).toBeCloseTo(1 + rebirthGlobalCap * rebirthIncomeBonus, 10);
+  });
+
+  it('rebirthCost scales with income and escalates per rebirth (no free spam)', () => {
+    const rate = 1e9;
+    // First rebirth ≈ rebirthCostSeconds of your total income.
+    expect(rebirthCost(0, rate)).toBe(Math.round(rate * rebirthCostSeconds));
+    // Each rebirth on the creature costs rebirthCostGrowth× the last.
+    expect(rebirthCost(1, rate) / rebirthCost(0, rate)).toBeCloseTo(rebirthCostGrowth, 6);
+    expect(rebirthCost(5, rate)).toBeGreaterThan(rebirthCost(0, rate));
+    // Richer player → proportionally pricier (never trivial).
+    expect(rebirthCost(0, rate * 1000)).toBeCloseTo(rebirthCost(0, rate) * 1000, -2);
   });
 
   it('folds into total income but NOT into a single creature\'s base income', () => {

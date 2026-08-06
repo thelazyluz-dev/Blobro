@@ -97,6 +97,15 @@ export const rebirthIncomeBonus = 0.1;
 // still capped at rebirthCap (20) for its own ability; this caps the SUM across
 // the roster that feeds the global income multiplier.
 export const rebirthGlobalCap = 50;
+// Rebirth costs goo, so it can't be spammed. Priced as SECONDS of your current
+// total income (wealth-scaled, so it's always a meaningful investment at any
+// depth), escalating per rebirth already done on that creature (so climbing one
+// creature toward the cap gets steadily harder). First rebirth ≈ 5 minutes of
+// income; the 20th ≈ hours. cost = incomeRate × rebirthCostSeconds ×
+// rebirthCostGrowth ^ (rebirths so far). Without this, a wealthy player rebuilds
+// a creature to max evolution for pocket change and rebirths without pause.
+export const rebirthCostSeconds = 300;
+export const rebirthCostGrowth = 1.25;
 
 // --- Direct creature leveling (goo sink) --------------------------------------
 // Besides hatching duplicates, a creature can be levelled straight up with goo.
