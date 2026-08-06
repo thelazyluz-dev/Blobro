@@ -12,7 +12,7 @@
 // robot hand never touches it), so the hot tap path is untouched. The record
 // feeds the SAME bestCpm the passive rolling window does (game/cpm.ts).
 
-import { useEffect, useRef, useState } from 'react';
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import { playBonus, playCrit, playMilestone, playPurchase, playRainDrop } from '../audio/sfx';
 import { cpmWindowMs } from '../game/cpm';
 import { formatGoo } from '../game/format';
@@ -188,7 +188,7 @@ export function SpeedRing() {
  * The dim itself is purely visual (pointer-events-none) so only the blob is
  * tappable during the minute.
  */
-export function SpeedFocusOverlay() {
+export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Element>) => void }) {
   const phase = useGame((s) => s.speedPhase);
   const taps = useGame((s) => s.speedTaps);
   const bestCpm = useGame((s) => s.bestCpm);
@@ -217,7 +217,14 @@ export function SpeedFocusOverlay() {
   return (
     <>
       <div className="pointer-events-none fixed inset-0 z-20 bg-void/70 backdrop-blur-[2px]" aria-hidden />
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-30 flex flex-col items-center gap-1 pt-6">
+      {/* The WHOLE screen is the tap target during a test (owner request): a
+          full-screen surface behind the blob that fires the same tap handler, so
+          a tap anywhere counts. The blob (z-30) sits above it and keeps its own
+          feedback; only the cancel button (z-40) is exempt. */}
+      <div className="fixed inset-0 z-[25]" onPointerDown={onTap} aria-label="הַקֵּשׁ בְּכָל מָקוֹם" role="button" />
+      {/* Top HUD. The solid gradient backing means the timer / "start tapping"
+          text is NEVER hidden behind the header the way it was before. */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-12 pt-16">
         {running ? (
           <>
             <div className={`font-display text-7xl tabular ${urgent ? 'anim-count-pop text-hot' : 'text-cy'}`}>
@@ -229,16 +236,17 @@ export function SpeedFocusOverlay() {
             {ahead && <div className="anim-breathe font-display text-goo">🔥 מוֹבִיל עַל הַשִּׂיא!</div>}
           </>
         ) : (
-          <div className="anim-breathe font-display text-4xl text-cy">הַתְחֵל לְהַקִּישׁ! ⚡</div>
+          <div className="anim-breathe font-display text-4xl text-cy">הַתְחֵל לְהַקִּישׁ בְּכָל מָקוֹם! ⚡</div>
         )}
       </div>
-      <div className="fixed inset-x-0 bottom-24 z-30 flex justify-center">
+      {/* The only escape — deliberately low so it never sits under a tapping thumb. */}
+      <div className="fixed inset-x-0 bottom-8 z-40 flex justify-center">
         <button
           type="button"
           onClick={cancelSpeed}
-          className="rounded-full bg-black/50 px-4 py-1.5 text-sm text-bone/70 ring-1 ring-bone/20 active:scale-95"
+          className="rounded-full bg-black/60 px-5 py-2 text-sm text-bone/75 ring-1 ring-bone/25 active:scale-95"
         >
-          בִּטּוּל
+          בִּטּוּל ✕
         </button>
       </div>
     </>

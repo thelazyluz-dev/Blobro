@@ -282,7 +282,10 @@ export function ClickScreen() {
     }
   };
 
-  const handleClick = (e: React.PointerEvent<HTMLButtonElement>) => {
+  // Widened to any Element so the speed-test full-screen tap surface can reuse
+  // the exact same handler (sound, combo, haptics, floater) — during a test the
+  // WHOLE screen is a tap target, not just the blob.
+  const handleClick = (e: React.PointerEvent<Element>) => {
     const { gain, frenzy, crit } = click();
 
     // Combo: consecutive rapid taps build up, driving pitch and particle count.
@@ -671,8 +674,9 @@ export function ClickScreen() {
       </div>
 
       {/* Speed-test focus mode + result screen (fixed overlays; render nothing
-          unless a test is active). */}
-      <SpeedFocusOverlay />
+          unless a test is active). During a test the whole screen taps via the
+          same handler the blob uses. */}
+      <SpeedFocusOverlay onTap={handleClick} />
       <SpeedResult />
     </div>
   );
