@@ -96,6 +96,7 @@ import {
   plausibilityCeiling,
   verifySaveDelta,
 } from './rules';
+import { sendPush, type PushMessage, type VapidConfig } from './push';
 
 export interface Env {
   DB: D1Database;
@@ -112,6 +113,12 @@ export interface Env {
   // Owner dashboard bearer token (GET /admin/stats). A SECRET — set once via
   // `wrangler secret put ADMIN_TOKEN`. Absent → the endpoint answers 401 to all.
   ADMIN_TOKEN?: string;
+  // Web Push (VAPID). PUBLIC key is a plain [vars] entry (not secret); PRIVATE
+  // key + subject are SECRETS (`wrangler secret put` / dashboard). All absent →
+  // push sending no-ops.
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
 const CORS: Record<string, string> = {
@@ -249,7 +256,7 @@ function metricCol(by: string | null): 'clicks' | 'goo' | 'cpm' {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     resolveAllowedOrigins(env);
     const url = new URL(request.url);
     // /auth/* AND /save are both credentialed (cookie-session) routes and
@@ -350,7 +357,7 @@ export default {
     // (PR 5). That collapses two separately-attackable paths into one, so
     // hardening the save path hardens the leaderboard for free.
     if (url.pathname === '/submit' && request.method === 'POST') {
-      return handleSubmit(request, env);
+      return handleSubmit(request, env, ctx);
     }
 
     // ── Ad telemetry (aggregate-only — see ad_events in schema.sql) ───────
@@ -418,7 +425,13 @@ export default {
    * a long-running query, and failures are swallowed: housekeeping must never
    * be the reason the API is unavailable.
    */
-  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    // The frequent cron only fires the offline-income-cap push; housekeeping
+    // stays nightly. (At 03:00 both crons match and fire as separate events.)
+    if (event.cron === '*/10 * * * *') {
+      await pushOfflineCap(env);
+      return;
+    }
     const now = Date.now();
     try {
       await env.DB.prepare(
@@ -947,6 +960,155 @@ async function handlePushUnsubscribe(request: Request, env: Env): Promise<Respon
     return authJson({ ok: true }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// ── Push send helpers ──────────────────────────────────────────────────────
+
+/** The VAPID config from env, or null when push isn't configured (sending no-ops). */
+function vapidFrom(env: Env): VapidConfig | null {
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return null;
+  return { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT };
+}
+
+/** Reconstruct a user id from its leaderboard code (the de-hyphenated UUID). */
+function userIdFromLeaderboardCode(code: string): string | null {
+  if (!/^[0-9a-fA-F]{32}$/.test(code)) return null; // only the UUID-derived codes round-trip
+  return `${code.slice(0, 8)}-${code.slice(8, 12)}-${code.slice(12, 16)}-${code.slice(16, 20)}-${code.slice(20, 32)}`;
+}
+
+/** Send a notification to every device a user has registered; prune dead ones. */
+async function pushToUser(env: Env, userId: string, message: PushMessage): Promise<void> {
+  const vapid = vapidFrom(env);
+  if (!vapid) return;
+  try {
+    const { results } = await env.DB.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?1')
+      .bind(userId)
+      .all<{ endpoint: string; p256dh: string; auth: string }>();
+    for (const sub of results ?? []) {
+      const r = await sendPush(vapid, sub, message);
+      if (r === 'gone') {
+        await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?1').bind(sub.endpoint).run();
+      }
+    }
+  } catch (err) {
+    console.error('pushToUser failed', err);
+  }
+}
+
+const METRIC_LABEL_HE: Record<'clicks' | 'goo' | 'cpm', string> = {
+  clicks: 'לחיצות',
+  goo: 'גו',
+  cpm: 'מהירות',
+};
+
+/**
+ * After a submit, notify the players a rising score displaced on any board:
+ * the previous #1 who was overtaken, and anyone knocked out of the top-10.
+ * Reads the top-11 before + after per metric (small, indexed) and diffs. Fired
+ * via waitUntil so it never delays the submit response, and best-effort
+ * throughout — a push failure never affects the leaderboard write.
+ */
+async function notifyDisplaced(
+  env: Env,
+  submitterCode: string,
+  before: Record<'clicks' | 'goo' | 'cpm', { code: string; name: string }[]>,
+): Promise<void> {
+  if (!vapidFrom(env)) return;
+  const metrics = ['clicks', 'goo', 'cpm'] as const;
+  const pushed = new Set<string>(); // one push per user across metrics
+  for (const metric of metrics) {
+    try {
+      const after = await topForMetric(env, metric, 11);
+      const beforeList = before[metric] ?? [];
+      const afterCodes10 = new Set(after.slice(0, 10).map((r) => r.code));
+      const cat = METRIC_LABEL_HE[metric];
+
+      // Overtaken: the submitter is now #1 and wasn't before → tell the old #1.
+      if (after[0]?.code === submitterCode && beforeList[0] && beforeList[0].code !== submitterCode) {
+        const uid = userIdFromLeaderboardCode(beforeList[0].code);
+        if (uid && !pushed.has(uid)) {
+          pushed.add(uid);
+          await pushToUser(env, uid, {
+            title: 'נלקח לך המקום הראשון! 👑',
+            body: `${after[0].name} עקף אותך ב${cat}. תחזיר לעצמך את הכתר!`,
+            tag: `overtaken-${metric}`,
+            url: './',
+          });
+        }
+      }
+
+      // Dropped from the top-10: was in the before-top-10, gone from after-top-10.
+      for (const b of beforeList.slice(0, 10)) {
+        if (b.code === submitterCode || afterCodes10.has(b.code)) continue;
+        const uid = userIdFromLeaderboardCode(b.code);
+        if (uid && !pushed.has(uid)) {
+          pushed.add(uid);
+          await pushToUser(env, uid, {
+            title: 'ירדת מהטופ 10 📉',
+            body: `מישהו עקף אותך בטבלת ה${cat}. חזור למשחק כדי לטפס בחזרה!`,
+            tag: `dropped-${metric}`,
+            url: './',
+          });
+        }
+      }
+    } catch (err) {
+      console.error('notifyDisplaced failed', err);
+    }
+  }
+}
+
+/** Top-N (code + name) for a board — the small read the displacement diff uses. */
+async function topForMetric(
+  env: Env,
+  metric: 'clicks' | 'goo' | 'cpm',
+  limit: number,
+): Promise<{ code: string; name: string }[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT code, name FROM scores ORDER BY ${metric} DESC, updated ASC LIMIT ?1`,
+  )
+    .bind(limit)
+    .all<{ code: string; name: string }>();
+  return results ?? [];
+}
+
+/**
+ * The offline-income-cap push (cron, every 10 min): notify players whose save
+ * has been idle past the offline cap and who haven't been told about THIS idle
+ * period yet (last_offline_push < the save's updated time). Bounded per run.
+ */
+async function pushOfflineCap(env: Env): Promise<void> {
+  const vapid = vapidFrom(env);
+  if (!vapid) return;
+  const now = Date.now();
+  const cutoff = now - balance.offlineCapSeconds * 1000;
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT ps.endpoint, ps.p256dh, ps.auth
+       FROM push_subscriptions ps JOIN saves s ON s.user_id = ps.user_id
+       WHERE s.updated <= ?1 AND ps.last_offline_push < s.updated
+       LIMIT 500`,
+    )
+      .bind(cutoff)
+      .all<{ endpoint: string; p256dh: string; auth: string }>();
+    for (const sub of results ?? []) {
+      const r = await sendPush(vapid, sub, {
+        title: 'הבלובים מחכים! 🟢',
+        body: 'צברת את המקסימום של חצי שעה באופליין — בוא לאסוף ולהמשיך להרוויח!',
+        tag: 'offline-cap',
+        url: './',
+      });
+      if (r === 'gone') {
+        await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?1').bind(sub.endpoint).run();
+      } else {
+        // Mark this idle period as handled; it re-arms when they next save.
+        await env.DB.prepare('UPDATE push_subscriptions SET last_offline_push = ?1 WHERE endpoint = ?2')
+          .bind(now, sub.endpoint)
+          .run();
+      }
+    }
+  } catch (err) {
+    console.error('pushOfflineCap failed', err);
   }
 }
 
@@ -1485,7 +1647,7 @@ async function handleAdminEdit(request: Request, env: Env): Promise<Response> {
   }
 }
 
-async function handleSubmit(request: Request, env: Env): Promise<Response> {
+async function handleSubmit(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const origin = request.headers.get('Origin');
   let user: UserRow | null;
   try {
@@ -1535,6 +1697,17 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
       return authJson({ error: 'too-fast' }, 429, origin);
     }
 
+    // Snapshot each board's top-11 BEFORE the write, so notifyDisplaced can diff
+    // it against the after-state to find who got overtaken / knocked out of the
+    // top-10. Only when push is configured — otherwise skip the reads entirely.
+    const before = vapidFrom(env)
+      ? {
+          clicks: await topForMetric(env, 'clicks', 11),
+          goo: await topForMetric(env, 'goo', 11),
+          cpm: await topForMetric(env, 'cpm', 11),
+        }
+      : null;
+
     // goo tracks the CURRENT balance so it may go DOWN (that is the point);
     // clicks and cpm are records and only ever ratchet up via MAX.
     await env.DB.prepare(
@@ -1550,6 +1723,10 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
     )
       .bind(code, name, clicks, goo, cpm, now)
       .run();
+
+    // Notify anyone this score displaced — in the background, so the submit
+    // response isn't held up by push round-trips.
+    if (before) ctx.waitUntil(notifyDisplaced(env, code, before));
 
     return authJson(await rankPayload(env, code), 200, origin);
   } catch {
