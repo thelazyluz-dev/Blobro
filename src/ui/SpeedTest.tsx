@@ -124,7 +124,7 @@ export function SpeedTest() {
     return (
       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cy/15 px-3.5 py-1.5 text-sm ring-1 ring-cy/40">
         <span className="text-cy">⚡</span>
-        <span className="text-bone">{phase === 'countdown' ? 'מַתְכּוֹנֵן…' : 'מְהִירוּת…'}</span>
+        <span className="text-bone">{phase === 'countdown' ? 'מַתְכּוֹנֵן…' : 'אֶתְגָּר…'}</span>
       </span>
     );
   }
@@ -136,7 +136,7 @@ export function SpeedTest() {
       className="anim-breathe inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cy/15 px-3.5 py-1.5 text-sm ring-1 ring-cy/40 active:scale-95"
     >
       <span className="text-cy">⚡</span>
-      <span className="text-bone">מִבְחַן מְהִירוּת</span>
+      <span className="text-bone">אֶתְגָּר הַמְּהִירוּת</span>
     </button>
   );
 }
@@ -331,11 +331,11 @@ export function SpeedFocusOverlay({
 
 /** Fire-and-forget: share the result text, or copy it if the Web Share API is absent. */
 async function shareResult(taps: number, isRecord: boolean) {
-  const text = `${isRecord ? '🏆 שִׂיא חָדָשׁ! ' : ''}עָשִׂיתִי ${taps} הַקָּשׁוֹת בְּדַקָּה בְּבּלוֹרְבּוֹ! ⚡ https://bl-or-bo.com`;
+  const text = `${isRecord ? '🏆 שִׂיא חָדָשׁ בְּאֶתְגָּר הַמְּהִירוּת! ' : '⚡ אֶתְגָּר הַמְּהִירוּת בְּבּלוֹרְבּוֹ! '}עָשִׂיתִי ${taps} הַקָּשׁוֹת בְּדַקָּה — נַסּוּ לְנַצֵּחַ אוֹתִי 👉 https://bl-or-bo.com`;
   try {
     const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> };
     if (nav.share) {
-      await nav.share({ title: 'בלורבו — מבחן מהירות', text });
+      await nav.share({ title: 'בלורבו — אֶתְגָּר הַמְּהִירוּת', text });
     } else if (navigator.clipboard) {
       await navigator.clipboard.writeText(text);
     }
