@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { playPurchase } from '../audio/sfx';
 import { formatGoo } from '../game/format';
-import { useGame } from '../store';
+import { selectReferralClaimable, useGame } from '../store';
 import { haptic } from './haptics';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './pwaInstall';
 import { whatsappShareUrl } from './share';
@@ -75,14 +75,18 @@ function ShareInstallSection() {
 
 export function SettingsButton() {
   const setOpen = useGame((s) => s.setSettingsOpen);
+  const rewardReady = useGame(selectReferralClaimable); // a referral prize waits inside
   return (
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="הגדרות"
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/40 text-lg ring-1 ring-hairline active:scale-90"
+      aria-label={rewardReady ? 'הגדרות — פרס הזמנות מחכה' : 'הגדרות'}
+      className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/40 text-lg ring-1 ring-hairline active:scale-90"
     >
       ⚙️
+      {rewardReady && (
+        <span className="anim-pulse-glow absolute -end-0.5 -top-0.5 h-3.5 w-3.5 rounded-full bg-pop ring-2 ring-void" aria-hidden />
+      )}
     </button>
   );
 }

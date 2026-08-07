@@ -20,8 +20,15 @@ vi.mock('./net/save', async () => {
   const actual = await vi.importActual<typeof import('./net/save')>('./net/save');
   return { ...actual, fetchCloudSave: async () => null, pushCloudSave: async () => ({ ok: false, conflict: null }) };
 });
+// The claim endpoint is exercised in worker/test; here we stub it so the store's
+// merge + guard logic can be tested without a network.
+const claimReferralReward = vi.fn();
+vi.mock('./net/referral', async () => {
+  const actual = await vi.importActual<typeof import('./net/referral')>('./net/referral');
+  return { ...actual, claimReferralReward: (tier: number) => claimReferralReward(tier) };
+});
 
-const { useGame, selectMods } = await import('./store');
+const { useGame, selectMods, referralClaimableTiers } = await import('./store');
 const { defaultSaveState } = await import('./game/save');
 const { accessories, accessoryById, accessoryIncomeBonus, DEFAULT_ACCESSORY } = await import('./game/cosmetics');
 const { plausibilityCeiling } = await import('./game/verify');
@@ -80,25 +87,38 @@ describe('referral medals', () => {
     expect(shopAccessories.some((a) => a.id === 'acc-referral-gold')).toBe(false);
   });
 
-  it('grantReferralRewards hands out the medals by friend count, idempotently', () => {
-    const owned = () => new Set(useGame.getState().ownedCosmetics);
+  it('referralClaimableTiers lists only earned-and-uncollected tiers', () => {
+    expect(referralClaimableTiers(2, [])).toEqual([]); // nothing reached
+    expect(referralClaimableTiers(3, [])).toEqual([3]); // gift ready
+    expect(referralClaimableTiers(5, [3])).toEqual([5]); // gift collected, medal ready
+    expect(referralClaimableTiers(10, [3, 5])).toEqual([10]); // gold ready
+    expect(referralClaimableTiers(10, [3, 5, 10])).toEqual([]); // all collected
+  });
 
-    // Below the first tier: nothing.
-    useGame.getState().grantReferralRewards(4);
-    expect(owned().has('acc-referral')).toBe(false);
+  it('claimReferralTier merges the server grant and is guarded against re-claim', async () => {
+    claimReferralReward.mockReset();
+    useGame.setState({ referralCount: 5, referralClaimed: [], goo: 100, ownedCosmetics: ['acc-none'] });
 
-    // 5 friends → the friends medal, but not gold yet.
-    useGame.getState().grantReferralRewards(5);
-    expect(owned().has('acc-referral')).toBe(true);
-    expect(owned().has('acc-referral-gold')).toBe(false);
+    // A tier the player has NOT reached does not even call the server.
+    await useGame.getState().claimReferralTier(10);
+    expect(claimReferralReward).not.toHaveBeenCalled();
 
-    // 10 friends → gold too.
-    useGame.getState().grantReferralRewards(10);
-    expect(owned().has('acc-referral-gold')).toBe(true);
+    // Claiming tier 5: the server grants goo + the medal; we merge the result.
+    claimReferralReward.mockResolvedValueOnce({
+      ok: true,
+      tier: 5,
+      goo: 5_000,
+      ownedCosmetics: ['acc-none', 'acc-referral'],
+      claimed: [5],
+    });
+    await useGame.getState().claimReferralTier(5);
+    expect(useGame.getState().goo).toBe(5_000);
+    expect(useGame.getState().ownedCosmetics).toContain('acc-referral');
+    expect(useGame.getState().referralClaimed).toEqual([5]);
 
-    // Idempotent — re-granting doesn't duplicate entries.
-    const n = useGame.getState().ownedCosmetics.length;
-    useGame.getState().grantReferralRewards(10);
-    expect(useGame.getState().ownedCosmetics.length).toBe(n);
+    // A second claim of an already-collected tier is a no-op (no server call).
+    claimReferralReward.mockClear();
+    await useGame.getState().claimReferralTier(5);
+    expect(claimReferralReward).not.toHaveBeenCalled();
   });
 });

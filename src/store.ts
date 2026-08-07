@@ -21,6 +21,7 @@ import {
   frenzyMultiplier,
   secondAbilityRebirth,
   thirdAbilityRebirth,
+  referralFriendsForGift,
   referralFriendsForMedal,
   referralFriendsForGoldMedal,
   luckCap,
@@ -93,7 +94,7 @@ import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
-import { claimReferral, clearPendingRef, fetchReferralMe, pendingRef } from './net/referral';
+import { claimReferral, claimReferralReward, clearPendingRef, fetchReferralMe, pendingRef } from './net/referral';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { reportAdEvent } from './net/ads';
 import { decideMergeWinner, fetchCloudSave, pushCloudSave } from './net/save';
@@ -180,6 +181,7 @@ interface GameState {
   // /referral/me after sign-in; the EARNED medals persist via ownedCosmetics.
   referralCode: string | null; // this player's own share code (for the invite screen)
   referralCount: number; // friends who joined via the link AND started playing
+  referralClaimed: number[]; // reward tiers already collected (server authority; UI hint)
   referralOpen: boolean; // the "invite friends" share sheet is open
 
   // --- cloud-save checkpoint sync (PR 4) — session-only, NOT part of
@@ -322,10 +324,10 @@ interface GameState {
   dismissMilestone: () => void;
   pulseMagnitude: (exp: number) => void;
   initAuth: () => void;
-  /** After sign-in: claim any pending ?ref, read the friend count, grant earned medals. */
+  /** After sign-in: claim any pending ?ref, then read code + count + claimed tiers. */
   syncReferral: () => Promise<void>;
-  /** Grant the referral medals owed by `count` (idempotent — only adds what's missing). */
-  grantReferralRewards: (count: number) => void;
+  /** Collect a reward tier (server grants goo + medal); merges the result + celebrates. */
+  claimReferralTier: (tier: number) => Promise<void>;
   setReferralOpen: (open: boolean) => void;
   restoreBackup: () => Promise<void>;
   setAuthUser: (user: AuthUser | null) => void;
@@ -534,6 +536,7 @@ export const useGame = create<GameState>((set, get) => {
     authChecked: false,
     referralCode: null,
     referralCount: 0,
+    referralClaimed: [],
     referralOpen: false,
     cloudRev: 0,
     cloudSynced: false,
@@ -1531,22 +1534,33 @@ export const useGame = create<GameState>((set, get) => {
       }
       const info = await fetchReferralMe();
       if (!info) return;
-      set({ referralCode: info.code, referralCount: info.count });
-      get().grantReferralRewards(info.count);
+      // Rewards are no longer auto-granted — the player collects each earned tier
+      // by tapping it (claimReferralTier). We just surface code/count/claimed so
+      // the UI can light up what's ready.
+      set({ referralCode: info.code, referralCount: info.count, referralClaimed: info.claimed });
     },
 
-    grantReferralRewards: (count) => {
+    claimReferralTier: async (tier) => {
       const s = get();
-      const owned = new Set(s.ownedCosmetics);
-      const before = owned.size;
-      if (count >= referralFriendsForMedal) owned.add('acc-referral');
-      if (count >= referralFriendsForGoldMedal) owned.add('acc-referral-gold');
-      if (owned.size === before) return; // nothing new earned
-      set({ ownedCosmetics: [...owned] });
-      const gold = count >= referralFriendsForGoldMedal;
+      if (s.referralClaimed.includes(tier) || s.referralCount < tier) return; // not claimable
+      const res = await claimReferralReward(tier);
+      if (!res || !res.ok) return; // locked / already / network — leave it for a retry
+      // Merge the server's authoritative result: the goo lump + any medal landed
+      // in the stored save, and are echoed back so we reflect them at once.
+      set((st) => ({
+        goo: typeof res.goo === 'number' ? res.goo : st.goo,
+        ownedCosmetics: res.ownedCosmetics ?? st.ownedCosmetics,
+        referralClaimed: res.claimed ?? [...st.referralClaimed, tier],
+      }));
+      const gold = tier >= referralFriendsForGoldMedal;
+      const medal = tier >= referralFriendsForMedal;
       get().pushToast({
-        text: gold ? 'זָכִיתָ בְּמֶדַלְיַת זָהָב! 🏆 עֲנֹד אוֹתָהּ בַּחֲנוּת' : 'זָכִיתָ בְּמֶדַלְיַת חֲבֵרִים! 🏅 עֲנֹד אוֹתָהּ בַּחֲנוּת',
-        icon: gold ? '🏆' : '🏅',
+        text: gold
+          ? 'זָכִיתָ בְּמֶדַלְיַת זָהָב! 🏆 עֲנֹד אוֹתָהּ בַּחֲנוּת'
+          : medal
+            ? 'זָכִיתָ בְּמֶדַלְיַת חֲבֵרִים! 🏅 עֲנֹד אוֹתָהּ בַּחֲנוּת'
+            : 'קִבַּלְתָּ מַתְּנַת גּוּ עֲנָקִית! 🎁',
+        icon: gold ? '🏆' : medal ? '🏅' : '🎁',
         tone: 'star',
       });
       get().triggerConfetti('rainbow');
@@ -1622,7 +1636,7 @@ export const useGame = create<GameState>((set, get) => {
     // blob/goo/creatures; only identity is cleared. With AUTH_REQUIRED on,
     // clearing authUser is what returns the player to the gate (see App.tsx).
     signOut: () => {
-      set({ authUser: null, referralCode: null, referralCount: 0, referralOpen: false });
+      set({ authUser: null, referralCode: null, referralCount: 0, referralClaimed: [], referralOpen: false });
       void logout();
     },
   };
@@ -1893,3 +1907,15 @@ export const selectAchContext = (s: GameState): AchievementContext => achContext
 /** Ids of achievements finished but not yet claimed — the "ready to collect" set. */
 export const selectClaimableIds = (s: GameState): Set<string> =>
   new Set(newlyCompleted(new Set(s.achievements), achContextOf(s)).map((a) => a.id));
+
+/** The referral reward tiers, in ascending order (friends needed). */
+export const REFERRAL_TIERS = [referralFriendsForGift, referralFriendsForMedal, referralFriendsForGoldMedal] as const;
+
+/** Reward tiers the player has EARNED (count reached) but not yet collected. */
+export function referralClaimableTiers(count: number, claimed: readonly number[]): number[] {
+  return REFERRAL_TIERS.filter((t) => count >= t && !claimed.includes(t));
+}
+
+/** Is any referral reward waiting to be collected? Drives the banner + settings dot. */
+export const selectReferralClaimable = (s: GameState): boolean =>
+  referralClaimableTiers(s.referralCount, s.referralClaimed).length > 0;

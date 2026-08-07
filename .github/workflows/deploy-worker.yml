@@ -83,6 +83,7 @@ jobs:
           alter "ALTER TABLE users ADD COLUMN ref_code TEXT"
           alter "ALTER TABLE users ADD COLUMN referred_by TEXT"
           alter "ALTER TABLE users ADD COLUMN referral_count INTEGER NOT NULL DEFAULT 0"
+          alter "ALTER TABLE users ADD COLUMN referral_claimed TEXT"
           npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql --yes
 
       - name: Deploy

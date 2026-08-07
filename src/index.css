@@ -636,6 +636,16 @@ body {
   animation: blorbo-rebirth-glow 1.4s ease-in-out infinite;
 }
 
+/* "Reward ready to collect" — a magenta glow that breathes around a claimable
+   referral tier (and the invite banner), inviting the tap that collects it. */
+@keyframes blorbo-pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 46, 136, 0.35); }
+  50% { box-shadow: 0 0 22px 5px rgba(255, 46, 136, 0.75); }
+}
+.anim-pulse-glow {
+  animation: blorbo-pulse-glow 1.3s ease-in-out infinite;
+}
+
 /* Final-seconds edge pulse for the speed challenge — a red vignette that
    breathes to signal the last few seconds. Always pointer-events-none in use. */
 @keyframes blorbo-edge-pulse {
@@ -657,6 +667,7 @@ body {
   .anim-shell-fall,
   .anim-evolve-glow,
   .anim-rebirth-glow,
+  .anim-pulse-glow,
   .anim-edge-pulse,
   .anim-mag-flash,
   .anim-warp,

@@ -38,10 +38,27 @@ async function signUp(): Promise<string> {
 
 const ORIGIN = 'https://bl-or-bo.com';
 
-async function refMe(cookie: string): Promise<{ code: string | null; count: number }> {
+async function refMe(cookie: string): Promise<{ code: string | null; count: number; claimed: number[] }> {
   const res = await call('/referral/me', { headers: { Cookie: cookie } });
   expect(res.status).toBe(200);
   return res.json();
+}
+
+async function claimReward(
+  cookie: string,
+  tier: number,
+): Promise<{ ok: boolean; reason?: string; claimed?: number[]; goo?: number; ownedCosmetics?: string[] }> {
+  const res = await call('/referral/claim-reward', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: ORIGIN, Cookie: cookie },
+    body: JSON.stringify({ tier }),
+  });
+  return res.json();
+}
+
+async function storedGoo(cookie: string): Promise<number> {
+  const res = await call('/save', { headers: { Cookie: cookie } });
+  return ((await res.json()) as { save: { goo: number } }).save.goo;
 }
 
 async function claim(cookie: string, ref: string): Promise<{ ok: boolean; reason?: string }> {
@@ -153,56 +170,69 @@ describe('referral qualification (play-to-count)', () => {
     expect((await refMe(referrer)).count).toBe(1);
   });
 
-  it('grants the referrer a one-time goo gift at the gift tier (server-side)', async () => {
+  it('does NOT auto-grant on qualifying — rewards wait to be claimed', async () => {
     const referrer = await signUp();
     const { code } = await refMe(referrer);
-    // The referrer needs a cloud save WITH production for the gift to be > 0.
     await putSave(referrer, 0, sampleSave({ characters: { blombo: { level: 100 } }, goo: 1000, lifetimeGoo: 1000 }));
-    const gooBefore = await (async () => {
-      const res = await call('/save', { headers: { Cookie: referrer } });
-      return ((await res.json()) as { save: { goo: number } }).save.goo;
-    })();
+    const gooBefore = await storedGoo(referrer);
 
     // Bring 3 friends who each qualify by playing.
     for (let i = 0; i < 3; i++) {
       const friend = await signUp();
       await claim(friend, code!);
-      const r = await putSave(friend, 0, sampleSave({ lifetimeGoo: 50_000 }));
-      expect(r.status).toBe(200);
+      expect((await putSave(friend, 0, sampleSave({ lifetimeGoo: 50_000 }))).status).toBe(200);
     }
-    expect((await refMe(referrer)).count).toBe(3);
-
-    // The gift landed in the referrer's stored save (server-side → audit-safe).
-    const gooAfter = await (async () => {
-      const res = await call('/save', { headers: { Cookie: referrer } });
-      return ((await res.json()) as { save: { goo: number } }).save.goo;
-    })();
-    expect(gooAfter).toBeGreaterThan(gooBefore);
+    const info = await refMe(referrer);
+    expect(info.count).toBe(3);
+    expect(info.claimed).toEqual([]); // nothing collected yet
+    // The goo is untouched until the player taps to claim.
+    expect(await storedGoo(referrer)).toBe(gooBefore);
   });
 
-  it('drops a goo lump at each reward tier (3, 5, 10) and nowhere else', async () => {
+  it('claims a tier once: grants goo (+medal at 5/10), records it, refuses a second claim', async () => {
     const referrer = await signUp();
     const { code } = await refMe(referrer);
-    // A steady producer so every gift is a positive, measurable lump.
     await putSave(referrer, 0, sampleSave({ characters: { blombo: { level: 100 } }, goo: 1000, lifetimeGoo: 1000 }));
-    const storedGoo = async () => {
-      const res = await call('/save', { headers: { Cookie: referrer } });
-      return ((await res.json()) as { save: { goo: number } }).save.goo;
-    };
 
-    let prev = await storedGoo();
-    const bumped: number[] = []; // the counts at which the stored goo jumped
-    for (let count = 1; count <= 10; count++) {
+    // Reach 5 friends.
+    for (let i = 0; i < 5; i++) {
       const friend = await signUp();
       await claim(friend, code!);
       expect((await putSave(friend, 0, sampleSave({ lifetimeGoo: 50_000 }))).status).toBe(200);
-      expect((await refMe(referrer)).count).toBe(count);
-      const now = await storedGoo();
-      if (now > prev) bumped.push(count);
-      prev = now;
     }
-    // Exactly the three tier crossings paid out — no lump on the in-between counts.
-    expect(bumped).toEqual([3, 5, 10]);
+    expect((await refMe(referrer)).count).toBe(5);
+
+    // A locked tier (10, not reached) is refused without side effects.
+    expect(await claimReward(referrer, 10)).toMatchObject({ ok: false, reason: 'locked' });
+
+    // Claim tier 3 (goo only).
+    const goo0 = await storedGoo(referrer);
+    const r3 = await claimReward(referrer, 3);
+    expect(r3.ok).toBe(true);
+    expect(r3.claimed).toContain(3);
+    expect(await storedGoo(referrer)).toBeGreaterThan(goo0);
+    // A second claim of the same tier is refused and pays nothing more.
+    const gooAfter3 = await storedGoo(referrer);
+    expect(await claimReward(referrer, 3)).toMatchObject({ ok: false, reason: 'claimed' });
+    expect(await storedGoo(referrer)).toBe(gooAfter3);
+
+    // Claim tier 5 (goo + the friends medal).
+    const r5 = await claimReward(referrer, 5);
+    expect(r5.ok).toBe(true);
+    expect(r5.ownedCosmetics).toContain('acc-referral');
+    expect(await storedGoo(referrer)).toBeGreaterThan(gooAfter3);
+    // The medal persisted into the stored save.
+    const save = await (async () => {
+      const res = await call('/save', { headers: { Cookie: referrer } });
+      return ((await res.json()) as { save: { ownedCosmetics: string[] } }).save;
+    })();
+    expect(save.ownedCosmetics).toContain('acc-referral');
+
+    // claimed[] is reflected on /referral/me and /auth/me.
+    expect((await refMe(referrer)).claimed.sort()).toEqual([3, 5]);
+    const me = await call('/auth/me', { headers: { Cookie: referrer } });
+    const body = (await me.json()) as { referral?: { claimed: number[] } };
+    expect(body.referral?.claimed.sort()).toEqual([3, 5]);
   });
 
   it('surfaces the friend count on /auth/me too', async () => {

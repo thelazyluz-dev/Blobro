@@ -57,19 +57,52 @@ export function clearPendingRef(): void {
 export interface ReferralInfo {
   code: string | null; // this player's own share code
   count: number; // friends who have joined AND started playing
+  claimed: number[]; // reward tiers already collected (tap-to-claim)
 }
 
-/** GET /referral/me — this player's share code + qualified-friend count. */
+function asClaimed(v: unknown): number[] {
+  return Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : [];
+}
+
+/** GET /referral/me — this player's share code, friend count, claimed tiers. */
 export async function fetchReferralMe(): Promise<ReferralInfo | null> {
   if (!hasReferralBackend()) return null;
   try {
     const res = await fetch(`${BASE()}/referral/me`, { credentials: 'include' });
     if (!res.ok) return null;
-    const d = (await res.json()) as { code?: unknown; count?: unknown };
+    const d = (await res.json()) as { code?: unknown; count?: unknown; claimed?: unknown };
     return {
       code: typeof d.code === 'string' ? d.code : null,
       count: typeof d.count === 'number' ? d.count : 0,
+      claimed: asClaimed(d.claimed),
     };
+  } catch {
+    return null;
+  }
+}
+
+export interface ClaimRewardResult {
+  ok: boolean;
+  reason?: string;
+  tier?: number;
+  goo?: number; // referrer's new stored goo after the grant
+  ownedCosmetics?: string[]; // full owned list after any medal grant
+  claimed?: number[];
+}
+
+/** POST /referral/claim-reward — collect a tier the player has earned. */
+export async function claimReferralReward(tier: number): Promise<ClaimRewardResult | null> {
+  if (!hasReferralBackend()) return null;
+  try {
+    const res = await fetch(`${BASE()}/referral/claim-reward`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier }),
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as ClaimRewardResult;
+    return d;
   } catch {
     return null;
   }

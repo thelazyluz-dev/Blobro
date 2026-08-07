@@ -59,9 +59,10 @@ CREATE TABLE IF NOT EXISTS users (
   -- tolerated) BEFORE this file, so the ref_code index below never references a
   -- column the live table lacks. `ref_code` is the opaque, non-PII share token
   -- (never the user id); `referral_count` counts QUALIFIED referees only.
-  ref_code       TEXT,                        -- opaque share code (share link ?ref=…); UNIQUE index below
-  referred_by    TEXT,                        -- referrer's users.id, set once when this account is referred
-  referral_count INTEGER NOT NULL DEFAULT 0   -- qualified referees (drives the reward tiers)
+  ref_code        TEXT,                        -- opaque share code (share link ?ref=…); UNIQUE index below
+  referred_by     TEXT,                        -- referrer's users.id, set once when this account is referred
+  referral_count  INTEGER NOT NULL DEFAULT 0,  -- qualified referees (drives the reward tiers)
+  referral_claimed TEXT                        -- JSON array of reward tiers already collected (tap-to-claim); server authority
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);

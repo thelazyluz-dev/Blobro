@@ -272,6 +272,7 @@ export default {
       url.pathname === '/admin/release' ||
       url.pathname === '/admin/edit' ||
       url.pathname === '/referral/claim' ||
+      url.pathname === '/referral/claim-reward' ||
       url.pathname === '/referral/me' ||
       url.pathname === '/push/subscribe' ||
       url.pathname === '/push/unsubscribe';
@@ -396,6 +397,9 @@ export default {
     // ── Referral (share link → friends → reward) ──────────────────────────
     if (url.pathname === '/referral/claim' && request.method === 'POST') {
       return handleReferralClaim(request, env);
+    }
+    if (url.pathname === '/referral/claim-reward' && request.method === 'POST') {
+      return handleReferralClaimReward(request, env);
     }
     if (url.pathname === '/referral/me' && request.method === 'GET') {
       return handleReferralMe(request, env);
@@ -768,15 +772,29 @@ function generateRefCode(): string {
  * Does NOT lazily generate the code (that's a write; /referral/me handles it) —
  * keeps the per-load path read-only.
  */
-async function referralStatusFor(env: Env, userId: string): Promise<{ code: string | null; count: number } | null> {
+async function referralStatusFor(
+  env: Env,
+  userId: string,
+): Promise<{ code: string | null; count: number; claimed: number[] } | null> {
   try {
-    const row = await env.DB.prepare('SELECT ref_code, referral_count FROM users WHERE id = ?1')
+    const row = await env.DB.prepare('SELECT ref_code, referral_count, referral_claimed FROM users WHERE id = ?1')
       .bind(userId)
-      .first<{ ref_code: string | null; referral_count: number }>();
+      .first<{ ref_code: string | null; referral_count: number; referral_claimed: string | null }>();
     if (!row) return null;
-    return { code: row.ref_code ?? null, count: row.referral_count ?? 0 };
+    return { code: row.ref_code ?? null, count: row.referral_count ?? 0, claimed: parseClaimed(row.referral_claimed) };
   } catch {
     return null; // columns not present yet — degrade quietly
+  }
+}
+
+/** Parse the users.referral_claimed JSON array into a clean number[] (tiers). */
+function parseClaimed(raw: string | null | undefined): number[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((n): n is number => typeof n === 'number') : [];
+  } catch {
+    return [];
   }
 }
 
@@ -791,11 +809,12 @@ async function handleReferralMe(request: Request, env: Env): Promise<Response> {
   }
   if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
   try {
-    const existing = await env.DB.prepare('SELECT ref_code, referral_count FROM users WHERE id = ?1')
+    const existing = await env.DB.prepare('SELECT ref_code, referral_count, referral_claimed FROM users WHERE id = ?1')
       .bind(user.id)
-      .first<{ ref_code: string | null; referral_count: number }>();
+      .first<{ ref_code: string | null; referral_count: number; referral_claimed: string | null }>();
     let code = existing?.ref_code ?? null;
     const count = existing?.referral_count ?? 0;
+    const claimed = parseClaimed(existing?.referral_claimed);
     if (!code) {
       // Mint a unique code. Collisions are astronomically unlikely at 62^8; a
       // couple of retries covers the unique-index race/collision anyway.
@@ -819,7 +838,66 @@ async function handleReferralMe(request: Request, env: Env): Promise<Response> {
         }
       }
     }
-    return authJson({ code, count }, 200, origin);
+    return authJson({ code, count, claimed }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// The reward tiers, and what each pays out. Goo is a lump of this many hours of
+// the referrer's CURRENT production; the medal tiers also grant a cosmetic.
+const REFERRAL_TIERS: { friends: number; hours: number; medal?: string }[] = [
+  { friends: balance.referralFriendsForGift, hours: balance.referralGiftHours },
+  { friends: balance.referralFriendsForMedal, hours: balance.referralMedalBonusHours, medal: 'acc-referral' },
+  { friends: balance.referralFriendsForGoldMedal, hours: balance.referralMedalBonusHours, medal: 'acc-referral-gold' },
+];
+
+/**
+ * POST /referral/claim-reward {tier} — the player taps a reward they've earned.
+ * Grants the tier's goo lump (and medal, if any) SERVER-SIDE into their stored
+ * save, then records the tier in users.referral_claimed so it can't be claimed
+ * twice — even if the client resets its own state, this column is the authority.
+ * Returns {ok, tier, goo, ownedCosmetics, claimed} so the client merges the
+ * result immediately; a locked/duplicate tier returns {ok:false, reason}.
+ */
+async function handleReferralClaimReward(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const body = await readJsonObject(request);
+  const tier = typeof body?.tier === 'number' ? body.tier : NaN;
+  const def = REFERRAL_TIERS.find((t) => t.friends === tier);
+  if (!def) return authJson({ ok: false, reason: 'bad-tier' }, 400, origin);
+
+  try {
+    const row = await env.DB.prepare('SELECT referral_count, referral_claimed FROM users WHERE id = ?1')
+      .bind(user.id)
+      .first<{ referral_count: number; referral_claimed: string | null }>();
+    const count = row?.referral_count ?? 0;
+    const claimed = parseClaimed(row?.referral_claimed);
+    if (count < def.friends) return authJson({ ok: false, reason: 'locked' }, 200, origin);
+    if (claimed.includes(def.friends)) return authJson({ ok: false, reason: 'claimed' }, 200, origin);
+
+    // Grant into the stored save (goo is server-authoritative — a client lump
+    // would trip the plausibility audit; the medal is a cosmetic we own here).
+    const now = Date.now();
+    const grant = await grantReferralReward(env, user.id, now, def.hours, def.medal);
+    if (!grant) return authJson({ ok: false, reason: 'retry' }, 200, origin); // no save yet / write raced — nothing recorded, safe to retry
+
+    // Record the tier ONLY after the grant persisted, so a failed grant never
+    // burns the tier. Distinct tiers use distinct numbers, so appending is safe.
+    const next = [...claimed, def.friends];
+    await env.DB.prepare('UPDATE users SET referral_claimed = ?1 WHERE id = ?2')
+      .bind(JSON.stringify(next), user.id)
+      .run();
+
+    return authJson({ ok: true, tier: def.friends, goo: grant.goo, ownedCosmetics: grant.ownedCosmetics, claimed: next }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }
@@ -874,33 +952,44 @@ async function handleReferralClaim(request: Request, env: Env): Promise<Response
 }
 
 /**
- * One-time goo gift for a referrer who just reached the gift tier. Computes a
- * few hours of their CURRENT production from their stored save and adds it to
- * that save's goo + lifetimeGoo SERVER-SIDE, bumping the rev. Doing it here
- * (not client-side) is what keeps it anti-cheat-safe: the audit's baseline is
- * this new, higher save, so the referrer's next upload shows no anomalous jump
- * — a client-injected lump would trip the goo-rate flag, which always bars. The
- * referrer picks the gift up through the normal cloud merge on their next load
- * or checkpoint conflict. Best-effort: a missing save or a concurrent write
- * just means no gift this time; never throws to the caller.
+ * Grant a claimed referral reward into a player's stored save SERVER-SIDE: a
+ * goo lump of `hours` of their CURRENT production, plus an optional medal
+ * cosmetic. Doing it here (not client-side) is what keeps the goo anti-cheat-
+ * safe: the audit's baseline becomes this new, higher save, so the next upload
+ * shows no anomalous jump — a client-injected lump would trip the goo-rate flag,
+ * which always bars. The player also gets the result echoed back to merge
+ * immediately. Retries once on a save-rev race; returns null (nothing written)
+ * if there's no save yet or the write keeps racing, so the caller can leave the
+ * tier unclaimed and let the player retry.
  */
-async function grantReferralGooGift(env: Env, referrerId: string, now: number, hours: number): Promise<void> {
-  const row = await env.DB.prepare('SELECT rev, payload FROM saves WHERE user_id = ?1')
-    .bind(referrerId)
-    .first<{ rev: number; payload: string }>();
-  if (!row) return; // referrer has no cloud save yet — skip (rare)
-  const save = migrate(tryParseJson(row.payload), now);
-  const rate = plausibilityCeiling(save, 0).passivePerSec;
-  const gift = Math.max(0, Math.floor(rate * hours * 3600));
-  if (gift <= 0) return;
-  save.goo += gift;
-  save.lifetimeGoo += gift;
-  const payload = JSON.stringify(save);
-  await env.DB.prepare(
-    'UPDATE saves SET rev = rev + 1, lifetime_goo = ?1, payload = ?2, updated = ?3 WHERE user_id = ?4 AND rev = ?5',
-  )
-    .bind(save.lifetimeGoo, payload, now, referrerId, row.rev)
-    .run();
+async function grantReferralReward(
+  env: Env,
+  userId: string,
+  now: number,
+  hours: number,
+  medal?: string,
+): Promise<{ goo: number; ownedCosmetics: string[] } | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const row = await env.DB.prepare('SELECT rev, payload FROM saves WHERE user_id = ?1')
+      .bind(userId)
+      .first<{ rev: number; payload: string }>();
+    if (!row) return null; // no cloud save yet — can't grant
+    const save = migrate(tryParseJson(row.payload), now);
+    const rate = plausibilityCeiling(save, 0).passivePerSec;
+    const gift = Math.max(0, Math.floor(rate * hours * 3600));
+    save.goo += gift;
+    save.lifetimeGoo += gift;
+    if (medal && !save.ownedCosmetics.includes(medal)) save.ownedCosmetics.push(medal);
+    const payload = JSON.stringify(save);
+    const res = await env.DB.prepare(
+      'UPDATE saves SET rev = rev + 1, lifetime_goo = ?1, payload = ?2, updated = ?3 WHERE user_id = ?4 AND rev = ?5',
+    )
+      .bind(save.lifetimeGoo, payload, now, userId, row.rev)
+      .run();
+    if ((res.meta?.changes ?? 0) > 0) return { goo: save.goo, ownedCosmetics: save.ownedCosmetics };
+    // rev moved under us — loop and re-read once.
+  }
+  return null;
 }
 
 // ── Web Push subscriptions ────────────────────────────────────────────────
@@ -2206,31 +2295,14 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
             .bind(user.id)
             .run();
           if ((flip.meta?.changes ?? 0) > 0) {
+            // Credit the referrer's friend count. The rewards themselves are NOT
+            // granted here — the player claims each tier by tapping it in the
+            // invite screen (see /referral/claim-reward), which grants the goo +
+            // medal server-side and records the tier so it can't be claimed
+            // twice. This keeps the "tap the glowing prize to collect it" flow.
             await env.DB.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1')
               .bind(ref.referrer_id)
               .run();
-            // Read the referrer's NEW count; on crossing a reward tier, grant a
-            // one-time goo gift = some hours of their CURRENT production. Granted
-            // SERVER-SIDE into their stored save so the plausibility audit's
-            // baseline already includes it — a client-injected lump would trip
-            // the goo-rate flag (which always bars). The medals themselves are
-            // cosmetics the client grants from the count; only the goo lumps run
-            // here. Each tier is a distinct count, so each fires at most once.
-            // Best-effort: never breaks this save; the referrer picks it up via
-            // the normal cloud merge.
-            const after = await env.DB.prepare('SELECT referral_count FROM users WHERE id = ?1')
-              .bind(ref.referrer_id)
-              .first<{ referral_count: number }>();
-            const c = after?.referral_count;
-            const giftHours =
-              c === balance.referralFriendsForGift
-                ? balance.referralGiftHours
-                : c === balance.referralFriendsForMedal || c === balance.referralFriendsForGoldMedal
-                  ? balance.referralMedalBonusHours
-                  : 0;
-            if (giftHours > 0) {
-              await grantReferralGooGift(env, ref.referrer_id, now, giftHours);
-            }
           }
         }
       }

@@ -1,10 +1,11 @@
-// The "invite friends" share sheet. Shows the player's progress toward the two
-// medal tiers, their personal invite link, and a share/copy button. Opened from
-// the leaderboard (see LeaderboardOverlay) via the store's `referralOpen` flag.
+// The "invite friends" share sheet. Shows the player's progress toward the
+// reward tiers, their personal invite link, and a share/copy button. Opened from
+// the leaderboard, the settings screen, or the reward banner via `referralOpen`.
 //
-// The reward is server-authoritative: the medals are granted from the friend
-// count reported by /referral/me (see store.syncReferral). This screen only
-// SHOWS progress and hands out the link.
+// Rewards are server-authoritative and TAP-TO-CLAIM: when the friend count
+// reaches a tier, the tier lights up here and tapping it calls
+// /referral/claim-reward, which grants the goo + medal server-side (see
+// store.claimReferralTier). This screen shows progress AND collects the prizes.
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -16,7 +17,7 @@ import {
   referralMedalBonusHours,
 } from '../game/balance';
 import { fetchReferralMe, hasReferralBackend, referralLink } from '../net/referral';
-import { useGame } from '../store';
+import { selectReferralClaimable, useGame } from '../store';
 import { haptic } from './haptics';
 
 /** Fire-and-forget: share the invite via the OS sheet, or copy it. */
@@ -43,8 +44,11 @@ export function ReferralShare() {
   const setOpen = useGame((s) => s.setReferralOpen);
   const code = useGame((s) => s.referralCode);
   const count = useGame((s) => s.referralCount);
+  const claimed = useGame((s) => s.referralClaimed);
+  const claimReferralTier = useGame((s) => s.claimReferralTier);
   const syncReferral = useGame((s) => s.syncReferral);
   const [copied, setCopied] = useState(false);
+  const [claiming, setClaiming] = useState<number | null>(null);
   const [localCode, setLocalCode] = useState<string | null>(code);
 
   // On open: make sure we have a code + a fresh count (mints the code server-side
@@ -67,16 +71,51 @@ export function ReferralShare() {
   const target = referralFriendsForMedal;
   const pct = Math.min(100, (count / target) * 100);
 
+  const onClaim = async (friends: number) => {
+    if (claiming !== null) return;
+    setClaiming(friends);
+    haptic([0, 30, 20, 40]);
+    try {
+      await claimReferralTier(friends);
+    } finally {
+      setClaiming(null);
+    }
+  };
+
   const tier = (friends: number, icon: string, label: string, reward: string) => {
-    const done = count >= friends;
+    const reached = count >= friends;
+    const collected = claimed.includes(friends);
+    const claimable = reached && !collected; // earned but not yet tapped
+    const busy = claiming === friends;
+
+    // Claimable → a glowing, tappable button that collects the prize.
+    if (claimable) {
+      return (
+        <button
+          type="button"
+          onClick={() => void onClaim(friends)}
+          disabled={busy}
+          className="anim-pulse-glow flex w-full items-center gap-2 rounded-xl bg-pop/20 px-3 py-2.5 text-start ring-2 ring-pop/70 shadow-[0_0_18px_rgba(255,46,136,0.45)] active:scale-[0.98] disabled:opacity-60"
+        >
+          <span className="text-3xl">{icon}</span>
+          <div className="flex-1">
+            <div className="font-display text-base text-pop">{label}</div>
+            <div className="text-sm text-bone/70">{reward}</div>
+          </div>
+          <span className="shrink-0 rounded-full bg-pop px-3 py-1 text-sm font-bold text-void">{busy ? '…' : 'קַבֵּל!'}</span>
+        </button>
+      );
+    }
+
+    // Collected or still locked → a passive row.
     return (
-      <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ring-1 ${done ? 'bg-cy/15 ring-cy/40' : 'bg-black/25 ring-hairline'}`}>
-        <span className="text-3xl">{done ? icon : '🔒'}</span>
+      <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ring-1 ${collected ? 'bg-cy/15 ring-cy/40' : 'bg-black/25 ring-hairline'}`}>
+        <span className="text-3xl">{collected ? icon : '🔒'}</span>
         <div className="flex-1 text-start">
-          <div className={`font-display text-base ${done ? 'text-cy' : 'text-bone/80'}`}>{label}</div>
+          <div className={`font-display text-base ${collected ? 'text-cy' : 'text-bone/80'}`}>{label}</div>
           <div className="text-sm text-bone/60">{reward}</div>
         </div>
-        <span className="shrink-0 text-sm font-bold tabular text-bone/70">{friends} 👥</span>
+        <span className="shrink-0 text-sm font-bold tabular text-bone/70">{collected ? '✓' : `${friends} 👥`}</span>
       </div>
     );
   };
@@ -166,6 +205,53 @@ export function ReferralShare() {
           className="mt-2 w-full rounded-full bg-black/30 py-2 text-sm text-bone/70 ring-1 ring-bone/20 active:scale-95"
         >
           סְגוֹר
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * A slim glowing banner that drops in on the main screen when a referral reward
+ * is ready to collect — tapping it opens the invite sheet on the glowing tier.
+ * Dismissible (session-only) so it never permanently eats the whole-screen tap
+ * target; the settings-button dot stays as the persistent reminder either way.
+ */
+export function ReferralRewardBanner() {
+  const claimable = useGame(selectReferralClaimable);
+  const setOpen = useGame((s) => s.setReferralOpen);
+  const referralOpen = useGame((s) => s.referralOpen);
+  const [dismissed, setDismissed] = useState(false);
+
+  // Re-arm the banner whenever a fresh reward becomes claimable.
+  useEffect(() => {
+    if (claimable) setDismissed(false);
+  }, [claimable]);
+
+  if (!claimable || dismissed || referralOpen || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="pointer-events-none fixed inset-x-0 top-[4.5rem] z-40 flex justify-center px-3">
+      <div className="anim-pulse-glow pointer-events-auto flex items-center gap-2 rounded-full bg-void/90 py-1.5 pe-1.5 ps-4 ring-2 ring-pop/70 backdrop-blur">
+        <button
+          type="button"
+          onClick={() => {
+            haptic(12);
+            setOpen(true);
+          }}
+          className="flex items-center gap-2 text-sm font-display text-bone active:scale-95"
+        >
+          <span className="text-lg">🎁</span>
+          פְּרַס הַזְמָנוֹת מוּכָן! לְחַץ לְאִסּוּף
+        </button>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="סגור"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/40 text-xs text-bone/70 active:scale-90"
+        >
+          ✕
         </button>
       </div>
     </div>,

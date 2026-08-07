@@ -15,7 +15,7 @@ import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
-import { ReferralShare } from './ui/ReferralShare';
+import { ReferralRewardBanner, ReferralShare } from './ui/ReferralShare';
 import { refreshPushSubscription } from './net/push';
 import { OfflineModal } from './ui/OfflineModal';
 import { DailyButton, DailyOverlay } from './ui/DailyOverlay';
@@ -150,6 +150,7 @@ export function App() {
       <InstallPrompt />
       <NicknameWelcome />
       <ReferralShare />
+      <ReferralRewardBanner />
     </div>
   );
 }
