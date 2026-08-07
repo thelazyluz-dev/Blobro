@@ -280,7 +280,18 @@ export const rainAllBonusMult = 3;
 // Costs climb faster now so filling the collection is a longer journey — you
 // can't just spam-hatch your way to every creature in a few minutes.
 export const eggCostBase = 80;
-export const eggCostGrowth = 1.18; // steeper — each egg is a bigger investment
+export const eggCostGrowth = 1.18; // steep EARLY — each of the first eggs is a bigger investment
+// Soft-cap: the 1.18 curve is kept for the first `eggCostKnee` eggs (which covers
+// completing the 24-creature collection and the early hatch milestones), then it
+// switches to the much gentler `eggCostGrowthLate`. Pure 1.18 to infinity made an
+// egg cost more than ALL the goo in the game (~1e33) by ~egg #430, so hatching —
+// the gacha excitement engine — hard-stopped mid-game and the hatch achievement
+// ladder (…→10000) was unreachable. The knee is well past collection-completion
+// (legendary pity guarantees the last one by ~hatch 110), so the early/mid feel
+// the first eggs give is untouched; only the far tail that used to be an
+// impossible wall is flattened into a long endgame chase.
+export const eggCostKnee = 130;
+export const eggCostGrowthLate = 1.0045;
 
 // --- Eggs: buying & opening --------------------------------------------------
 export const eggBuyMaxPerPress = 50; // "buy max" purchases at most this many at once
