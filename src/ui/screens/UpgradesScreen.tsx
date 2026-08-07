@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { playError, playPurchase } from '../../audio/sfx';
 import { formatGoo } from '../../game/format';
-import { autoClicksPerSec, autoTapMaxLevel, clickPower, critMaxLevel, effectiveClickPower, luckMaxLevel } from '../../game/economy';
+import { autoClicksPerSec, autoTapMaxLevel, critMaxLevel, luckMaxLevel } from '../../game/economy';
 import { globalMultiplier } from '../../game/balance';
 import { upgradeCost, upgradeDefs, upgradeGainHe, upgradeTotalHe } from '../../game/upgrades';
 import type { UpgradeId } from '../../game/types';
@@ -52,7 +52,6 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
   const buy = useGame((s) => s.buyUpgrade);
   const m = useGame(selectMods);
   const clickP = useGame(selectClickPower);
-  const gps = useGame(selectGooPerSec);
   const [shake, setShake] = useState(false);
   const shakeTimer = useRef<number>();
   // Floating "+X" that pops on each purchase, showing exactly what was gained.
@@ -69,13 +68,6 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
     (id === 'crit' && level >= critMaxLevel) ||
     (id === 'luck' && level >= luckMaxLevel);
 
-  // When creature income is high enough, a tap is worth a share of it (the
-  // effectiveClickPower floor) rather than the finger/power math — so a
-  // finger/power buy doesn't move the real tap value. Don't promise a "+X/tap"
-  // gain the player won't feel; say the honest thing instead.
-  const floorBinding =
-    (id === 'finger' || id === 'power') && effectiveClickPower(m, gps) > clickPower(m) * 1.0001;
-
   const cost = upgradeCost(id, level);
   const canAfford = goo >= cost;
   const missing = Math.max(0, cost - goo);
@@ -87,7 +79,7 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
       playPurchase(muted);
       haptic(15);
       setGain({
-        text: floorBinding ? 'הַיְּצוּרִים מוֹבִילִים! 🐾' : upgradeGainHe(id, level + 1, tapMult),
+        text: upgradeGainHe(id, level + 1, tapMult),
         key: Date.now(),
       });
     } else {
@@ -123,17 +115,10 @@ function UpgradeCard({ id }: { id: UpgradeId }) {
             </div>
           </div>
           <div className="text-sm text-cy">{def.effectHe}</div>
-          {/* Once creature income dominates, a tap is worth a SHARE OF PRODUCTION
-              (see effectiveClickPower's floor), so finger/power no longer move the
-              real tap value. Say so honestly and steer to creatures — instead of
-              the ever-climbing "total per tap" that made the upgrade look broken
-              (the number a kid watched never actually changed on the main screen). */}
-          {floorBinding ? (
-            <div className="mt-0.5 text-xs font-bold text-cy">🐾 הַיְּצוּרִים כְּבָר מוֹבִילִים — כְּדַאי לְשַׁדְרֵג יְצוּרִים!</div>
-          ) : (
-            level > 0 && (
-              <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level, tapMult)}</div>
-            )
+          {/* Every level adds real value now (the tap floor is ADDED, not a
+              max() — see effectiveClickPower), so always show the running total. */}
+          {level > 0 && (
+            <div className="mt-0.5 text-xs font-bold text-goo tabular">{upgradeTotalHe(id, level, tapMult)}</div>
           )}
           {/* Robotic hand: show the concrete goo/sec its auto-clicks add right now. */}
           {id === 'autoTap' && level > 0 && (

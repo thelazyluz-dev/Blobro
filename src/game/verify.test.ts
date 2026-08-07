@@ -192,12 +192,34 @@ describe('the tap production floor (balance.tapProductionShare)', () => {
     );
     const passive = gooPerSec(deep.characters, m);
     expect(effectiveClickPower(m, passive)).toBeGreaterThan(clickPower(m));
-    expect(effectiveClickPower(m, passive) / passive).toBeCloseTo(tapProductionShare, 10);
+    // The production share is ADDED on top of the upgrade value (3% of income,
+    // scaled by the click multiplier) — so a tap always beats the raw upgrades,
+    // and every click bonus is felt rather than swallowed by a max().
+    expect(effectiveClickPower(m, passive) - clickPower(m)).toBeCloseTo(passive * tapProductionShare * m.clickMultiplier, 5);
   });
 
   it('never pays less than the upgrades bought, even with no production at all', () => {
     const m = modifiersFrom(base.upgrades, 0, 0, 0);
     expect(effectiveClickPower(m, 0)).toBe(clickPower(m));
+  });
+
+  it('every click lever raises the tap even at deep income — nothing is wasted', () => {
+    // The owner requirement: an upgrade or a click-boost must ALWAYS be felt,
+    // even when income dwarfs the raw upgrade value (where the old max() froze
+    // the tap and click investment paid nothing).
+    const income = 1e15;
+    const ups = { finger: 40, power: 5, autoTap: 0, nurture: 5, crit: 0, luck: 0 };
+    const baseM = modifiersFrom(ups, 0, 0, 0);
+    const baseTap = effectiveClickPower(baseM, income);
+
+    // +1 strong-finger level.
+    expect(effectiveClickPower(modifiersFrom({ ...ups, finger: 41 }, 0, 0, 0), income)).toBeGreaterThan(baseTap);
+    // +1 power (click multiplier) level.
+    expect(effectiveClickPower(modifiersFrom({ ...ups, power: 6 }, 0, 0, 0), income)).toBeGreaterThan(baseTap);
+    // A click-champion creature's tap ability (a bigger click multiplier).
+    expect(effectiveClickPower({ ...baseM, clickMultiplier: baseM.clickMultiplier * 7 }, income)).toBeGreaterThan(baseTap);
+    // Even an INCOME gain lifts the tap, via the production share.
+    expect(effectiveClickPower(baseM, income * 1.4)).toBeGreaterThan(baseTap);
   });
 
   it('is bounded by production, so it cannot run away', () => {

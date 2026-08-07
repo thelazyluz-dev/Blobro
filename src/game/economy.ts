@@ -94,9 +94,19 @@ export function clickPower(m: Modifiers): number {
  * its golden vectors — untouched.
  */
 export function effectiveClickPower(m: Modifiers, gooPerSecValue: number): number {
+  // A tap is worth what the upgrades bought PLUS a share of production — added,
+  // not max()'d. The old max() meant that once income outgrew the raw upgrade
+  // value, buying a finger/power level (or equipping a click-champion creature)
+  // changed nothing: the tap was pinned to a flat 3% of income and every click
+  // bonus was wasted. Adding the two guarantees the opposite — EVERY improvement
+  // is felt: finger/power/star/rebirth all lift `clickPower`, income upgrades
+  // lift the production share, and the click multiplier (power, click
+  // accessories, a click-specialist creature) amplifies that share so a
+  // "click champion" visibly shines. The share still keeps taps relevant no
+  // matter how deep the game goes.
   const fromUpgrades = clickPower(m);
-  const fromProduction = Math.max(0, gooPerSecValue) * tapProductionShare;
-  return Math.max(fromUpgrades, fromProduction);
+  const fromProduction = Math.max(0, gooPerSecValue) * tapProductionShare * m.clickMultiplier;
+  return fromUpgrades + fromProduction;
 }
 
 /** The robot hand's auto-tap rate (taps/second) at a given upgrade level (capped). */
