@@ -40,20 +40,8 @@ function ShareInstallSection() {
     }
   };
 
-  const openReferral = useGame((s) => s.setReferralOpen);
   return (
     <section className="flex flex-col gap-2">
-      {/* Invite friends → medals. The rewarding invite (opens the share sheet);
-          the plain app-share below is just "tell people about Blorbo". */}
-      {hasReferralBackend() && (
-        <button
-          type="button"
-          onClick={() => openReferral(true)}
-          className="btn w-full bg-gradient-to-r from-cy/25 to-pop/25 py-2.5 text-center text-sm font-bold text-bone ring-1 ring-cy/30"
-        >
-          🏅 הַזְמֵן חֲבֵרִים — קַבֵּל מֶדַלְיָה!
-        </button>
-      )}
       <div className="flex gap-2">
         <a
           href={whatsappShareUrl()}
@@ -246,7 +234,6 @@ function AccountSection() {
       <p className="mb-2 text-[11px] text-bone/45">
         {cloudSynced ? '☁️ נִשְׁמַר בַּעֲנָן' : '☁️ עוֹד מִתְחַבֵּר לֶעָנָן…'}
       </p>
-      <BackupSection />
       <button
         type="button"
         onClick={onSignOut}
@@ -292,6 +279,7 @@ function SoundSection() {
 export function SettingsOverlay() {
   const open = useGame((s) => s.settingsOpen);
   const setOpen = useGame((s) => s.setSettingsOpen);
+  const setReferralOpen = useGame((s) => s.setReferralOpen);
 
   if (!open) return null;
 
@@ -311,6 +299,17 @@ export function SettingsOverlay() {
         <div className="mb-3 text-center font-display text-3xl text-bone">⚙️ הַגְדָּרוֹת</div>
 
         <div className="flex flex-col gap-4 overflow-y-auto pe-1">
+          {/* Invite friends — the headline CTA, big and up top so it's the first
+              thing you see (owner request). Opens the share sheet. */}
+          {hasReferralBackend() && (
+            <button
+              type="button"
+              onClick={() => setReferralOpen(true)}
+              className="btn w-full bg-gradient-to-r from-cy/30 to-pop/30 py-3.5 text-center font-display text-lg text-bone ring-1 ring-cy/40 active:scale-95"
+            >
+              🏅 הַזְמֵן חֲבֵרִים — קַבֵּל מֶדַלְיָה!
+            </button>
+          )}
           <AccountSection />
           <SoundSection />
           <ShareInstallSection />
@@ -334,6 +333,11 @@ export function SettingsOverlay() {
               🔒 פְּרָטִיּוּת
             </a>
           </section>
+
+          {/* The saved-game recovery lives down here now — it only appears when a
+              cloud merge left a bigger local save behind, and it's advanced /
+              rarely needed, so it shouldn't sit up top (owner request). */}
+          <BackupSection />
 
           <ResetSection />
         </div>
