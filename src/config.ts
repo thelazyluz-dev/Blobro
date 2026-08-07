@@ -16,7 +16,7 @@ export const AUTH_API = 'https://api.bl-or-bo.com';
 // entirely (src/net/push.ts no-ops). Generate a keypair once with
 // `npx web-push generate-vapid-keys`; paste the PUBLIC key here and set the
 // PRIVATE key as the Worker secret VAPID_PRIVATE_KEY (see worker/README).
-export const VAPID_PUBLIC_KEY = '';
+export const VAPID_PUBLIC_KEY = 'BPfnGpXYOgYQvCwDfNIDF5fEAV-P--Z0LDrrtC3XSaxvZllZvLARo84x0WryYgvbS5Ovy6tHIiBojvAXOrjGr_Y';
 
 // AUTH_REQUIRED: the gate flag (see src/ui/AuthGate.tsx / src/App.tsx). This
 // is the ONLY thing separating "you can create an account" from "you must".
