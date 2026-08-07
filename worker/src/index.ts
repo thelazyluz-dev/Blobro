@@ -268,6 +268,8 @@ export default {
       url.pathname === '/rank' ||
       url.pathname === '/ad-event' ||
       url.pathname === '/admin/stats' ||
+      url.pathname === '/admin/players' ||
+      url.pathname === '/admin/broadcast' ||
       url.pathname === '/admin/barred' ||
       url.pathname === '/admin/release' ||
       url.pathname === '/admin/edit' ||
@@ -369,6 +371,12 @@ export default {
     // ── Owner dashboard (bearer-token) ────────────────────────────────────
     if (url.pathname === '/admin/stats' && request.method === 'GET') {
       return handleAdminStats(request, env);
+    }
+    if (url.pathname === '/admin/players' && request.method === 'GET') {
+      return handleAdminPlayers(request, env);
+    }
+    if (url.pathname === '/admin/broadcast' && request.method === 'POST') {
+      return handleAdminBroadcast(request, env, ctx);
     }
     // The barred-players moderation surface: list who's off the board and why,
     // and release a wrongly-barred account (the owner's one-tap version of the
@@ -1590,13 +1598,31 @@ async function handleAdminStats(request: Request, env: Env): Promise<Response> {
     const rows = async (sql: string, ...binds: number[]) =>
       (await env.DB.prepare(sql).bind(...binds).all()).results ?? [];
 
-    const [accounts, activeNow, active24h, newAccounts7d, boardSize] = await Promise.all([
+    const [accounts, activeNow, active24h, newAccounts7d, boardSize, pushOptIns, totalGoo] = await Promise.all([
       count('SELECT COUNT(*) AS c FROM users'),
       count('SELECT COUNT(*) AS c FROM saves WHERE updated >= ?1', now - 5 * 60_000),
       count('SELECT COUNT(*) AS c FROM saves WHERE updated >= ?1', now - 86_400_000),
       count('SELECT COUNT(*) AS c FROM users WHERE created >= ?1', now - 7 * 86_400_000),
       count('SELECT COUNT(*) AS c FROM scores'),
+      // Distinct accounts with at least one live push subscription.
+      count('SELECT COUNT(DISTINCT user_id) AS c FROM push_subscriptions').catch(() => 0),
+      // Total goo ever earned across all saves — a vanity/scale headline.
+      (async () =>
+        (await env.DB.prepare('SELECT COALESCE(SUM(lifetime_goo),0) AS c FROM saves').first<{ c: number }>())?.c ?? 0)(),
     ]);
+
+    // Daily time series. `newByDay` is real history (users.created is stored);
+    // `activeByDay` builds up from the day the `activity` table shipped. Both
+    // degrade to [] if their source isn't there yet, so the dashboard never
+    // breaks on a pre-schema deploy.
+    const newByDay = (await rows(
+      `SELECT strftime('%Y-%m-%d', created/1000, 'unixepoch') AS day, COUNT(*) AS n
+       FROM users GROUP BY day ORDER BY day DESC LIMIT 30`,
+    ).catch(() => [])) as Array<{ day: string; n: number }>;
+    const activeByDay = (await rows(
+      `SELECT day, COUNT(*) AS users, COALESCE(SUM(saves),0) AS saves
+       FROM activity GROUP BY day ORDER BY day DESC LIMIT 30`,
+    ).catch(() => [])) as Array<{ day: string; users: number; saves: number }>;
     // Top lists come from the authoritative `saves` table (checkpointed ~60s),
     // NOT from `scores`. `scores` is only written when a player OPENS their
     // leaderboard (/submit), so a scores-based dashboard was stale until each
@@ -1631,10 +1657,101 @@ async function handleAdminStats(request: Request, env: Env): Promise<Response> {
       .slice(0, 10);
 
     return authJson(
-      { generatedAt: now, accounts, activeNow, active24h, newAccounts7d, boardSize, topGoo, topClicks, ads },
+      {
+        generatedAt: now,
+        accounts,
+        activeNow,
+        active24h,
+        newAccounts7d,
+        boardSize,
+        pushOptIns,
+        totalGoo,
+        topGoo,
+        topClicks,
+        ads,
+        newByDay,
+        activeByDay,
+        // The checkpoint gap (seconds) each `saves` count represents — lets the
+        // dashboard turn save-counts into a screen-time estimate without pinning
+        // the client to a magic number.
+        checkpointSeconds: 60,
+      },
       200,
       origin,
     );
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// GET /admin/players — the 100 most recently registered accounts, PRIVACY-SAFE:
+// only the public nickname (from `scores`, already visible on the board), the
+// join date, last-active time, and their goo/clicks. Never the email or the
+// Google display name (stored for account identity, never shown — see the
+// privacy policy). Separate from /admin/stats so the 30s refresh stays light.
+async function handleAdminPlayers(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
+  try {
+    const [players, scoreNames] = await Promise.all([
+      env.DB.prepare(
+        `SELECT u.id, u.created, s.updated, s.clicks, s.lifetime_goo
+         FROM users u LEFT JOIN saves s ON s.user_id = u.id
+         ORDER BY u.created DESC LIMIT 100`,
+      ).all<{ id: string; created: number; updated: number | null; clicks: number | null; lifetime_goo: number | null }>(),
+      env.DB.prepare('SELECT code, name FROM scores').all<{ code: string; name: string }>(),
+    ]);
+    const nameByCode = new Map<string, string>();
+    for (const r of scoreNames.results ?? []) nameByCode.set(String(r.code), String(r.name));
+    const list = (players.results ?? []).map((r) => ({
+      name: nameByCode.get(leaderboardCodeFor(String(r.id))) ?? null, // public alias, or null if never joined the board
+      joined: r.created,
+      lastActive: r.updated ?? null,
+      clicks: Number(r.clicks) || 0,
+      goo: Number(r.lifetime_goo) || 0,
+    }));
+    return authJson({ players: list }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// POST /admin/broadcast {title, body} — send one push notification to every
+// opted-in device. Owner-only. Bounded per invocation and pruned as it goes;
+// the actual sends run in the background so the request returns promptly with
+// how many devices were targeted.
+async function handleAdminBroadcast(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
+  const vapid = vapidFrom(env);
+  if (!vapid) return authJson({ error: 'push-unconfigured' }, 400, origin);
+  const body = await readJsonObject(request);
+  const title = typeof body?.title === 'string' ? body.title.trim().slice(0, 120) : '';
+  const text = typeof body?.body === 'string' ? body.body.trim().slice(0, 400) : '';
+  if (!text && !title) return authJson({ error: 'empty' }, 400, origin);
+  try {
+    const subs = await env.DB.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions LIMIT 2000')
+      .all<{ endpoint: string; p256dh: string; auth: string }>();
+    const rows = subs.results ?? [];
+    const message: PushMessage = {
+      title: title || 'בלורבו 🫧',
+      body: text,
+      tag: 'broadcast',
+      url: './',
+      urgency: 'normal',
+    };
+    // Fire the sends in the background so the dashboard gets an immediate count.
+    ctx.waitUntil(
+      (async () => {
+        for (const sub of rows) {
+          const r = await sendPush(vapid, sub, message);
+          if (r === 'gone') {
+            await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?1').bind(sub.endpoint).run().catch(() => {});
+          }
+        }
+      })(),
+    );
+    return authJson({ ok: true, targeted: rows.length }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }
@@ -2308,6 +2425,23 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       }
     } catch (err) {
       console.error('referral qualify failed', err);
+    }
+
+    // ── Engagement logging (owner dashboard) ──────────────────────────────
+    // One row per (account, day); `saves` counts this day's checkpoints. Gives
+    // daily-active-users (COUNT per day) and a screen-time estimate (SUM of
+    // saves × the ~60s checkpoint gap). Best-effort — a failure here (e.g. the
+    // `activity` table not created yet) never affects the save.
+    try {
+      const day = new Date(now).toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+      await env.DB.prepare(
+        `INSERT INTO activity (user_id, day, saves) VALUES (?1, ?2, 1)
+         ON CONFLICT(user_id, day) DO UPDATE SET saves = saves + 1`,
+      )
+        .bind(user.id, day)
+        .run();
+    } catch (err) {
+      console.error('activity log failed', err);
     }
 
     return authJson({ rev: newRev, updated: now }, 200, origin);

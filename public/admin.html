@@ -24,7 +24,7 @@
       h1 { font-size: 1.5rem; margin: 0; font-weight: 800; }
       .sub { color: var(--muted); font-size: .85rem; margin-top: 2px; }
       .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-      button, input {
+      button, input, textarea {
         font-family: inherit; font-size: 1rem; border-radius: 12px; border: 1px solid var(--hair);
         background: var(--panel2); color: var(--ink); padding: 10px 14px;
       }
@@ -32,6 +32,10 @@
       button.primary { background: var(--cy); color: #04121a; border-color: transparent; }
       button.ghost { background: var(--panel); color: var(--muted); }
       .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 12px 14px; }
+      /* Section heading with an accent bar — makes the long page scannable. */
+      .sec { margin-top: 22px; }
+      .sec > h2 { font-size: 1.05rem; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+      .sec > h2::before { content: ''; width: 4px; height: 1.05em; border-radius: 3px; background: var(--cy); display: inline-block; }
       /* login */
       #login { max-width: 360px; margin: 12vh auto 0; text-align: center; }
       #login h1 { margin-bottom: 4px; }
@@ -40,7 +44,6 @@
       .err { color: var(--hot); font-size: .85rem; min-height: 1.2em; }
       /* dashboard */
       #dash { display: none; }
-      /* Compact stat chips — a whole row of numbers, not a quarter-page each. */
       .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; margin: 14px 0; }
       .kpi { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; padding: 8px 10px; }
       .kpi .l { font-size: .68rem; color: var(--muted); font-weight: 600; }
@@ -48,6 +51,16 @@
       .kpi.now .v { color: var(--goo); } .kpi.gold .v { color: var(--gold); } .kpi.cy .v { color: var(--cy); }
       .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
       h2 { font-size: .92rem; margin: 0 0 8px; }
+      /* Day bar-chart — pure CSS, no libs (CSP-safe). */
+      .chart { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin-top: 6px; }
+      .chart .bar { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+      .chart .bar i { display: block; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--cy), rgba(51,225,255,.35)); min-height: 2px; }
+      .chart .bar.g i { background: linear-gradient(180deg, var(--goo), rgba(163,255,18,.3)); }
+      .chart .bar.gold i { background: linear-gradient(180deg, var(--gold), rgba(255,216,77,.3)); }
+      .xlabels { display: flex; gap: 3px; margin-top: 4px; }
+      .xlabels span { flex: 1; text-align: center; font-size: .58rem; color: var(--faint); overflow: hidden; white-space: nowrap; }
+      .chartTop { display: flex; justify-content: space-between; align-items: baseline; }
+      .chartTop .big { font-size: 1.15rem; font-weight: 800; }
       /* Player editor */
       .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .edit-grid label { font-size: .72rem; color: var(--muted); display: block; margin-bottom: 3px; }
@@ -61,6 +74,7 @@
       td.n { text-align: end; font-weight: 700; }
       .rank { color: var(--faint); width: 1.5em; }
       .empty { color: var(--faint); font-size: .85rem; padding: 8px; }
+      .scroll { max-height: 420px; overflow-y: auto; }
       .foot { color: var(--faint); font-size: .75rem; margin-top: 20px; text-align: center; }
       .pill { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; background: var(--panel2); color: var(--muted); }
       .reason { color: var(--muted); font-size: .82rem; }
@@ -69,6 +83,9 @@
       button.rel:disabled { opacity: .5; cursor: default; }
       td.sev { text-align: end; color: var(--hot); font-weight: 700; }
       .who small { color: var(--faint); font-size: .68rem; display: block; direction: ltr; text-align: start; }
+      /* broadcast */
+      #bcBody { width: 100%; min-height: 66px; resize: vertical; }
+      #bcMsg { min-height: 1.2em; font-size: .85rem; margin-top: 6px; }
     </style>
   </head>
   <body>
@@ -99,41 +116,106 @@
 
         <div class="kpis" id="kpis"></div>
 
-        <div class="grid2">
-          <div class="card">
-            <h2>🏆 מובילים — גו</h2>
-            <table><thead><tr><th class="rank">#</th><th>כינוי</th><th class="n">גו</th></tr></thead><tbody id="topGoo"></tbody></table>
+        <!-- GROWTH & ENGAGEMENT -->
+        <div class="sec">
+          <h2>📈 צְמִיחָה וּמְעוֹרָבוּת</h2>
+          <div class="grid2">
+            <div class="card">
+              <div class="chartTop"><h2>הַרְשָׁמוֹת חֲדָשׁוֹת / יוֹם</h2><span class="big gold" id="newToday">—</span></div>
+              <div class="sub" id="newSub">14 הימים האחרונים</div>
+              <div class="chart" id="chartNew"></div>
+              <div class="xlabels" id="labNew"></div>
+            </div>
+            <div class="card">
+              <div class="chartTop"><h2>פְּעִילִים / יוֹם</h2><span class="big cy" id="dauToday">—</span></div>
+              <div class="sub" id="dauSub">14 הימים האחרונים</div>
+              <div class="chart" id="chartDau"></div>
+              <div class="xlabels" id="labDau"></div>
+            </div>
+            <div class="card">
+              <div class="chartTop"><h2>זְמַן מָסָךְ כְּלָלִי / יוֹם</h2><span class="big" style="color:var(--goo)" id="stToday">—</span></div>
+              <div class="sub">הערכה מצטברת (לפי צ׳קפוינטים ~דקה)</div>
+              <div class="chart" id="chartSt"></div>
+              <div class="xlabels" id="labSt"></div>
+            </div>
           </div>
-          <div class="card">
-            <h2>👆 מובילים — לחיצות</h2>
-            <table><thead><tr><th class="rank">#</th><th>כינוי</th><th class="n">לחיצות</th></tr></thead><tbody id="topClicks"></tbody></table>
+        </div>
+
+        <!-- LEADERS -->
+        <div class="sec">
+          <h2>🏆 מוֹבִילִים</h2>
+          <div class="grid2">
+            <div class="card">
+              <h2>גּוּ</h2>
+              <table><thead><tr><th class="rank">#</th><th>כינוי</th><th class="n">גו</th></tr></thead><tbody id="topGoo"></tbody></table>
+            </div>
+            <div class="card">
+              <h2>👆 לְחִיצוֹת</h2>
+              <table><thead><tr><th class="rank">#</th><th>כינוי</th><th class="n">לחיצות</th></tr></thead><tbody id="topClicks"></tbody></table>
+            </div>
           </div>
         </div>
 
-        <div class="card" style="margin-top:14px;">
-          <h2>🚫 שחקנים חסומים מהלוח <span class="pill" id="barredCount">—</span></h2>
-          <div class="sub" style="margin-bottom:8px;">חסימה לא מוחקת התקדמות — היא רק מסתירה מהטבלה. "שחרר" מחזיר מיד.</div>
-          <table>
-            <thead><tr><th>שחקן</th><th>סיבה</th><th class="n">חומרה</th><th></th></tr></thead>
-            <tbody id="barred"></tbody>
-          </table>
+        <!-- ADS -->
+        <div class="sec">
+          <h2>🎬 פִּרְסוּמוֹת <span class="pill">7 ימים · מצרפי, ללא זיהוי</span></h2>
+          <div class="card">
+            <div id="adRevenue" class="sub" style="margin-bottom:10px;">—</div>
+            <table><thead><tr><th>מטרה</th><th>תוצאה</th><th class="n">כמות</th></tr></thead><tbody id="ads"></tbody></table>
+          </div>
         </div>
 
-        <div class="card" style="margin-top:14px;">
-          <h2>🎬 פרסומות — 7 ימים אחרונים <span class="pill">מצרפי, ללא זיהוי</span></h2>
-          <div id="adRevenue" class="sub" style="margin-bottom:10px;">—</div>
-          <table><thead><tr><th>מטרה</th><th>תוצאה</th><th class="n">כמות</th></tr></thead><tbody id="ads"></tbody></table>
+        <!-- BROADCAST -->
+        <div class="sec">
+          <h2>📣 שְׁלִיחַת הַתְרָאָה לְכֻלָּם</h2>
+          <div class="card">
+            <div class="sub" style="margin-bottom:8px;">מגיע רק למי שהדליק התראות. הכותרת קצרה, הטקסט הוא ההודעה עצמה.</div>
+            <div class="edit-grid">
+              <div class="full"><label for="bcTitle">כותרת (לא חובה)</label><input id="bcTitle" maxlength="120" placeholder="בלורבו 🫧" /></div>
+              <div class="full"><label for="bcBody">הודעה</label><textarea id="bcBody" maxlength="400" placeholder="מה לכתוב לכולם?"></textarea></div>
+              <div class="full"><button class="primary" id="bcSend">שְׁלַח לְכֻלָּם 📣</button></div>
+              <div class="full" id="bcMsg"></div>
+            </div>
+          </div>
         </div>
 
-        <div class="card" style="margin-top:14px;">
-          <h2>🛠️ עריכת שחקן <span class="pill">לבדיקות בלבד</span></h2>
-          <div class="sub" style="margin-bottom:10px;">כתוב את הכינוי (כמו בטבלה) ומה לשנות. שדה ריק = ללא שינוי. ה-lifetimeGoo תמיד יישאר ≥ הגו. השחקן צריך לרענן את המשחק כדי לראות את השינוי.</div>
-          <div class="edit-grid">
-            <div class="full"><label for="edNick">כינוי</label><input id="edNick" placeholder="הכינוי בטבלה" /></div>
-            <div><label for="edGoo">גו</label><input id="edGoo" type="number" inputmode="numeric" placeholder="ללא שינוי" /></div>
-            <div><label for="edClicks">לחיצות</label><input id="edClicks" type="number" inputmode="numeric" placeholder="ללא שינוי" /></div>
-            <div class="full"><button class="primary" id="edSave">שמור שינויים</button></div>
-            <div class="full ok" id="edMsg"></div>
+        <!-- LAST 100 PLAYERS -->
+        <div class="sec">
+          <h2>🧑‍🤝‍🧑 100 הַשַּׂחְקָנִים הָאַחֲרוֹנִים <span class="pill">כינוי בלבד · ללא פרטים אישיים</span></h2>
+          <div class="card">
+            <div class="scroll">
+              <table>
+                <thead><tr><th class="rank">#</th><th>כינוי</th><th>נרשם</th><th>פעיל לאחרונה</th><th class="n">גו</th><th class="n">לחיצות</th></tr></thead>
+                <tbody id="players"><tr><td colspan="6" class="empty">טוען…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODERATION -->
+        <div class="sec">
+          <h2>🚫 שַׂחְקָנִים חֲסוּמִים <span class="pill" id="barredCount">—</span></h2>
+          <div class="card">
+            <div class="sub" style="margin-bottom:8px;">חסימה לא מוחקת התקדמות — היא רק מסתירה מהטבלה. "שחרר" מחזיר מיד.</div>
+            <table>
+              <thead><tr><th>שחקן</th><th>סיבה</th><th class="n">חומרה</th><th></th></tr></thead>
+              <tbody id="barred"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TOOLS -->
+        <div class="sec">
+          <h2>🛠️ עֲרִיכַת שַׂחְקָן <span class="pill">לבדיקות בלבד</span></h2>
+          <div class="card">
+            <div class="sub" style="margin-bottom:10px;">כתוב את הכינוי (כמו בטבלה) ומה לשנות. שדה ריק = ללא שינוי. ה-lifetimeGoo תמיד יישאר ≥ הגו. השחקן צריך לרענן את המשחק כדי לראות את השינוי.</div>
+            <div class="edit-grid">
+              <div class="full"><label for="edNick">כינוי</label><input id="edNick" placeholder="הכינוי בטבלה" /></div>
+              <div><label for="edGoo">גו</label><input id="edGoo" type="number" inputmode="numeric" placeholder="ללא שינוי" /></div>
+              <div><label for="edClicks">לחיצות</label><input id="edClicks" type="number" inputmode="numeric" placeholder="ללא שינוי" /></div>
+              <div class="full"><button class="primary" id="edSave">שמור שינויים</button></div>
+              <div class="full ok" id="edMsg"></div>
+            </div>
           </div>
         </div>
 
@@ -142,15 +224,11 @@
     </div>
 
     <script>
-      // API base: the Worker. Override with ?api=... for local testing.
       const API = new URLSearchParams(location.search).get('api') || 'https://api.bl-or-bo.com';
       const KEY = 'blorbo-admin-token';
       const $ = (id) => document.getElementById(id);
       const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
 
-      // Compact number with the SAME suffix scale the game uses (K/M/B/T/Qa/Qi…),
-      // so a player's goo reads "12.3M" instead of a wall of digits. Exact value
-      // stays available on hover (title=).
       const UNITS = [[1e33,'Dc'],[1e30,'No'],[1e27,'Oc'],[1e24,'Sp'],[1e21,'Sx'],[1e18,'Qi'],[1e15,'Qa'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
       function short(n) {
         n = Number(n) || 0;
@@ -161,23 +239,59 @@
         return String(Math.round(n));
       }
 
-      // Rewarded, child-directed inventory pays little and fills poorly — budget
-      // the LOW end (see CLAUDE.md). Revenue is estimated from COMPLETED views
-      // (outcome 'reward') × an eCPM range, per 1000 views.
-      const RPM_LOW = 3, RPM_HIGH = 8; // $ per 1000 completed rewarded views
+      const RPM_LOW = 3, RPM_HIGH = 8;
       const usd = (n) => '$' + (n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString('en-US'));
       const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
+      // "לפני X" relative time, kind to a quick glance.
+      function ago(ms) {
+        if (!ms) return '—';
+        const s = Math.max(0, (Date.now() - ms) / 1000);
+        if (s < 90) return 'הרגע';
+        const m = s / 60; if (m < 90) return Math.round(m) + ' דק׳';
+        const h = m / 60; if (h < 36) return Math.round(h) + ' שע׳';
+        return Math.round(h / 24) + ' ימ׳';
+      }
+      // Human duration from seconds (screen-time estimate).
+      function dur(sec) {
+        sec = Math.max(0, Math.round(sec));
+        const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+        if (h >= 1) return h + 'ש׳' + (m ? ' ' + m + 'ד׳' : '');
+        if (m >= 1) return m + ' דק׳';
+        return sec + ' שנ׳';
+      }
+      const dayLabel = (d) => { const p = String(d).split('-'); return p.length === 3 ? p[2] + '/' + p[1] : d; };
+
+      // Render a day bar-chart into `barsEl`/`labEl` from newest-first rows.
+      function drawChart(barsEl, labEl, rowsNewestFirst, valueOf, cls, days) {
+        const rows = (rowsNewestFirst || []).slice(0, days || 14).reverse(); // chronological
+        if (!rows.length) {
+          barsEl.innerHTML = '';
+          labEl.innerHTML = '<span style="flex:1;color:var(--faint)">ייאסף מהיום ואילך…</span>';
+          return;
+        }
+        const vals = rows.map(valueOf);
+        const max = Math.max(1, ...vals);
+        barsEl.innerHTML = rows
+          .map((r, i) => `<div class="bar ${cls}" title="${esc(r.day)}: ${fmt(vals[i])}"><i style="height:${Math.round((vals[i] / max) * 100)}%"></i></div>`)
+          .join('');
+        labEl.innerHTML = rows.map((r) => `<span>${esc(dayLabel(r.day))}</span>`).join('');
+      }
+
       let timer = 0;
 
-      async function load(token) {
-        const res = await fetch(`${API}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } });
+      async function api(path, opts) {
+        const token = sessionStorage.getItem(KEY);
+        const res = await fetch(`${API}${path}`, {
+          ...opts,
+          headers: { Authorization: `Bearer ${token}`, ...(opts && opts.headers) },
+        });
         if (res.status === 401) throw new Error('סיסמה שגויה');
         if (!res.ok) throw new Error('שגיאת שרת (' + res.status + ')');
         return res.json();
       }
+      const load = () => api('/admin/stats');
 
-      // Plain-language reason for each audit flag (kids' parents read this).
       const REASON = {
         'goo-rate': 'קפיצת גו חריגה',
         'click-rate': 'קפיצת לחיצות חריגה',
@@ -188,19 +302,10 @@
         const set = [...new Set(String(flags || '').split(',').filter(Boolean))];
         const known = set.filter((f) => REASON[f]);
         let base = known.length ? known.map((f) => REASON[f]).join(' · ') : esc(set.join(', ') || '—');
-        // A merge-claimed annotation means the client flagged this as a
-        // cross-device/pre-auth progress transfer — almost always an honest kid,
-        // safe to release. Surface it prominently so the owner acts confidently.
         if (set.includes('merge-claimed')) {
           base += ' <span style="color:var(--goo)">✓ כנראה מיזוג בין מכשירים — קרוב לוודאי תקין, אפשר לשחרר</span>';
         }
         return base;
-      }
-
-      async function loadBarred(token) {
-        const res = await fetch(`${API}/admin/barred`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) throw new Error('barred ' + res.status);
-        return res.json();
       }
 
       function renderBarred(d) {
@@ -230,57 +335,72 @@
       }
 
       async function release(userId, name) {
-        const token = sessionStorage.getItem(KEY);
-        if (!token) return showLogin();
+        if (!sessionStorage.getItem(KEY)) return showLogin();
         if (!confirm(`לשחרר את ${name} מהחסימה? ההתקדמות שלו לא נגעת.`)) return;
-        const res = await fetch(`${API}/admin/release`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
-        });
-        if (!res.ok) { alert('שחרור נכשל (' + res.status + ')'); return; }
+        try { await api('/admin/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId }) }); }
+        catch (e) { alert('שחרור נכשל'); return; }
         await refreshBarred();
       }
-
       async function refreshBarred() {
-        const token = sessionStorage.getItem(KEY);
-        if (!token) return;
-        try { renderBarred(await loadBarred(token)); }
+        try { renderBarred(await api('/admin/barred')); }
         catch (e) { $('barred').innerHTML = '<tr><td colspan="4" class="empty">לא ניתן לטעון (עדכן את ה-Worker?)</td></tr>'; }
       }
-
-      // One delegated click handler for all "שחרר" buttons (rows re-render often).
       $('barred').addEventListener('click', (e) => {
         const btn = e.target.closest('button.rel');
         if (btn) release(btn.dataset.id, btn.dataset.name);
       });
 
+      async function refreshPlayers() {
+        try {
+          const d = await api('/admin/players');
+          const rows = d.players || [];
+          if (!rows.length) { $('players').innerHTML = '<tr><td colspan="6" class="empty">אין עדיין שחקנים</td></tr>'; return; }
+          $('players').innerHTML = rows
+            .map((p, i) =>
+              `<tr><td class="rank">${i + 1}</td>` +
+              `<td>${p.name ? esc(p.name) : '<span class="reason">ללא כינוי</span>'}</td>` +
+              `<td>${new Date(p.joined).toLocaleDateString('he-IL')}</td>` +
+              `<td>${ago(p.lastActive)}</td>` +
+              `<td class="n" title="${fmt(p.goo)}">${short(p.goo)}</td>` +
+              `<td class="n" title="${fmt(p.clicks)}">${short(p.clicks)}</td></tr>`,
+            )
+            .join('');
+        } catch (e) {
+          $('players').innerHTML = '<tr><td colspan="6" class="empty">לא ניתן לטעון (עדכן את ה-Worker?)</td></tr>';
+        }
+      }
+
       function kpi(cls, label, value) {
-        return `<div class="kpi ${cls}"><div class="l">${label}</div><div class="v">${fmt(value)}</div></div>`;
+        return `<div class="kpi ${cls}"><div class="l">${label}</div><div class="v">${value}</div></div>`;
       }
 
       function render(d) {
         $('kpis').innerHTML =
-          kpi('now', 'פעילים עכשיו', d.activeNow) +
-          kpi('cy', 'פעילים ב-24ש׳', d.active24h) +
-          kpi('', 'חשבונות', d.accounts) +
-          kpi('gold', 'חדשים (7ימים)', d.newAccounts7d) +
-          kpi('', 'בטבלת המובילים', d.boardSize);
+          kpi('now', 'פעילים עכשיו', fmt(d.activeNow)) +
+          kpi('cy', 'פעילים ב-24ש׳', fmt(d.active24h)) +
+          kpi('', 'חשבונות', fmt(d.accounts)) +
+          kpi('gold', 'חדשים (7ימ׳)', fmt(d.newAccounts7d)) +
+          kpi('', 'בטבלה', fmt(d.boardSize)) +
+          kpi('cy', 'התראות דלוקות', fmt(d.pushOptIns ?? 0)) +
+          kpi('gold', 'גו סה״כ אי-פעם', short(d.totalGoo ?? 0));
+
+        // Charts.
+        drawChart($('chartNew'), $('labNew'), d.newByDay, (r) => Number(r.n) || 0, 'gold', 14);
+        $('newToday').textContent = d.newByDay && d.newByDay[0] ? '+' + fmt(d.newByDay[0].n) : '0';
+        drawChart($('chartDau'), $('labDau'), d.activeByDay, (r) => Number(r.users) || 0, '', 14);
+        $('dauToday').textContent = d.activeByDay && d.activeByDay[0] ? fmt(d.activeByDay[0].users) : '—';
+        const cp = Number(d.checkpointSeconds) || 60;
+        drawChart($('chartSt'), $('labSt'), d.activeByDay, (r) => (Number(r.saves) || 0) * cp, 'g', 14);
+        $('stToday').textContent = d.activeByDay && d.activeByDay[0] ? dur((Number(d.activeByDay[0].saves) || 0) * cp) : '—';
 
         const list = (rows) =>
           rows && rows.length
-            ? rows
-                .map(
-                  (r, i) =>
-                    `<tr><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td class="n" title="${fmt(r.score)}">${short(r.score)}</td></tr>`,
-                )
-                .join('')
+            ? rows.map((r, i) => `<tr><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td class="n" title="${fmt(r.score)}">${short(r.score)}</td></tr>`).join('')
             : '';
         $('topGoo').innerHTML = list(d.topGoo) || '<tr><td colspan="3" class="empty">אין נתונים עדיין</td></tr>';
         $('topClicks').innerHTML = list(d.topClicks) || '<tr><td colspan="3" class="empty">אין נתונים עדיין</td></tr>';
 
         renderAds(d.ads);
-
         $('stamp').textContent = 'עודכן ' + new Date(d.generatedAt).toLocaleString('he-IL');
       }
 
@@ -292,33 +412,51 @@
           $('ads').innerHTML = '<tr><td colspan="3" class="empty">אין נתונים</td></tr>';
           return;
         }
-        // Revenue is estimated from COMPLETED views (outcome 'reward'), which is
-        // the monetizable action for rewarded ads.
         const completed = ads.filter((a) => a.outcome === 'reward').reduce((s, a) => s + (Number(a.count) || 0), 0);
         const shown = ads.filter((a) => a.outcome === 'shown').reduce((s, a) => s + (Number(a.count) || 0), 0);
         const low7 = (completed * RPM_LOW) / 1000, high7 = (completed * RPM_HIGH) / 1000;
-        const scale = 30 / 7; // 7-day window → rough monthly
+        const scale = 30 / 7;
         $('adRevenue').innerHTML =
           `<strong>${fmt(completed)}</strong> צְפִיּוֹת שֶׁהוּשְׁלְמוּ · ` +
           `צָפִי הַכְנָסָה: <strong>${usd(low7)}–${usd(high7)}</strong> (7 יָמִים) · ` +
           `~<strong>${usd(low7 * scale)}–${usd(high7 * scale)}</strong> לְחֹדֶשׁ ` +
           `<span class="pill">eCPM $${RPM_LOW}–$${RPM_HIGH}, הַעֲרָכָה</span>` +
           (shown ? `<br><small style="color:var(--faint)">${fmt(shown)} הַצָּגוֹת · תַּגְמוּל מִתּוֹךְ הַצָּגוֹת: ${Math.min(100, Math.round((completed / shown) * 100))}%</small>` : '');
-        // Rows sorted by count, with Hebrew labels.
         $('ads').innerHTML = [...ads]
           .sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
-          .map(
-            (a) =>
-              `<tr><td>${AD_PURPOSE[a.purpose] || esc(a.purpose)}</td>` +
-              `<td>${AD_OUTCOME[a.outcome] || esc(a.outcome)}</td>` +
-              `<td class="n">${fmt(a.count)}</td></tr>`,
-          )
+          .map((a) => `<tr><td>${AD_PURPOSE[a.purpose] || esc(a.purpose)}</td><td>${AD_OUTCOME[a.outcome] || esc(a.outcome)}</td><td class="n">${fmt(a.count)}</td></tr>`)
           .join('');
       }
 
+      // Broadcast — a real outward-facing send, so confirm with the reach first.
+      let optIns = 0;
+      async function sendBroadcast() {
+        if (!sessionStorage.getItem(KEY)) return showLogin();
+        const title = $('bcTitle').value.trim();
+        const body = $('bcBody').value.trim();
+        $('bcMsg').style.color = 'var(--hot)';
+        if (!body) { $('bcMsg').textContent = 'כתוב הודעה לפני שליחה'; return; }
+        if (!confirm(`לשלוח לכל מי שהדליק התראות (~${optIns})?\n\n${title ? title + '\n' : ''}${body}`)) return;
+        $('bcMsg').style.color = 'var(--muted)';
+        $('bcMsg').textContent = 'שולח…';
+        try {
+          const d = await api('/admin/broadcast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, body }) });
+          if (d && d.ok) {
+            $('bcMsg').style.color = 'var(--goo)';
+            $('bcMsg').textContent = `✓ נשלח ל-${fmt(d.targeted)} מכשירים`;
+            $('bcBody').value = '';
+          } else {
+            $('bcMsg').style.color = 'var(--hot)';
+            $('bcMsg').textContent = d && d.error === 'push-unconfigured' ? 'הפוש לא מוגדר בשרת (VAPID)' : 'לא נשלח';
+          }
+        } catch (e) {
+          $('bcMsg').style.color = 'var(--hot)';
+          $('bcMsg').textContent = 'שגיאה בשליחה';
+        }
+      }
+
       async function saveEdit() {
-        const token = sessionStorage.getItem(KEY);
-        if (!token) return showLogin();
+        if (!sessionStorage.getItem(KEY)) return showLogin();
         const nickname = $('edNick').value.trim();
         const gooRaw = $('edGoo').value.trim();
         const clicksRaw = $('edClicks').value.trim();
@@ -333,7 +471,7 @@
         try {
           const res = await fetch(`${API}/admin/edit`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            headers: { Authorization: `Bearer ${sessionStorage.getItem(KEY)}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           });
           const d = await res.json().catch(() => ({}));
@@ -348,54 +486,51 @@
         }
       }
 
-      function showDash() {
-        $('login').style.display = 'none';
-        $('dash').style.display = 'block';
-      }
+      function showDash() { $('login').style.display = 'none'; $('dash').style.display = 'block'; }
       function showLogin(msg) {
-        $('dash').style.display = 'none';
-        $('login').style.display = 'block';
+        $('dash').style.display = 'none'; $('login').style.display = 'block';
         $('loginErr').textContent = msg || '';
         if (timer) clearInterval(timer);
       }
 
       async function refresh() {
-        const token = sessionStorage.getItem(KEY);
-        if (!token) return showLogin();
+        if (!sessionStorage.getItem(KEY)) return showLogin();
         try {
-          render(await load(token));
+          const d = await load();
+          optIns = d.pushOptIns || 0;
+          render(d);
           void refreshBarred();
+          void refreshPlayers();
         } catch (e) {
-          if (String(e.message).includes('שגויה')) {
-            sessionStorage.removeItem(KEY);
-            showLogin(e.message);
-          } else {
-            $('foot').textContent = e.message;
-          }
+          if (String(e.message).includes('שגויה')) { sessionStorage.removeItem(KEY); showLogin(e.message); }
+          else { $('foot').textContent = e.message; }
         }
       }
 
       $('enter').onclick = async () => {
         const token = $('token').value.trim();
         if (!token) return;
+        sessionStorage.setItem(KEY, token);
         try {
-          const d = await load(token);
-          sessionStorage.setItem(KEY, token);
+          const d = await load();
+          optIns = d.pushOptIns || 0;
           showDash();
           render(d);
           void refreshBarred();
+          void refreshPlayers();
           if (timer) clearInterval(timer);
-          timer = setInterval(refresh, 30_000); // live-ish
+          timer = setInterval(refresh, 30_000);
         } catch (e) {
+          sessionStorage.removeItem(KEY);
           $('loginErr').textContent = e.message;
         }
       };
       $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('enter').click(); });
       $('refresh').onclick = refresh;
       $('edSave').onclick = saveEdit;
+      $('bcSend').onclick = sendBroadcast;
       $('logout').onclick = () => { sessionStorage.removeItem(KEY); showLogin(); };
 
-      // Resume a session token on reload.
       if (sessionStorage.getItem(KEY)) {
         showDash();
         refresh();

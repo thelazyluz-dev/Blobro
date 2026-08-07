@@ -97,6 +97,20 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions (user_id);
 
+-- Daily activity, for the owner dashboard's engagement charts. One row per
+-- (account, day): `saves` counts checkpoints that day, so COUNT(*) per day is
+-- daily-active-users and SUM(saves) per day is an estimate of total screen time
+-- (each checkpoint ≈ one minute of play). No PII — internal id + a date string.
+-- Written best-effort on each save (see savePut); a failure never blocks a save.
+-- New table only — CREATE IF NOT EXISTS, so apply_schema is enough (no ALTER).
+CREATE TABLE IF NOT EXISTS activity (
+  user_id TEXT NOT NULL,
+  day     TEXT NOT NULL,              -- 'YYYY-MM-DD' (UTC)
+  saves   INTEGER NOT NULL DEFAULT 0, -- checkpoints that day → screen-time estimate
+  PRIMARY KEY (user_id, day)
+);
+CREATE INDEX IF NOT EXISTS idx_activity_day ON activity (day);
+
 -- One row per active session. Only the SHA-256 hash of the session token is
 -- ever stored — the raw token lives solely in the player's HttpOnly cookie,
 -- so a DB read (backup, dump, injection) can't be replayed as a session.
