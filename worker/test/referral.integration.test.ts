@@ -153,6 +153,33 @@ describe('referral qualification (play-to-count)', () => {
     expect((await refMe(referrer)).count).toBe(1);
   });
 
+  it('grants the referrer a one-time goo gift at the gift tier (server-side)', async () => {
+    const referrer = await signUp();
+    const { code } = await refMe(referrer);
+    // The referrer needs a cloud save WITH production for the gift to be > 0.
+    await putSave(referrer, 0, sampleSave({ characters: { blombo: { level: 100 } }, goo: 1000, lifetimeGoo: 1000 }));
+    const gooBefore = await (async () => {
+      const res = await call('/save', { headers: { Cookie: referrer } });
+      return ((await res.json()) as { save: { goo: number } }).save.goo;
+    })();
+
+    // Bring 3 friends who each qualify by playing.
+    for (let i = 0; i < 3; i++) {
+      const friend = await signUp();
+      await claim(friend, code!);
+      const r = await putSave(friend, 0, sampleSave({ lifetimeGoo: 50_000 }));
+      expect(r.status).toBe(200);
+    }
+    expect((await refMe(referrer)).count).toBe(3);
+
+    // The gift landed in the referrer's stored save (server-side → audit-safe).
+    const gooAfter = await (async () => {
+      const res = await call('/save', { headers: { Cookie: referrer } });
+      return ((await res.json()) as { save: { goo: number } }).save.goo;
+    })();
+    expect(gooAfter).toBeGreaterThan(gooBefore);
+  });
+
   it('surfaces the friend count on /auth/me too', async () => {
     const referrer = await signUp();
     const { code } = await refMe(referrer);

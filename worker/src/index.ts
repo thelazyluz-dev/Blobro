@@ -87,6 +87,7 @@ import {
 // The Worker's one import surface onto the shared, pure game rules (PR 4)
 // — see worker/src/rules.ts for why this is never reimplemented locally.
 import {
+  balance,
   CURRENT_VERSION,
   isCleanNickname,
   maxCpm,
@@ -847,6 +848,36 @@ async function handleReferralClaim(request: Request, env: Env): Promise<Response
   } catch {
     return authJson({ ok: false, reason: 'db' }, 200, origin);
   }
+}
+
+/**
+ * One-time goo gift for a referrer who just reached the gift tier. Computes a
+ * few hours of their CURRENT production from their stored save and adds it to
+ * that save's goo + lifetimeGoo SERVER-SIDE, bumping the rev. Doing it here
+ * (not client-side) is what keeps it anti-cheat-safe: the audit's baseline is
+ * this new, higher save, so the referrer's next upload shows no anomalous jump
+ * — a client-injected lump would trip the goo-rate flag, which always bars. The
+ * referrer picks the gift up through the normal cloud merge on their next load
+ * or checkpoint conflict. Best-effort: a missing save or a concurrent write
+ * just means no gift this time; never throws to the caller.
+ */
+async function grantReferralGooGift(env: Env, referrerId: string, now: number): Promise<void> {
+  const row = await env.DB.prepare('SELECT rev, payload FROM saves WHERE user_id = ?1')
+    .bind(referrerId)
+    .first<{ rev: number; payload: string }>();
+  if (!row) return; // referrer has no cloud save yet — skip (rare)
+  const save = migrate(tryParseJson(row.payload), now);
+  const rate = plausibilityCeiling(save, 0).passivePerSec;
+  const gift = Math.max(0, Math.floor(rate * balance.referralGiftHours * 3600));
+  if (gift <= 0) return;
+  save.goo += gift;
+  save.lifetimeGoo += gift;
+  const payload = JSON.stringify(save);
+  await env.DB.prepare(
+    'UPDATE saves SET rev = rev + 1, lifetime_goo = ?1, payload = ?2, updated = ?3 WHERE user_id = ?4 AND rev = ?5',
+  )
+    .bind(save.lifetimeGoo, payload, now, referrerId, row.rev)
+    .run();
 }
 
 // ── Google OAuth (authorization code + PKCE) ──────────────────────────────
@@ -1906,6 +1937,18 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
             await env.DB.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1')
               .bind(ref.referrer_id)
               .run();
+            // Read the referrer's NEW count; at the gift tier, grant a one-time
+            // goo gift = a few hours of their CURRENT production. Granted
+            // SERVER-SIDE into their stored save so the plausibility audit's
+            // baseline already includes it — a client-injected lump would trip
+            // the goo-rate flag (which always bars). Best-effort: never breaks
+            // this save, and the referrer picks it up via the normal cloud merge.
+            const after = await env.DB.prepare('SELECT referral_count FROM users WHERE id = ?1')
+              .bind(ref.referrer_id)
+              .first<{ referral_count: number }>();
+            if (after?.referral_count === balance.referralFriendsForGift) {
+              await grantReferralGooGift(env, ref.referrer_id, now);
+            }
           }
         }
       }
