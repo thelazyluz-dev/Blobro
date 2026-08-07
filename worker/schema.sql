@@ -52,11 +52,33 @@ CREATE TABLE IF NOT EXISTS users (
   google_sub    TEXT UNIQUE,                -- Google's stable "sub" claim; NULL for password-only accounts
   display_name  TEXT,
   created       INTEGER NOT NULL DEFAULT 0, -- ms since epoch
-  last_login    INTEGER NOT NULL DEFAULT 0  -- ms since epoch
+  last_login    INTEGER NOT NULL DEFAULT 0, -- ms since epoch
+  -- Referral system. Like `cpm` on `scores`, these were added after the table
+  -- existed in production: fresh/test DBs get them here, and the deploy
+  -- workflow's apply_schema step runs the matching ALTERs (duplicate-column
+  -- tolerated) BEFORE this file, so the ref_code index below never references a
+  -- column the live table lacks. `ref_code` is the opaque, non-PII share token
+  -- (never the user id); `referral_count` counts QUALIFIED referees only.
+  ref_code       TEXT,                        -- opaque share code (share link ?ref=…); UNIQUE index below
+  referred_by    TEXT,                        -- referrer's users.id, set once when this account is referred
+  referral_count INTEGER NOT NULL DEFAULT 0   -- qualified referees (drives the reward tiers)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users (google_sub);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_ref_code ON users (ref_code);
+
+-- One row per referred account (referee_id PK → counted once, referrer immutable).
+-- `qualified` flips to 1 once the referee shows real play (crosses a small
+-- lifetime-goo bar in savePut), which is when the referrer's count increments —
+-- so throwaway accounts that never play never count. No PII: internal ids only.
+CREATE TABLE IF NOT EXISTS referrals (
+  referee_id  TEXT PRIMARY KEY,
+  referrer_id TEXT NOT NULL,
+  created     INTEGER NOT NULL,
+  qualified   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals (referrer_id);
 
 -- One row per active session. Only the SHA-256 hash of the session token is
 -- ever stored — the raw token lives solely in the player's HttpOnly cookie,

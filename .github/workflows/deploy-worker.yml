@@ -72,10 +72,17 @@ jobs:
         # so "duplicate column" (= already applied) is tolerated explicitly —
         # any other ALTER failure still stops the deploy.
         run: |
-          out=$(npx wrangler d1 execute blorbo-leaderboard --remote --yes \
-            --command "ALTER TABLE scores ADD COLUMN cpm INTEGER NOT NULL DEFAULT 0" 2>&1) \
-            || { echo "$out" | grep -q "duplicate column" && echo "cpm column already exists — fine"; } \
-            || { echo "$out"; exit 1; }
+          alter() {
+            out=$(npx wrangler d1 execute blorbo-leaderboard --remote --yes --command "$1" 2>&1) \
+              || { echo "$out" | grep -q "duplicate column" && echo "already applied — fine: $1"; } \
+              || { echo "$out"; exit 1; }
+          }
+          alter "ALTER TABLE scores ADD COLUMN cpm INTEGER NOT NULL DEFAULT 0"
+          # Referral columns on users (see schema.sql). Must precede schema.sql,
+          # which indexes ref_code.
+          alter "ALTER TABLE users ADD COLUMN ref_code TEXT"
+          alter "ALTER TABLE users ADD COLUMN referred_by TEXT"
+          alter "ALTER TABLE users ADD COLUMN referral_count INTEGER NOT NULL DEFAULT 0"
           npx wrangler d1 execute blorbo-leaderboard --remote --file=./schema.sql --yes
 
       - name: Deploy

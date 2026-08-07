@@ -262,7 +262,9 @@ export default {
       url.pathname === '/admin/stats' ||
       url.pathname === '/admin/barred' ||
       url.pathname === '/admin/release' ||
-      url.pathname === '/admin/edit';
+      url.pathname === '/admin/edit' ||
+      url.pathname === '/referral/claim' ||
+      url.pathname === '/referral/me';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -379,6 +381,14 @@ export default {
     // ── Cloud save (PR 4) ──────────────────────────────────────────────────
     if (url.pathname === '/save') {
       return handleSave(request, env);
+    }
+
+    // ── Referral (share link → friends → reward) ──────────────────────────
+    if (url.pathname === '/referral/claim' && request.method === 'POST') {
+      return handleReferralClaim(request, env);
+    }
+    if (url.pathname === '/referral/me' && request.method === 'GET') {
+      return handleReferralMe(request, env);
     }
 
     return json({ error: 'not-found' }, 404);
@@ -697,9 +707,145 @@ async function authMe(request: Request, env: Env, origin: string | null): Promis
   try {
     const user = await getUserFromRequest(request, env);
     if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
-    return authJson({ user: publicUser(user) }, 200, origin);
+    // Referral status rides along on the per-load /auth/me so the client learns
+    // its friend count (→ which medals it has earned) without a second call.
+    // Read in a SEPARATE, guarded query — NOT folded into getUserFromRequest's
+    // hot-path SELECT — so a deploy that lands before the schema ALTER degrades
+    // to "no referral info" instead of breaking sign-in for everyone.
+    const referral = await referralStatusFor(env, user.id);
+    return authJson({ user: publicUser(user), referral }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+// ── Referral (share link → 5 friends → medal) ────────────────────────────
+//
+// A referee counts toward its referrer only once it shows real play — crosses
+// this lifetime-goo bar (checked in savePut) — so a wave of throwaway accounts
+// that never play never inflates anyone's count. Small enough that any genuine
+// new player clears it within a few minutes.
+const REFERRAL_QUALIFY_GOO = 5_000;
+const REF_CODE_RE = /^[A-Za-z0-9]{4,40}$/;
+
+/** A fresh opaque, non-PII share code (base62). Deliberately NOT the user id. */
+function generateRefCode(): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const buf = new Uint32Array(8);
+  crypto.getRandomValues(buf);
+  let out = '';
+  for (let i = 0; i < 8; i++) out += alphabet[buf[i] % alphabet.length];
+  return out;
+}
+
+/**
+ * The caller's referral status for /auth/me — {code, count}. Returns null if the
+ * columns aren't there yet (pre-schema deploy) so it can never break sign-in.
+ * Does NOT lazily generate the code (that's a write; /referral/me handles it) —
+ * keeps the per-load path read-only.
+ */
+async function referralStatusFor(env: Env, userId: string): Promise<{ code: string | null; count: number } | null> {
+  try {
+    const row = await env.DB.prepare('SELECT ref_code, referral_count FROM users WHERE id = ?1')
+      .bind(userId)
+      .first<{ ref_code: string | null; referral_count: number }>();
+    if (!row) return null;
+    return { code: row.ref_code ?? null, count: row.referral_count ?? 0 };
+  } catch {
+    return null; // columns not present yet — degrade quietly
+  }
+}
+
+/** GET /referral/me → {code, count}. Lazily mints (and persists) the code. */
+async function handleReferralMe(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+  try {
+    const existing = await env.DB.prepare('SELECT ref_code, referral_count FROM users WHERE id = ?1')
+      .bind(user.id)
+      .first<{ ref_code: string | null; referral_count: number }>();
+    let code = existing?.ref_code ?? null;
+    const count = existing?.referral_count ?? 0;
+    if (!code) {
+      // Mint a unique code. Collisions are astronomically unlikely at 62^8; a
+      // couple of retries covers the unique-index race/collision anyway.
+      for (let i = 0; i < 4 && !code; i++) {
+        const candidate = generateRefCode();
+        try {
+          const res = await env.DB.prepare('UPDATE users SET ref_code = ?1 WHERE id = ?2 AND ref_code IS NULL')
+            .bind(candidate, user.id)
+            .run();
+          if ((res.meta?.changes ?? 0) > 0) {
+            code = candidate;
+          } else {
+            // Someone set it concurrently — re-read and use that.
+            const cur = await env.DB.prepare('SELECT ref_code FROM users WHERE id = ?1')
+              .bind(user.id)
+              .first<{ ref_code: string | null }>();
+            if (cur?.ref_code) code = cur.ref_code;
+          }
+        } catch {
+          // UNIQUE collision on ref_code — loop and try another candidate.
+        }
+      }
+    }
+    return authJson({ code, count }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/**
+ * POST /referral/claim {ref} — bind the caller (referee) to the referrer whose
+ * share code is `ref`. One-time and idempotent (referee_id is the PK). Rejects
+ * self-referral and an already-referred caller. Returns {ok} — a soft
+ * false/reason on any benign rejection so the client just moves on.
+ */
+async function handleReferralClaim(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+  const body = await readJsonObject(request);
+  const ref = typeof body?.ref === 'string' ? body.ref.trim() : '';
+  if (!REF_CODE_RE.test(ref)) return authJson({ ok: false, reason: 'bad-ref' }, 200, origin);
+  try {
+    // Already referred? One referrer per account, ever.
+    const me = await env.DB.prepare('SELECT referred_by FROM users WHERE id = ?1')
+      .bind(user.id)
+      .first<{ referred_by: string | null }>();
+    if (me?.referred_by) return authJson({ ok: false, reason: 'already' }, 200, origin);
+
+    const referrer = await env.DB.prepare('SELECT id FROM users WHERE ref_code = ?1')
+      .bind(ref)
+      .first<{ id: string }>();
+    if (!referrer) return authJson({ ok: false, reason: 'unknown' }, 200, origin);
+    if (referrer.id === user.id) return authJson({ ok: false, reason: 'self' }, 200, origin);
+
+    // Bind: record the edge (idempotent) and stamp the referee's referred_by.
+    // The count is NOT incremented here — that waits until the referee qualifies
+    // by actually playing (savePut), which defeats throwaway accounts.
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO referrals (referee_id, referrer_id, created, qualified) VALUES (?1, ?2, ?3, 0)',
+    )
+      .bind(user.id, referrer.id, Date.now())
+      .run();
+    await env.DB.prepare('UPDATE users SET referred_by = ?1 WHERE id = ?2 AND referred_by IS NULL')
+      .bind(referrer.id, user.id)
+      .run();
+    return authJson({ ok: true }, 200, origin);
+  } catch {
+    return authJson({ ok: false, reason: 'db' }, 200, origin);
   }
 }
 
@@ -1738,6 +1884,33 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
         .run();
     } catch (err) {
       console.error('save_audit insert failed', err);
+    }
+
+    // ── Referral qualification ────────────────────────────────────────────
+    // If this saver was referred and has now shown real play (crossed the goo
+    // bar), flip their referral row to qualified ONCE and credit the referrer.
+    // Gated on referred_by IS NOT NULL first, so an honest non-referred save
+    // does a single cheap indexed lookup and nothing else. Never breaks a save
+    // (own try/catch), and the UPDATE...WHERE qualified = 0 guarantees it counts
+    // at most once no matter how many saves cross the bar.
+    try {
+      if (sanitized.lifetimeGoo >= REFERRAL_QUALIFY_GOO) {
+        const ref = await env.DB.prepare('SELECT referrer_id, qualified FROM referrals WHERE referee_id = ?1')
+          .bind(user.id)
+          .first<{ referrer_id: string; qualified: number }>();
+        if (ref && ref.qualified === 0) {
+          const flip = await env.DB.prepare('UPDATE referrals SET qualified = 1 WHERE referee_id = ?1 AND qualified = 0')
+            .bind(user.id)
+            .run();
+          if ((flip.meta?.changes ?? 0) > 0) {
+            await env.DB.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1')
+              .bind(ref.referrer_id)
+              .run();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('referral qualify failed', err);
     }
 
     return authJson({ rev: newRev, updated: now }, 200, origin);
