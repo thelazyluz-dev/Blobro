@@ -79,6 +79,9 @@ export const evolveMultiplierByStage = [1, 3, 8, 20, 50]; // income × at stage 
 // clamped to this number in the shared pure rules, so it can never inflate the
 // ceiling — the game and the bound stay in lockstep.
 export const rebirthCap = 20;
+// At this rebirth count a creature unlocks a SECOND ability slot — the player
+// picks any ability type except its native one (see OwnedCharacter.secondAbility).
+export const secondAbilityRebirth = 10;
 // +25% of the ability's BASE value per rebirth (owner-set). Linear, so it
 // self-decelerates (each rebirth adds a constant absolute amount); at the cap
 // the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a

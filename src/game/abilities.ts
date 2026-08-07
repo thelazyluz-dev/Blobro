@@ -97,6 +97,19 @@ export function abilityOf(id: CharId, rarity: Rarity, rebirths = 0): Ability {
   return { type, value: base * (1 + abilityRebirthBonus * reb) };
 }
 
+/**
+ * The ability for a CHOSEN type at a given rarity — the value straight off the
+ * rarity curve, with NO rebirth scaling and NO per-creature override. Used by
+ * the "second ability" a creature earns at its 10th rebirth (types.ts), which
+ * the player picks by type rather than inheriting from the creature id.
+ */
+export function abilityForType(type: AbilityType, rarity: Rarity): Ability {
+  return { type, value: VALUES[type][TIER[rarity]] };
+}
+
+/** All ability types (for validation / pickers). */
+export const ABILITY_TYPES: readonly AbilityType[] = ['tap', 'income', 'crit', 'luck', 'combo', 'bonus'];
+
 /** Percentage to display for an ability value. */
 export function abilityPct(a: Ability): number {
   return Math.round(a.value * 100);

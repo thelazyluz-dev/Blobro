@@ -1,5 +1,6 @@
 export type { RngState } from './rng';
 import type { RngState } from './rng';
+import type { AbilityType } from './abilities';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
@@ -64,6 +65,13 @@ export interface OwnedCharacter {
   level: number;
   evolution?: number;
   rebirths?: number;
+  /**
+   * A SECOND ability the player chose for this creature, unlocked at its 10th
+   * rebirth (see secondAbilityRebirth). Any type except the creature's native
+   * one; granted at the standard rarity value (no rebirth scaling) when this
+   * creature is the on-screen main. Re-choosable. Inactive below the threshold.
+   */
+  secondAbility?: AbilityType;
 }
 export type OwnedCharacters = Partial<Record<CharId, OwnedCharacter>>;
 
@@ -79,7 +87,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 19;
+  version: 20;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)

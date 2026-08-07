@@ -17,6 +17,8 @@ import {
 } from './balance';
 import { collectionOrder } from './characters';
 import { achievements } from './achievements';
+import { ABILITY_TYPES } from './abilities';
+import type { AbilityType } from './abilities';
 import {
   DEFAULT_ACCESSORY,
   DEFAULT_BACKGROUND,
@@ -50,7 +52,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 19 as const;
+export const CURRENT_VERSION = 20 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -118,7 +120,13 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
   const valid = new Set<CharId>(collectionOrder);
   for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!valid.has(key as CharId)) continue;
-    const e = entry as { level?: unknown; shiny?: unknown; evolution?: unknown; rebirths?: unknown } | null;
+    const e = entry as {
+      level?: unknown;
+      shiny?: unknown;
+      evolution?: unknown;
+      rebirths?: unknown;
+      secondAbility?: unknown;
+    } | null;
     const raw0 = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
     const clamped = remapLegacy ? remapLegacyLevel(raw0) : raw0;
     // Evolution stage: read the number, or convert a legacy `shiny:true` to stage 1.
@@ -135,10 +143,18 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
     // legitimately sits at level 1 / stage 0 with rebirths > 0, so this is
     // independent of the level/evolution above.
     const rebirths = Math.min(rebirthCap, nonNegInt(e?.rebirths, 0));
+    // Chosen second ability (mastering loop, 10th rebirth). Keep only a valid
+    // ability type; it's INACTIVE below the rebirth threshold (gated at use in
+    // selectActiveAbilities / verify), so preserving it here can't inflate power.
+    const secondAbility =
+      typeof e?.secondAbility === 'string' && (ABILITY_TYPES as readonly string[]).includes(e.secondAbility)
+        ? (e.secondAbility as AbilityType)
+        : undefined;
     out[key as CharId] = {
       level: clamped,
       ...(evolution > 0 ? { evolution } : {}),
       ...(rebirths > 0 ? { rebirths } : {}),
+      ...(secondAbility ? { secondAbility } : {}),
     };
   }
   return out;
