@@ -15,6 +15,7 @@ import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
+import { NotificationsPrompt } from './ui/NotificationsPrompt';
 import { ReferralRewardBanner, ReferralShare } from './ui/ReferralShare';
 import { refreshPushSubscription } from './net/push';
 import { OfflineModal } from './ui/OfflineModal';
@@ -151,6 +152,7 @@ export function App() {
       <NicknameWelcome />
       <ReferralShare />
       <ReferralRewardBanner />
+      <NotificationsPrompt />
     </div>
   );
 }
