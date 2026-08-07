@@ -4,7 +4,7 @@
 // - Hashed build assets are cache-first (their URL changes when they change).
 // - Everything is same-origin and local: no third-party requests, ever.
 
-const CACHE = 'blorbo-v187';
+const CACHE = 'blorbo-v188';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -33,15 +33,30 @@ self.addEventListener('fetch', (event) => {
     request.headers.get('accept')?.includes('text/html');
 
   if (isDocument) {
-    // Network-first, fall back to cached shell when offline.
+    // Network-first. Only the GAME'S OWN shell (the root) is stored under the
+    // './' offline-fallback key — other same-origin pages (admin.html,
+    // privacy.html, how-to-play.html) are cached under their OWN url. The old
+    // code cached EVERY document under './', so visiting /admin.html once
+    // poisoned the shell and the next offline game load served the admin page
+    // instead of the game. Now each page falls back to itself, and only a root
+    // navigation can ever fall back to the game shell.
+    const isAppShell = url.pathname === '/' || url.pathname === '/index.html';
     event.respondWith(
       fetch(request)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./', copy));
+          caches.open(CACHE).then((c) => c.put(isAppShell ? './' : request, copy));
           return res;
         })
-        .catch(() => caches.match('./').then((r) => r ?? caches.match(request))),
+        .catch(async () => {
+          const own = await caches.match(request); // this exact page, if we have it
+          if (own) return own;
+          if (isAppShell) {
+            const shell = await caches.match('./');
+            if (shell) return shell;
+          }
+          return Response.error(); // offline & uncached → a real network error, never the wrong page
+        }),
     );
     return;
   }
