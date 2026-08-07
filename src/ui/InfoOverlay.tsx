@@ -122,7 +122,7 @@ export function InfoOverlay() {
             <Row
               key={a.type}
               icon={ABILITY_META[a.type].icon}
-              label={i === 0 ? `יְכֹלֶת שֶׁל ${mainName}` : 'יְכֹלֶת שְׁנִיָּה'}
+              label={i === 0 ? `יְכֹלֶת שֶׁל ${mainName}` : i === 1 ? 'יְכֹלֶת שְׁנִיָּה' : 'יְכֹלֶת שְׁלִישִׁית'}
               hint={ABILITY_META[a.type].descHe(abilityPct(a))}
               value={`+${abilityPct(a)}%`}
             />

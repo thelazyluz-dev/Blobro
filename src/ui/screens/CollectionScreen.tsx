@@ -16,6 +16,7 @@ import {
   rebirthCap,
   rebirthIncomeBonus,
   secondAbilityRebirth,
+  thirdAbilityRebirth,
 } from '../../game/balance';
 import { charactersById, collectionOrder, incomeMultOf } from '../../game/characters';
 import {
@@ -222,13 +223,20 @@ export function CollectionScreen() {
                     stage < maxEvolution &&
                     held.level >= evolveLevels[stage] &&
                     goo >= evolveCost(def.rarity, held, m, gooPerSecNow, incomeMultOf(def));
+                  // "Ready to be reborn now" — max evolution, below the cap, and
+                  // affordable this instant. Mutually exclusive with evolveReady
+                  // (that needs stage < maxEvolution), so the two glows never clash.
+                  const rebirthReady =
+                    stage >= maxEvolution &&
+                    rebirths < rebirthCap &&
+                    goo >= rebirthCost(rebirths, gooPerSecNow);
                   return (
                     <button
                       key={id}
                       type="button"
                       onClick={() => open(id)}
                       className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95 ${
-                        evolveReady ? 'anim-evolve-glow' : ''
+                        evolveReady ? 'anim-evolve-glow' : rebirthReady ? 'anim-rebirth-glow' : ''
                       }`}
                       style={{
                         backgroundColor: '#170a29',
@@ -343,6 +351,7 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const evolveWithLevelUp = useGame((s) => s.evolveWithLevelUp);
   const rebirthCreature = useGame((s) => s.rebirthCreature);
   const setSecondAbility = useGame((s) => s.setSecondAbility);
+  const setThirdAbility = useGame((s) => s.setThirdAbility);
   const levelUp = useGame((s) => s.levelUpCreature);
   const levelUpMax = useGame((s) => s.levelUpCreatureMax);
   const isMain = useGame((s) => s.equippedMain === id);
@@ -544,11 +553,12 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
         })()}
 
         {/* Second ability — unlocked at the 10th rebirth. Pick any type except
-            the creature's native one (standard rarity value); re-choosable. */}
+            the creature's native one and its (later) third one — all three stay
+            distinct. Standard rarity value; re-choosable. */}
         {rebirths >= secondAbilityRebirth &&
           (() => {
             const nativeType = abilityOf(id, def.rarity, 0).type;
-            const choices = ABILITY_TYPES.filter((t) => t !== nativeType);
+            const choices = ABILITY_TYPES.filter((t) => t !== nativeType && t !== held.thirdAbility);
             const current = held.secondAbility && held.secondAbility !== nativeType ? held.secondAbility : null;
             return (
               <div className="mt-3 rounded-2xl bg-cy/10 px-3 py-2 ring-1 ring-cy/30">
@@ -574,6 +584,52 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
                       }}
                       className={`rounded-full px-2.5 py-1 text-xs ring-1 active:scale-95 ${
                         t === current ? 'bg-cy font-bold text-void ring-transparent' : 'bg-black/30 text-bone/70 ring-hairline'
+                      }`}
+                    >
+                      {ABILITY_META[t].icon} {ABILITY_META[t].nameHe}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+        {/* Third ability — the mastering-loop finale, unlocked at the FINAL
+            rebirth. Pick any type except the creature's native one and its second
+            one, so all three abilities stay distinct. Standard rarity value;
+            re-choosable. */}
+        {rebirths >= thirdAbilityRebirth &&
+          (() => {
+            const nativeType = abilityOf(id, def.rarity, 0).type;
+            const choices = ABILITY_TYPES.filter((t) => t !== nativeType && t !== held.secondAbility);
+            const current =
+              held.thirdAbility && held.thirdAbility !== nativeType && held.thirdAbility !== held.secondAbility
+                ? held.thirdAbility
+                : null;
+            return (
+              <div className="mt-3 rounded-2xl bg-pop/10 px-3 py-2 ring-1 ring-pop/30">
+                <div className="text-xs text-bone/55">
+                  🌟 יְכֹלֶת שְׁלִישִׁית <span className="text-bone/40">(נִפְתְּחָה בְּלֵידָה {thirdAbilityRebirth})</span>
+                </div>
+                {current ? (
+                  <div className="mt-0.5 font-display text-base text-pop">
+                    {ABILITY_META[current].icon} {ABILITY_META[current].descHe(abilityPct(abilityForType(current, def.rarity)))}
+                  </div>
+                ) : (
+                  <div className="mt-0.5 text-sm text-bone/60">בְּחַר יְכֹלֶת שְׁלִישִׁית לְהוֹסִיף:</div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {choices.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setThirdAbility(id, t);
+                        playPurchase(useGame.getState().muted);
+                        haptic(12);
+                      }}
+                      className={`rounded-full px-2.5 py-1 text-xs ring-1 active:scale-95 ${
+                        t === current ? 'bg-pop font-bold text-void ring-transparent' : 'bg-black/30 text-bone/70 ring-hairline'
                       }`}
                     >
                       {ABILITY_META[t].icon} {ABILITY_META[t].nameHe}
