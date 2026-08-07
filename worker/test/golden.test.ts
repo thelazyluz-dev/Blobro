@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  abilityForType,
   abilityOf,
   affordableCreatureLevels,
   autoClicksPerSec,
@@ -221,6 +222,12 @@ describe('golden vectors via worker/src/rules — abilityOf (all creatures)', ()
 describe('golden vectors via worker/src/rules — abilityOf with rebirths', () => {
   it.each(vectors.abilityOfRebirth)('matches for $id ($rarity) at $rebirths rebirths', (c: any) => {
     expect(abilityOf(c.id, c.rarity, c.rebirths)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors via worker/src/rules — abilityForType (second ability)', () => {
+  it.each(vectors.abilityForType)('matches for $type ($rarity)', (c: any) => {
+    expect(abilityForType(c.type, c.rarity)).toEqual(c.expected);
   });
 });
 

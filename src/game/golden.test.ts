@@ -9,7 +9,7 @@
 // and justified in the PR. Never regenerate just to make a red test green.
 
 import { describe, expect, it } from 'vitest';
-import { abilityOf } from './abilities';
+import { abilityForType, abilityOf } from './abilities';
 import { achievements, isComplete, starBonusFor } from './achievements';
 import {
   affordableCreatureLevels,
@@ -223,6 +223,12 @@ describe('golden vectors — abilityOf (all creatures)', () => {
 describe('golden vectors — abilityOf with rebirths (mastering loop)', () => {
   it.each(vectors.abilityOfRebirth)('matches for $id ($rarity) at $rebirths rebirths', (c: any) => {
     expect(abilityOf(c.id, c.rarity, c.rebirths)).toEqual(c.expected);
+  });
+});
+
+describe('golden vectors — abilityForType (chosen second ability)', () => {
+  it.each(vectors.abilityForType)('matches for $type ($rarity)', (c: any) => {
+    expect(abilityForType(c.type, c.rarity)).toEqual(c.expected);
   });
 });
 

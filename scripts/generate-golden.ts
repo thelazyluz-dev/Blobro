@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 import * as balance from '../src/game/balance';
-import { abilityOf, type Ability } from '../src/game/abilities';
+import { abilityForType, abilityOf, type Ability, type AbilityType } from '../src/game/abilities';
 import { achievements, isComplete, starBonusFor } from '../src/game/achievements';
 import { characters } from '../src/game/characters';
 import {
@@ -455,6 +455,15 @@ const abilityOfRebirthCases: { id: CharId; rarity: Rarity; rebirths: number; exp
   { id: 'grumpolo', rarity: 'common', rebirths: 8 }, // crit (value grows; the game clamps the CHANCE, not this base)
 ].map((c) => ({ ...c, expected: abilityOf(c.id, c.rarity, c.rebirths) }));
 
+// ── abilityForType — the chosen SECOND ability (10th rebirth) ─────────────
+// Value straight off the rarity curve for a picked type, no rebirth scaling.
+// Locks client (store) and Worker (verify) on the same second-ability values.
+const abilityForTypeCases: { type: AbilityType; rarity: Rarity; expected: Ability }[] = (
+  ['tap', 'income', 'crit', 'luck', 'combo', 'bonus'] as AbilityType[]
+).flatMap((type) =>
+  (['common', 'rare', 'legendary'] as Rarity[]).map((rarity) => ({ type, rarity, expected: abilityForType(type, rarity) })),
+);
+
 // ── starBonusFor ─────────────────────────────────────────────────────────
 const starAchievementIds = achievements.filter((a) => a.starReward > 0).map((a) => a.id);
 const starBonusForCases = [
@@ -801,6 +810,7 @@ const vectors = {
   buyableEggs: buyableEggsCases,
   abilityOf: abilityOfCases,
   abilityOfRebirth: abilityOfRebirthCases,
+  abilityForType: abilityForTypeCases,
   rebirthGlobalMult: rebirthGlobalMultCases,
   starBonusFor: starBonusForCases,
   isComplete: isCompleteCases,

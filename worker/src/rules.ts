@@ -42,7 +42,7 @@ export { buyableEggs, hatch, openEggs, pickChar, rollRarity } from '../../src/ga
 export { createRng, randomSeed } from '../../src/game/rng';
 export type { RngState } from '../../src/game/rng';
 
-export { abilityOf } from '../../src/game/abilities';
+export { abilityForType, abilityOf } from '../../src/game/abilities';
 
 export { computeOffline } from '../../src/game/offline';
 
