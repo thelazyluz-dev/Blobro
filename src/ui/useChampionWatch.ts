@@ -1,17 +1,24 @@
-// Watches the global boards and, when the #1 spot changes on any of them, shows
-// a toast to everyone in that board's top-10: "there's a new champion, their
-// name, and which category" (owner request).
+// Watches the global boards for a change at #1 and reacts two ways (owner
+// request):
+//   • YOU took #1 → a celebratory party (confetti + fanfare + toast), even if
+//     you never opened the leaderboard.
+//   • Someone ELSE took #1 → everyone in that board's top-10 is challenged with
+//     a toast naming them + the category.
 //
-// Pull-based, by design: it polls the ONE cached /boards endpoint (all three
-// boards' top-10) on a slow interval, and only while the tab is visible and the
-// player actually has a nickname (so a non-competing player never polls). The
-// first poll only establishes a baseline — no toast for scores that were already
-// standing when you opened the app (championNotice returns null when there is no
-// previous leader to compare against).
+// The reliability trick: the board only learns a score when it's submitted, and
+// submits happen rarely (opening the board, joining, a speed result). So instead
+// of waiting for the board to catch up, this watcher compares YOUR LIVE local
+// score to the board's current #1; the moment it passes, it pushes your save and
+// submits to claim the throne, then celebrates. That single write happens only
+// at the actual overtaking moment, so it costs effectively nothing in normal play.
+//
+// Pull-based and polite: polls the ONE cached /boards endpoint on a slow
+// interval, only while the tab is visible and the player has a nickname.
 
 import { useEffect, useRef } from 'react';
-import { fetchBoards, hasGlobalLeaderboard, playerName, type GlobalEntry, type Metric } from '../net/leaderboard';
-import { useGame } from '../store';
+import { playMilestone } from '../audio/sfx';
+import { fetchBoards, hasGlobalLeaderboard, playerName, submitScore, type GlobalEntry, type Metric } from '../net/leaderboard';
+import { pushCheckpoint, useGame } from '../store';
 
 const POLL_MS = 60_000;
 const METRICS: Metric[] = ['goo', 'clicks', 'cpm'];
@@ -24,10 +31,12 @@ export interface ChampionToast {
 }
 
 /**
- * Pure decision: given a board's current top-10, the leader we last saw, and the
- * player's nickname, return the toast to show — or null. Null when nothing
- * changed, when there was no previous leader yet (baseline), or when the player
- * isn't in THIS board's top-10 (only the competitors are told).
+ * Pure decision for the "someone ELSE is the new #1" challenge toast: given a
+ * board's current top-10, the leader we last saw, and the player's nickname,
+ * return the toast — or null. Null when nothing changed, when there was no
+ * previous leader yet (baseline), when the new leader is the player themselves
+ * (that celebration is handled by the claim path), or when the player isn't in
+ * this board's top-10 (only competitors are told).
  */
 export function championNotice(
   metric: Metric,
@@ -38,20 +47,41 @@ export function championNotice(
   const leader = list[0]?.name ?? null;
   if (!leader || leader === prevLeader) return null; // no new champion
   if (prevLeader === null) return null; // first time we've seen this board — baseline only
+  if (leader === me) return null; // self-celebration is the claim path's job, not this
   if (!me || !list.some((e) => e.name === me)) return null; // not competing on this board
-  const cat = CATEGORY_HE[metric];
-  return leader === me
-    ? { text: `🎉 תָּפַסְתָּ אֶת הַמָּקוֹם הָרִאשׁוֹן בְּ${cat}!`, icon: '👑', tone: 'star' }
-    : { text: `👑 ${leader} תָּפַס אֶת הַמָּקוֹם הָרִאשׁוֹן בְּ${cat}!`, icon: '👑', tone: 'pop' };
+  return { text: `👑 ${leader} תָּפַס אֶת הַמָּקוֹם הָרִאשׁוֹן בְּ${CATEGORY_HE[metric]}!`, icon: '👑', tone: 'pop' };
+}
+
+/** Pure: has my live score passed the board's current #1 (someone other than me)? */
+export function surpassedLeader(list: GlobalEntry[], myValue: number, me: string): boolean {
+  const top = list[0];
+  return !!me && !!top && top.name !== me && myValue > top.score;
+}
+
+/** The celebratory toast for the player who just took #1. */
+export function selfChampionToast(metric: Metric): ChampionToast {
+  return { text: `👑 שָׁבַרְתָּ שִׂיא! תָּפַסְתָּ אֶת הַמָּקוֹם הָרִאשׁוֹן בְּ${CATEGORY_HE[metric]}! 🎉`, icon: '👑', tone: 'star' };
+}
+
+/** My live value for a board, straight from the store. */
+function myValueFor(metric: Metric, s: { goo: number; clicks: number; bestCpm: number }): number {
+  return metric === 'goo' ? s.goo : metric === 'cpm' ? s.bestCpm : s.clicks;
 }
 
 export function useChampionWatch(): void {
   const pushToast = useGame((s) => s.pushToast);
+  const triggerConfetti = useGame((s) => s.triggerConfetti);
   const lastLeader = useRef<Record<Metric, string | null>>({ goo: null, clicks: null, cpm: null });
 
   useEffect(() => {
     if (!hasGlobalLeaderboard()) return;
     let alive = true;
+
+    const celebrateSelf = (metric: Metric) => {
+      triggerConfetti('rainbow');
+      playMilestone(useGame.getState().muted);
+      pushToast(selfChampionToast(metric));
+    };
 
     const check = async () => {
       if (document.visibilityState === 'hidden') return;
@@ -60,10 +90,24 @@ export function useChampionWatch(): void {
 
       const boards = await fetchBoards();
       if (!boards || !alive) return;
+      const s = useGame.getState();
 
       for (const metric of METRICS) {
         const list = boards[metric] ?? [];
-        const notice = championNotice(metric, list, lastLeader.current[metric], me);
+        const prev = lastLeader.current[metric];
+
+        // Have I just overtaken the visible #1? Claim it (once — `prev !== me`
+        // guards against the 30s /boards cache re-triggering before it refreshes).
+        if (prev !== me && surpassedLeader(list, myValueFor(metric, s), me)) {
+          lastLeader.current[metric] = me; // one claim attempt per throne
+          await pushCheckpoint(); // ensure the cloud save carries my latest score
+          const res = await submitScore(me); // claim it on the server
+          if (!alive) return;
+          if (res && res[metric]?.rank === 1) celebrateSelf(metric); // only if the server agrees
+          continue;
+        }
+
+        const notice = championNotice(metric, list, prev, me);
         lastLeader.current[metric] = list[0]?.name ?? null;
         if (notice) pushToast(notice);
       }
@@ -82,5 +126,5 @@ export function useChampionWatch(): void {
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [pushToast]);
+  }, [pushToast, triggerConfetti]);
 }
