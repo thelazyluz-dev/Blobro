@@ -245,8 +245,15 @@ export function SpeedFocusOverlay({
           background: `radial-gradient(circle at ${cx}px ${cy}px, transparent ${rad - 4}px, rgba(9,5,20,0.82) ${rad + 46}px)`,
         }}
       />
-      {/* One full-screen tap surface ABOVE everything — a tap on ANY spot counts. */}
-      <div className="fixed inset-0 z-[71]" onPointerDown={onTap} aria-label="הַקֵּשׁ בְּכָל מָקוֹם" role="button" />
+      {/* One full-screen tap surface ABOVE everything — a tap on ANY spot counts.
+          touch-none => the browser never steals a finger for scroll/zoom, so EVERY
+          simultaneous pointer (up to 10 fingers) fires its own pointerdown here. */}
+      <div
+        className="fixed inset-0 z-[71] touch-none select-none"
+        onPointerDown={onTap}
+        aria-label="הַקֵּשׁ בְּכָל מָקוֹם"
+        role="button"
+      />
       {/* Countdown ring, centred on the blob. */}
       <svg
         viewBox="0 0 100 100"
@@ -297,16 +304,22 @@ export function SpeedFocusOverlay({
           <span className="anim-count-pop font-display text-6xl text-goo text-glow-pop">🔥 {flash}!</span>
         </div>
       )}
-      {/* Cancel is the ONLY live control — above everything, clear of the nav,
-          with a note that the rest is locked. */}
-      <div className="fixed inset-x-0 bottom-24 z-[73] flex flex-col items-center gap-1.5">
-        <span className="pointer-events-none rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] text-bone/50">
+      {/* Cancel is the ONLY live control — pinned to the very bottom edge (clear
+          of the whole tapping area), with a note that the rest is locked. */}
+      {/* pointer-events-none on the CONTAINER so its full width doesn't block taps
+          in the bottom strip — only the button itself is live (re-enabled below),
+          everything else there still counts as a tap. */}
+      <div
+        className="pointer-events-none fixed inset-x-0 z-[73] flex flex-col items-center gap-1"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)' }}
+      >
+        <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] text-bone/50">
           🔒 שְׁאָר הַכַּפְתּוֹרִים נְעוּלִים בַּמִּבְחָן
         </span>
         <button
           type="button"
           onClick={cancelSpeed}
-          className="rounded-full bg-black/70 px-5 py-2 text-sm text-bone/80 ring-1 ring-bone/25 active:scale-95"
+          className="pointer-events-auto rounded-full bg-black/70 px-5 py-1.5 text-sm text-bone/80 ring-1 ring-bone/25 active:scale-95"
         >
           בִּטּוּל ✕
         </button>
