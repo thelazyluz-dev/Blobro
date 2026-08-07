@@ -24,6 +24,12 @@ export interface PushMessage {
   body: string;
   tag?: string; // same tag replaces a prior notification of the same kind
   url?: string; // where a tap should land
+  // Delivery hints for the push service (RFC 8030). Time-sensitive alerts
+  // ("someone overtook you") set urgency 'high' and a short TTL so a push the
+  // service couldn't deliver promptly is DROPPED rather than shown hours later
+  // as stale news. Ambient nudges (offline cap) keep the long default.
+  urgency?: 'very-low' | 'low' | 'normal' | 'high';
+  ttlSeconds?: number;
 }
 export type PushResult = 'ok' | 'gone' | 'error' | 'unconfigured';
 
@@ -127,20 +133,22 @@ export async function sendPush(vapid: VapidConfig, sub: PushSub, message: PushMe
   if (!vapid.publicKey || !vapid.privateKey || !vapid.subject) return 'unconfigured';
   try {
     const audience = new URL(sub.endpoint).origin;
+    // The transport hints ride in HTTP headers, not the encrypted payload the
+    // service worker reads — strip them before serializing.
+    const { urgency, ttlSeconds, ...payload } = message;
     const [authorization, body] = await Promise.all([
       vapidAuthHeader(vapid, audience),
-      encryptPayload(sub, enc.encode(JSON.stringify(message))),
+      encryptPayload(sub, enc.encode(JSON.stringify(payload))),
     ]);
-    const res = await fetch(sub.endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: authorization,
-        'Content-Encoding': 'aes128gcm',
-        'Content-Type': 'application/octet-stream',
-        TTL: '86400',
-      },
-      body,
-    });
+    const ttl = Number.isFinite(ttlSeconds) ? Math.max(0, Math.floor(ttlSeconds!)) : 86400;
+    const headers: Record<string, string> = {
+      Authorization: authorization,
+      'Content-Encoding': 'aes128gcm',
+      'Content-Type': 'application/octet-stream',
+      TTL: String(ttl),
+    };
+    if (urgency) headers.Urgency = urgency; // RFC 8030 §5.3 — hints delivery priority
+    const res = await fetch(sub.endpoint, { method: 'POST', headers, body });
     if (res.status === 201 || res.status === 200) return 'ok';
     if (res.status === 404 || res.status === 410) return 'gone'; // subscription expired/unsubscribed
     return 'error';

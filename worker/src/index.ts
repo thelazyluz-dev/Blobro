@@ -1009,6 +1009,27 @@ const METRIC_LABEL_HE: Record<'clicks' | 'goo' | 'cpm', string> = {
  * via waitUntil so it never delays the submit response, and best-effort
  * throughout — a push failure never affects the leaderboard write.
  */
+// A displaced-alert push is dropped by the service if it can't be delivered
+// within this window — better silence than "someone overtook you" hours late.
+const DISPLACE_PUSH_TTL_S = 15 * 60;
+// A player who saved within this window is treated as actively playing, so the
+// in-app toast (useChampionWatch) covers the news and we skip the push — this is
+// what stops a stale alert from popping while you're already in the game. Sized
+// above the 60s checkpoint cadence so a mid-checkpoint player still counts.
+const ACTIVE_WINDOW_MS = 90 * 1000;
+
+/** Is this user actively playing right now (saved within ACTIVE_WINDOW_MS)? */
+async function isActive(env: Env, userId: string): Promise<boolean> {
+  try {
+    const row = await env.DB.prepare('SELECT updated FROM saves WHERE user_id = ?1')
+      .bind(userId)
+      .first<{ updated: number }>();
+    return !!row && Date.now() - row.updated < ACTIVE_WINDOW_MS;
+  } catch {
+    return false; // on error, prefer sending the push over swallowing it
+  }
+}
+
 async function notifyDisplaced(
   env: Env,
   submitterCode: string,
@@ -1027,13 +1048,15 @@ async function notifyDisplaced(
       // Overtaken: the submitter is now #1 and wasn't before → tell the old #1.
       if (after[0]?.code === submitterCode && beforeList[0] && beforeList[0].code !== submitterCode) {
         const uid = userIdFromLeaderboardCode(beforeList[0].code);
-        if (uid && !pushed.has(uid)) {
+        if (uid && !pushed.has(uid) && !(await isActive(env, uid))) {
           pushed.add(uid);
           await pushToUser(env, uid, {
             title: 'נלקח לך המקום הראשון! 👑',
             body: `${after[0].name} עקף אותך ב${cat}. תחזיר לעצמך את הכתר!`,
             tag: `overtaken-${metric}`,
             url: './',
+            urgency: 'high',
+            ttlSeconds: DISPLACE_PUSH_TTL_S,
           });
         }
       }
@@ -1042,13 +1065,15 @@ async function notifyDisplaced(
       for (const b of beforeList.slice(0, 10)) {
         if (b.code === submitterCode || afterCodes10.has(b.code)) continue;
         const uid = userIdFromLeaderboardCode(b.code);
-        if (uid && !pushed.has(uid)) {
+        if (uid && !pushed.has(uid) && !(await isActive(env, uid))) {
           pushed.add(uid);
           await pushToUser(env, uid, {
             title: 'ירדת מהטופ 10 📉',
             body: `מישהו עקף אותך בטבלת ה${cat}. חזור למשחק כדי לטפס בחזרה!`,
             tag: `dropped-${metric}`,
             url: './',
+            urgency: 'high',
+            ttlSeconds: DISPLACE_PUSH_TTL_S,
           });
         }
       }

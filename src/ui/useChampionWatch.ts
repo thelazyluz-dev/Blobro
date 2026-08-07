@@ -24,6 +24,12 @@ import { fetchBoards, hasGlobalLeaderboard, playerName, submitScore, type Global
 import { pushCheckpoint, useGame } from '../store';
 
 const POLL_MS = 20_000;
+// After we CLAIM #1 (submit), the /boards cache can lag ~30s and still show the
+// old leader. Hold #1 only within this window after a claim so a stale board
+// doesn't read as "I lost it" — but NOT indefinitely: on a fresh session (no
+// recent claim) we trust the board, so a demotion that happened while away is
+// surfaced on entry instead of being masked by an old local score.
+const CLAIM_GRACE_MS = 45_000;
 const METRICS: Metric[] = ['goo', 'clicks', 'cpm'];
 const CATEGORY_HE: Record<Metric, string> = { goo: 'גּוּ', clicks: 'לְחִיצוֹת', cpm: 'מְהִירוּת' };
 
@@ -116,6 +122,7 @@ export function useChampionWatch(): void {
   const triggerConfetti = useGame((s) => s.triggerConfetti);
   const lastLeader = useRef<Record<Metric, string | null>>({ goo: null, clicks: null, cpm: null });
   const status = useRef<Partial<Record<Metric, Standing>>>(loadMyStatus()); // seeded from last session
+  const claimedAt = useRef<Partial<Record<Metric, number>>>({}); // when we last confirmed #1 (this session)
 
   useEffect(() => {
     if (!hasGlobalLeaderboard()) return;
@@ -142,22 +149,28 @@ export function useChampionWatch(): void {
         const myVal = myValueFor(metric, s);
 
         // Resolve my CURRENT standing, accounting for:
-        //  (a) holding #1 through the board's cache lag — a stale board that
-        //      still shows the old leader shouldn't read as "I lost it" while my
-        //      live score is still ahead;
-        //  (b) CLAIMING #1 the moment my live score passes the visible leader
-        //      (push + submit once, only at that transition).
+        //  (a) CLAIMING #1 the moment my live score passes the visible leader
+        //      (push + submit once, only at that transition);
+        //  (b) holding #1 through the board's ~30s cache lag — but ONLY within a
+        //      short window after a claim, so a stale local score can't mask a
+        //      real demotion on a fresh session (that's how a "you were
+        //      overtaken" toast reappears when you re-open the game).
         let cur = myStanding(list, me);
-        if (prev === 'first') {
-          const top = list[0];
-          const reallyBehind = !!top && top.name !== me && myVal <= top.score;
-          if (!reallyBehind) cur = 'first';
-        } else if (surpassedLeader(list, myVal, me)) {
+        if (cur !== 'first' && surpassedLeader(list, myVal, me)) {
           await pushCheckpoint();
           const res = await submitScore(me);
           if (!alive) return;
           if (res && res[metric]?.rank === 1) cur = 'first';
+        } else if (
+          cur !== 'first' &&
+          prev === 'first' &&
+          claimedAt.current[metric] &&
+          Date.now() - claimedAt.current[metric]! < CLAIM_GRACE_MS
+        ) {
+          const top = list[0];
+          if (top && top.name !== me && myVal > top.score) cur = 'first'; // still genuinely ahead
         }
+        if (cur === 'first') claimedAt.current[metric] = Date.now(); // keep the grace fresh while I lead
 
         // Notify on a change — but never on the very first observation (baseline).
         if (prev !== undefined) {

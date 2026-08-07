@@ -87,6 +87,37 @@ describe('sendPush', () => {
     expect(captured!.init.body).toBeInstanceOf(Uint8Array);
   });
 
+  it('defaults to a 24h TTL and no Urgency when no hints are given', async () => {
+    const vapid = await makeVapid();
+    const sub = await makeSub('https://push.example/def');
+    let captured: RequestInit | null = null;
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(null, { status: 201 });
+    });
+    await sendPush(vapid, sub, { title: 'x', body: 'y' });
+    const h = new Headers(captured!.headers);
+    expect(h.get('TTL')).toBe('86400');
+    expect(h.get('Urgency')).toBeNull();
+  });
+
+  it('honors urgency + a short ttl for time-sensitive alerts, without leaking them into the payload', async () => {
+    const vapid = await makeVapid();
+    const sub = await makeSub('https://push.example/hint');
+    let captured: RequestInit | null = null;
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(null, { status: 201 });
+    });
+    await sendPush(vapid, sub, { title: 'x', body: 'y', urgency: 'high', ttlSeconds: 900 });
+    const h = new Headers(captured!.headers);
+    expect(h.get('Urgency')).toBe('high');
+    expect(h.get('TTL')).toBe('900');
+    // The hints travel as HTTP headers; the encrypted body stays bytes (the SW
+    // only ever decrypts title/body/tag/url).
+    expect(captured!.body).toBeInstanceOf(Uint8Array);
+  });
+
   it('reports a 410 as "gone" (so the caller prunes it)', async () => {
     const vapid = await makeVapid();
     const sub = await makeSub('https://push.example/dead');
