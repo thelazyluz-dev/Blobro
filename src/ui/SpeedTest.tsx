@@ -312,36 +312,27 @@ export function SpeedFocusOverlay({
           style={{ boxShadow: 'inset 0 0 90px 18px rgba(255,46,136,0.55)' }}
         />
       )}
-      {/* Top HUD, on a solid gradient so it's never hidden behind the header.
-          Everything the player watches while tapping lives here, grouped high and
-          large, so a single glance reads the whole run. The block is
-          pointer-events-none — taps fall straight through it to the surface
-          below, so the readouts NEVER steal a finger. */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[72] flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-10 pt-12">
+      {/* Center HUD, on a solid gradient so it's never hidden behind the header.
+          Timer + big count + heat bar, grouped high. pointer-events-none — taps
+          fall straight through it to the surface below, so it NEVER steals a
+          finger. Top padding clears the notch/status bar. */}
+      <div
+        className="pointer-events-none fixed inset-x-0 top-0 z-[72] flex flex-col items-center gap-1.5 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-10"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+      >
         {running ? (
           <>
             <div className={`font-display text-6xl leading-none tabular ${urgent ? 'anim-count-pop text-hot' : 'text-cy'}`}>
               0:{String(secLeft).padStart(2, '0')}
             </div>
             {/* Live tap count — big, and pops once at each 50-tap milestone. */}
-            <div key={countKey} className="anim-count-pop mt-1 font-display text-6xl leading-none tabular text-bone">
+            <div key={countKey} className="anim-count-pop mt-1 font-display text-7xl leading-none tabular text-bone">
               {taps}
             </div>
             <div className="-mt-0.5 text-xs tracking-wide text-bone/55">הַקָּשׁוֹת</div>
-            {/* Live rate (taps/sec) + projected final — the two numbers that tell
-                you, moment to moment, whether you're on pace to break the record. */}
-            <div className="mt-1 flex items-center gap-2 font-display text-lg tabular">
-              <span className={hot ? 'text-hot' : 'text-goo'}>
-                {hot ? '🔥' : '⚡'} {liveCps.toFixed(1)}
-                <span className="text-sm text-bone/50"> /שְׁנִיָּה</span>
-              </span>
-              <span className="text-bone/30">·</span>
-              <span className="text-bone/70">
-                צֶפִי ~{projected}
-              </span>
-            </div>
-            {/* Heat meter — fills with your live pace; the ring/flame warm with it. */}
-            <div className="mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
+            {/* Heat meter — wide + prominent; fills with your live pace and warms
+                the ring/flame with it. */}
+            <div className="mt-2 h-3 w-60 max-w-[80vw] overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
               <div
                 className="h-full rounded-full"
                 style={{
@@ -364,6 +355,33 @@ export function SpeedFocusOverlay({
           </div>
         )}
       </div>
+      {/* Live rate + projected — in the two top corners (the "dead space" beside
+          the status bar) so they're big and never crowd the center column. Placed
+          AFTER the center block so its gradient never paints over them. Both
+          pointer-events-none. RTL: `start` = right. */}
+      {running && (
+        <>
+          <div
+            className="pointer-events-none fixed z-[72] flex flex-col items-center rounded-2xl bg-black/55 px-3 py-1.5 ring-1 ring-cy/30"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)', insetInlineStart: '10px' }}
+          >
+            <span className="text-[10px] tracking-wide text-bone/50">קֶצֶב</span>
+            <span className={`font-display text-3xl leading-none tabular ${hot ? 'text-hot' : 'text-goo'}`}>
+              {hot ? '🔥' : '⚡'}
+              {liveCps.toFixed(1)}
+            </span>
+            <span className="text-[10px] text-bone/40">לְשְׁנִיָּה</span>
+          </div>
+          <div
+            className="pointer-events-none fixed z-[72] flex flex-col items-center rounded-2xl bg-black/55 px-3 py-1.5 ring-1 ring-bone/20"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)', insetInlineEnd: '10px' }}
+          >
+            <span className="text-[10px] tracking-wide text-bone/50">צֶפִי</span>
+            <span className="font-display text-3xl leading-none tabular text-cy">~{projected}</span>
+            <span className="text-[10px] text-bone/40">בְּדַקָּה</span>
+          </div>
+        </>
+      )}
       {/* Milestone flash — big, cheap, fades. */}
       {flash > 0 && (
         <div className="pointer-events-none fixed inset-x-0 top-1/3 z-[72] text-center">
