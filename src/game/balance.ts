@@ -90,9 +90,12 @@ export const thirdAbilityRebirth = rebirthCap;
 // playing) earn each medal. The medals are exclusive accessories (see
 // cosmetics.ts) granted client-side from the server-reported friend count.
 export const referralFriendsForGift = 3; // a one-time goo gift (server-granted)
-export const referralGiftHours = 1; // gift size = this many hours of the player's CURRENT production
+export const referralGiftHours = 10; // gift size = this many hours of the player's CURRENT production
 export const referralFriendsForMedal = 5;
 export const referralFriendsForGoldMedal = 10;
+// The medal tiers (5 & 10 friends) also drop a one-shot goo lump on TOP of the
+// medal itself — this many hours of the player's current production, each.
+export const referralMedalBonusHours = 6;
 // +25% of the ability's BASE value per rebirth (owner-set). Linear, so it
 // self-decelerates (each rebirth adds a constant absolute amount); at the cap
 // the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a

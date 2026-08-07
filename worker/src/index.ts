@@ -884,14 +884,14 @@ async function handleReferralClaim(request: Request, env: Env): Promise<Response
  * or checkpoint conflict. Best-effort: a missing save or a concurrent write
  * just means no gift this time; never throws to the caller.
  */
-async function grantReferralGooGift(env: Env, referrerId: string, now: number): Promise<void> {
+async function grantReferralGooGift(env: Env, referrerId: string, now: number, hours: number): Promise<void> {
   const row = await env.DB.prepare('SELECT rev, payload FROM saves WHERE user_id = ?1')
     .bind(referrerId)
     .first<{ rev: number; payload: string }>();
   if (!row) return; // referrer has no cloud save yet — skip (rare)
   const save = migrate(tryParseJson(row.payload), now);
   const rate = plausibilityCeiling(save, 0).passivePerSec;
-  const gift = Math.max(0, Math.floor(rate * balance.referralGiftHours * 3600));
+  const gift = Math.max(0, Math.floor(rate * hours * 3600));
   if (gift <= 0) return;
   save.goo += gift;
   save.lifetimeGoo += gift;
@@ -2209,17 +2209,27 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
             await env.DB.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1')
               .bind(ref.referrer_id)
               .run();
-            // Read the referrer's NEW count; at the gift tier, grant a one-time
-            // goo gift = a few hours of their CURRENT production. Granted
+            // Read the referrer's NEW count; on crossing a reward tier, grant a
+            // one-time goo gift = some hours of their CURRENT production. Granted
             // SERVER-SIDE into their stored save so the plausibility audit's
             // baseline already includes it — a client-injected lump would trip
-            // the goo-rate flag (which always bars). Best-effort: never breaks
-            // this save, and the referrer picks it up via the normal cloud merge.
+            // the goo-rate flag (which always bars). The medals themselves are
+            // cosmetics the client grants from the count; only the goo lumps run
+            // here. Each tier is a distinct count, so each fires at most once.
+            // Best-effort: never breaks this save; the referrer picks it up via
+            // the normal cloud merge.
             const after = await env.DB.prepare('SELECT referral_count FROM users WHERE id = ?1')
               .bind(ref.referrer_id)
               .first<{ referral_count: number }>();
-            if (after?.referral_count === balance.referralFriendsForGift) {
-              await grantReferralGooGift(env, ref.referrer_id, now);
+            const c = after?.referral_count;
+            const giftHours =
+              c === balance.referralFriendsForGift
+                ? balance.referralGiftHours
+                : c === balance.referralFriendsForMedal || c === balance.referralFriendsForGoldMedal
+                  ? balance.referralMedalBonusHours
+                  : 0;
+            if (giftHours > 0) {
+              await grantReferralGooGift(env, ref.referrer_id, now, giftHours);
             }
           }
         }

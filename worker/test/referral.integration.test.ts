@@ -180,6 +180,31 @@ describe('referral qualification (play-to-count)', () => {
     expect(gooAfter).toBeGreaterThan(gooBefore);
   });
 
+  it('drops a goo lump at each reward tier (3, 5, 10) and nowhere else', async () => {
+    const referrer = await signUp();
+    const { code } = await refMe(referrer);
+    // A steady producer so every gift is a positive, measurable lump.
+    await putSave(referrer, 0, sampleSave({ characters: { blombo: { level: 100 } }, goo: 1000, lifetimeGoo: 1000 }));
+    const storedGoo = async () => {
+      const res = await call('/save', { headers: { Cookie: referrer } });
+      return ((await res.json()) as { save: { goo: number } }).save.goo;
+    };
+
+    let prev = await storedGoo();
+    const bumped: number[] = []; // the counts at which the stored goo jumped
+    for (let count = 1; count <= 10; count++) {
+      const friend = await signUp();
+      await claim(friend, code!);
+      expect((await putSave(friend, 0, sampleSave({ lifetimeGoo: 50_000 }))).status).toBe(200);
+      expect((await refMe(referrer)).count).toBe(count);
+      const now = await storedGoo();
+      if (now > prev) bumped.push(count);
+      prev = now;
+    }
+    // Exactly the three tier crossings paid out — no lump on the in-between counts.
+    expect(bumped).toEqual([3, 5, 10]);
+  });
+
   it('surfaces the friend count on /auth/me too', async () => {
     const referrer = await signUp();
     const { code } = await refMe(referrer);

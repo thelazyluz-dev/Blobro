@@ -8,7 +8,13 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { referralFriendsForGift, referralFriendsForGoldMedal, referralFriendsForMedal } from '../game/balance';
+import {
+  referralFriendsForGift,
+  referralFriendsForGoldMedal,
+  referralFriendsForMedal,
+  referralGiftHours,
+  referralMedalBonusHours,
+} from '../game/balance';
 import { fetchReferralMe, hasReferralBackend, referralLink } from '../net/referral';
 import { useGame } from '../store';
 import { haptic } from './haptics';
@@ -123,9 +129,9 @@ export function ReferralShare() {
 
         {/* The reward tiers. */}
         <div className="mt-4 space-y-1.5">
-          {tier(referralFriendsForGift, '🎁', 'מַתְּנַת גּוּ', 'שָׁעָה שְׁלֵמָה שֶׁל הַהַכְנָסָה שֶׁלְּךָ')}
-          {tier(referralFriendsForMedal, '🏅', 'מֶדַלְיַת חֲבֵרִים', '+25% הַכְנָסָה · ×2 לְחִיצָה')}
-          {tier(referralFriendsForGoldMedal, '🏆', 'מֶדַלְיַת זָהָב', '+50% הַכְנָסָה · ×3 לְחִיצָה')}
+          {tier(referralFriendsForGift, '🎁', 'מַתְּנַת גּוּ', `${referralGiftHours} שָׁעוֹת שֶׁל הַהַכְנָסָה שֶׁלְּךָ`)}
+          {tier(referralFriendsForMedal, '🏅', 'מֶדַלְיַת חֲבֵרִים', `+25% הַכְנָסָה · ×2 לְחִיצָה · +${referralMedalBonusHours} שָׁעוֹת בְּמַכָּה`)}
+          {tier(referralFriendsForGoldMedal, '🏆', 'מֶדַלְיַת זָהָב', `+50% הַכְנָסָה · ×3 לְחִיצָה · +${referralMedalBonusHours} שָׁעוֹת בְּמַכָּה`)}
         </div>
 
         {/* The link + copy. */}
