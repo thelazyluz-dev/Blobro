@@ -169,7 +169,11 @@ export function SpeedFocusOverlay({
   blobRef: RefObject<HTMLButtonElement | null>;
 }) {
   const phase = useGame((s) => s.speedPhase);
-  const taps = useGame((s) => s.speedTaps);
+  // The tap COUNT is read from the 100ms ticker below, NOT subscribed per tap:
+  // the store still counts every tap exactly, but the overlay re-rendering 50×/sec
+  // was the jank on weak hardware. A sub-100ms lag on the displayed number is
+  // invisible, and it collapses every per-tap overlay re-render into the 10Hz tick.
+  const [taps, setTaps] = useState(0);
   const bestCpm = useGame((s) => s.bestCpm);
   const cancelSpeed = useGame((s) => s.cancelSpeed);
   const reduced = useReducedMotion();
@@ -181,6 +185,7 @@ export function SpeedFocusOverlay({
   const [liveCps, setLiveCps] = useState(0); // taps/sec over a short rolling window
   const flashRef = useRef(0);
   const cpsSamples = useRef<{ t: number; taps: number }[]>([]); // rolling (time, taps) buffer
+  const blobRectRef = useRef<DOMRect | null>(null); // cached blob rect (see effect) — no per-render layout read
 
   // Running: one 100ms ticker drives the timer text, the ring drain AND the live
   // taps/sec readout. Live CPS is sampled here (reading the store's speedTaps),
@@ -191,6 +196,7 @@ export function SpeedFocusOverlay({
       setSecLeft(WINDOW_S);
       setFrac(1);
       setLiveCps(0);
+      setTaps(0);
       cpsSamples.current = [];
       return;
     }
@@ -199,8 +205,11 @@ export function SpeedFocusOverlay({
       const left = useGame.getState().speedEndsAt - now;
       setSecLeft(Math.max(0, Math.ceil(left / 1000)));
       if (!reduced) setFrac(Math.max(0, Math.min(1, left / cpmWindowMs)));
-      // Live taps/sec: slope of speedTaps across the last ~1.2s of samples.
+      // The store counts every tap; we sample it here for both the displayed
+      // count and the live taps/sec (slope over the last ~1.2s), so neither
+      // touches the hot tap path and the overlay renders at 10Hz, not per tap.
       const tapsNow = useGame.getState().speedTaps;
+      setTaps(tapsNow);
       const buf = cpsSamples.current;
       buf.push({ t: now, taps: tapsNow });
       while (buf.length > 1 && now - buf[0].t > 1200) buf.shift();
@@ -236,6 +245,24 @@ export function SpeedFocusOverlay({
     }
   }, [taps, phase]);
 
+  // Cache the blob rect so positioning the spotlight/ring doesn't call
+  // getBoundingClientRect on every render (a forced reflow — the jank an old
+  // phone hits in the speed test). The blob doesn't move mid-run, so we refresh
+  // only on phase change + resize/scroll. Re-runs on phase so a fresh test grabs
+  // a current rect.
+  useEffect(() => {
+    const refresh = () => {
+      blobRectRef.current = blobRef.current?.getBoundingClientRect() ?? null;
+    };
+    refresh();
+    window.addEventListener('resize', refresh);
+    window.addEventListener('scroll', refresh, true);
+    return () => {
+      window.removeEventListener('resize', refresh);
+      window.removeEventListener('scroll', refresh, true);
+    };
+  }, [phase, blobRef]);
+
   if ((phase !== 'countdown' && phase !== 'running') || typeof document === 'undefined') return null;
 
   const running = phase === 'running';
@@ -247,8 +274,10 @@ export function SpeedFocusOverlay({
   const heat = Math.max(0, Math.min(1, liveCps / HEAT_REF_CPS));
   const hot = heat > 0.75;
 
-  // Put the spotlight + ring on the ACTUAL blob (fresh each render/tick).
-  const rect = blobRef.current?.getBoundingClientRect();
+  // Position the spotlight + ring on the blob from the CACHED rect (computed once
+  // per phase/resize, not per render — see the effect above). Falls back to a
+  // one-time read only if the cache isn't populated yet.
+  const rect = blobRectRef.current ?? blobRef.current?.getBoundingClientRect() ?? null;
   const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
   const cy = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.46;
   const rad = rect ? rect.width / 2 : 130;

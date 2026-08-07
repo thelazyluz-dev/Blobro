@@ -124,8 +124,22 @@ export function clickSoundFor(combo: number, melodyLength: number, crit: boolean
  * 8-bit melody; with an empty melody (the CLASSIC pack) it stays the original
  * rising blip, exactly as the game shipped. A crit never silences the melody —
  * see critAccent. */
+// Rate-cap for the ONE hot-path sound. Every tap builds a fresh oscillator/
+// gain/filter graph (see `voice`); at 50 taps/sec — with melody notes (6 nodes)
+// or crits (up to 12) — that's hundreds of Web Audio nodes constructed and
+// GC'd per second on the MAIN thread, which is exactly the stutter testers see
+// (and why muting helps). Capping the click to ~22/sec cuts that churn by more
+// than half while a 45ms gap is inaudible in a fast drum-roll; the played tap
+// still uses the CURRENT combo, so the rising run-up is preserved. Only the
+// per-tap click is capped — every other sound is unaffected.
+let lastClickPlayedAt = 0;
+const CLICK_MIN_INTERVAL_MS = 45; // ≈ 22 click sounds/sec
+
 export function playClick(muted: boolean, combo = 1, melody: number[] = [], crit = false): void {
   if (muted) return;
+  const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (nowMs - lastClickPlayedAt < CLICK_MIN_INTERVAL_MS) return;
+  lastClickPlayedAt = nowMs;
   const ctx = getAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
