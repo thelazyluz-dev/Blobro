@@ -263,6 +263,27 @@ function AccessoryArtEl({ art }: { art: AccessoryArt }) {
         </g>
       );
     }
+    // Referral medals — a medallion on a ribbon, worn on the chest. The gold tier
+    // is brighter and shimmers. Awarded, never sold (see cosmetics.exclusive).
+    case 'medal':
+    case 'medal-gold': {
+      const gold = art === 'medal-gold';
+      const ring = gold ? '#FFE9A0' : '#FFD84D';
+      const disc = gold ? '#FFC02E' : '#E8A21C';
+      return (
+        <g className={gold ? 'creature-sparkle' : undefined}>
+          {/* ribbon — a magenta/cyan V from the neck down to the medallion */}
+          <path d="M86 116 L100 150 L98 116 Z" fill="#FF2E88" stroke={OUT} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M114 116 L100 150 L102 116 Z" fill="#33E1FF" stroke={OUT} strokeWidth="3" strokeLinejoin="round" />
+          {/* medallion */}
+          <circle cx="100" cy="158" r="15" fill={disc} stroke={OUT} strokeWidth="4" />
+          <circle cx="100" cy="158" r="15" fill="none" stroke={ring} strokeWidth="2.5" />
+          <text x="100" y="164" textAnchor="middle" fontSize="17" fontWeight="bold" fill={ring} stroke={OUT} strokeWidth="0.6">
+            ★
+          </text>
+        </g>
+      );
+    }
   }
 }
 

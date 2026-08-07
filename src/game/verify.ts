@@ -27,7 +27,7 @@
 import { adRewardMult, critChanceCap, critMultiplier, frenzyMultiplier, luckCap, secondAbilityRebirth, thirdAbilityRebirth } from './balance';
 import { abilityForType, abilityOf } from './abilities';
 import { charactersById } from './characters';
-import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
+import { accessoryIncomeBonus, backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
 import { EVENTS } from './events';
 import { autoClicksPerSec, effectiveClickPower, gooPerSec, modifiersFrom, rebirthGlobalMult } from './economy';
 import { starBonusFor } from './achievements';
@@ -74,7 +74,7 @@ function modsFor(save: SaveState) {
     save.upgrades,
     starBonusFor(save.achievements),
     clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
-    backgroundIncomeBonus(save.equippedBackground),
+    backgroundIncomeBonus(save.equippedBackground) + accessoryIncomeBonus(save.equippedAccessory),
     save.prestigeCrystals,
   );
   // Global rebirth income bonus, exactly as the client's modsOf does. Clamped

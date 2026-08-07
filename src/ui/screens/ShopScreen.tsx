@@ -27,7 +27,9 @@ export function ShopScreen() {
 
   // Always display each category cheapest → dearest, regardless of data order.
   const byPrice = <T extends { cost: number }>(list: T[]) => [...list].sort((a, b) => a.cost - b.cost);
-  const sortedAccessories = byPrice(accessories);
+  // Exclusive accessories (the referral medals) are awarded, never sold — keep
+  // them out of the shop grid entirely.
+  const sortedAccessories = byPrice(accessories.filter((a) => !a.exclusive));
   const sortedBackgrounds = byPrice(backgroundSkins);
   const sortedSounds = byPrice(soundSkins);
 

@@ -7,7 +7,7 @@
 
 export type CosmeticKind = 'blob' | 'background' | 'accessory' | 'sound';
 export type BlobShape = 'goo' | 'round' | 'star' | 'ghost' | 'spiky' | 'heart';
-export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo' | 'sparkles' | 'wings';
+export type AccessoryArt = 'none' | 'hat' | 'glasses' | 'bow' | 'crown' | 'halo' | 'sparkles' | 'wings' | 'medal' | 'medal-gold';
 
 /**
  * Taps a player must have made — ever — before an item can be bought at all.
@@ -58,7 +58,11 @@ export interface Accessory {
   cost: number;
   requiresClicks?: ClickRequirement;
   clickBonus: number; // fraction added to tap power (stacks with the blob)
+  incomeBonus?: number; // fraction added to PASSIVE income while worn (default 0)
   art: AccessoryArt;
+  // Not sold in the shop — awarded (e.g. the referral medals). Owned + equipped
+  // through the exact same paths as any accessory; just filtered out of the shop.
+  exclusive?: boolean;
 }
 
 export interface SoundSkin {
@@ -308,6 +312,16 @@ export const accessories: Accessory[] = [
   // keep it), now crystal WINGS: premium, and lateral so it never fights a ring.
   { id: 'acc-aura', kind: 'accessory', nameHe: 'כַּנְפֵי קְרִיסְטָל', cost: 40_000_000_000_000,
     requiresClicks: 220_000, clickBonus: 0.34, art: 'wings' },
+  // Referral medals — NOT sold; awarded for bringing friends (see the referral
+  // system). The strongest accessories in the game, on purpose: choosing to WEAR
+  // one is the reward — a big passive-income lift AND a tap multiplier — traded
+  // against whatever cosmetic you'd otherwise wear. incomeBonus rides the same
+  // income path as a background; clickBonus the same tap path as any accessory,
+  // so both are already anti-cheat-mirrored in verify.ts.
+  { id: 'acc-referral', kind: 'accessory', nameHe: 'מֶדַלְיַת חֲבֵרִים', cost: 0,
+    clickBonus: 1.0, incomeBonus: 0.25, art: 'medal', exclusive: true },
+  { id: 'acc-referral-gold', kind: 'accessory', nameHe: 'מֶדַלְיַת זָהָב', cost: 0,
+    clickBonus: 2.0, incomeBonus: 0.5, art: 'medal-gold', exclusive: true },
 ];
 
 // Sound packs: each is a different 8-bit combo melody that plays once your tap
@@ -420,6 +434,11 @@ export function clickCosmeticBonus(equippedBlob: string, equippedAccessory: stri
 /** Small passive-income bonus from the equipped background. */
 export function backgroundIncomeBonus(equippedBackground: string): number {
   return backgroundById(equippedBackground).incomeBonus;
+}
+
+/** Passive-income bonus from the equipped accessory (0 for all but the medals). */
+export function accessoryIncomeBonus(equippedAccessory: string): number {
+  return accessoryById(equippedAccessory).incomeBonus ?? 0;
 }
 
 

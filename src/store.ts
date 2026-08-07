@@ -43,6 +43,7 @@ import {
   DEFAULT_BLOB,
   DEFAULT_SOUND,
   backgroundIncomeBonus,
+  accessoryIncomeBonus,
   clickCosmeticBonus,
   cosmeticsById,
   meetsClickRequirement,
@@ -607,7 +608,7 @@ export const useGame = create<GameState>((set, get) => {
         save.upgrades,
         starBonusFor(save.achievements),
         clickCosmeticBonus(save.equippedBlob, save.equippedAccessory),
-        backgroundIncomeBonus(save.equippedBackground),
+        backgroundIncomeBonus(save.equippedBackground) + accessoryIncomeBonus(save.equippedAccessory),
         save.prestigeCrystals,
       );
       const secondsAway = Math.max(0, (now - save.lastSeen) / 1000);
@@ -1753,7 +1754,7 @@ const baseModsOf = (s: GameState): Modifiers => {
     s.upgrades,
     starBonusFor(s.achievements),
     clickCosmeticBonus(s.equippedBlob, s.equippedAccessory),
-    backgroundIncomeBonus(s.equippedBackground),
+    backgroundIncomeBonus(s.equippedBackground) + accessoryIncomeBonus(s.equippedAccessory),
     s.prestigeCrystals,
   );
   // A "lucky hour" event temporarily boosts hatch odds (luck only affects
