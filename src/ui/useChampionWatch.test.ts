@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { championNotice, selfChampionToast, surpassedLeader } from './useChampionWatch';
+import { championNotice, myStanding, selfChampionToast, standingDropToast, surpassedLeader } from './useChampionWatch';
 import type { GlobalEntry } from '../net/leaderboard';
 
 const board = (names: string[]): GlobalEntry[] => names.map((name, i) => ({ name, score: 1000 - i }));
@@ -58,5 +58,35 @@ describe('selfChampionToast — the record-breaker celebration', () => {
     expect(t.tone).toBe('star');
     expect(t.text).toContain('שָׁבַרְתָּ שִׂיא');
     expect(t.text).toContain('מְהִירוּת');
+  });
+});
+
+describe('myStanding — where I sit on a board', () => {
+  it('reads first / top10 / out', () => {
+    expect(myStanding(board(['אני', 'רן']), 'אני')).toBe('first');
+    expect(myStanding(board(['רן', 'אני']), 'אני')).toBe('top10');
+    expect(myStanding(board(['רן', 'דנה']), 'אני')).toBe('out');
+    expect(myStanding([], 'אני')).toBe('out');
+  });
+});
+
+describe('standingDropToast — "you lost ground while away" (reconnect)', () => {
+  it('says nothing without a prior standing (baseline)', () => {
+    expect(standingDropToast('clicks', undefined, 'out')).toBeNull();
+  });
+  it('flags losing #1', () => {
+    const t = standingDropToast('clicks', 'first', 'top10');
+    expect(t).not.toBeNull();
+    expect(t!.text).toContain('עָקְפוּ');
+    expect(t!.text).toContain('לְחִיצוֹת');
+  });
+  it('flags dropping out of the top-10 (takes priority over losing #1)', () => {
+    const t = standingDropToast('goo', 'first', 'out');
+    expect(t!.text).toContain('טּוֹפּ 10');
+  });
+  it('says nothing when nothing got worse', () => {
+    expect(standingDropToast('clicks', 'first', 'first')).toBeNull();
+    expect(standingDropToast('clicks', 'top10', 'first')).toBeNull(); // improved
+    expect(standingDropToast('clicks', 'out', 'out')).toBeNull();
   });
 });

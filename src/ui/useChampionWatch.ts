@@ -68,10 +68,51 @@ function myValueFor(metric: Metric, s: { goo: number; clicks: number; bestCpm: n
   return metric === 'goo' ? s.goo : metric === 'cpm' ? s.bestCpm : s.clicks;
 }
 
+// My standing on a board — persisted across sessions so that opening the app can
+// tell me if I LOST ground while I was away (the live watcher only catches
+// changes it witnesses; a change that happened offline reads as the baseline).
+export type Standing = 'first' | 'top10' | 'out';
+export function myStanding(list: GlobalEntry[], me: string): Standing {
+  if (!me || list.length === 0) return 'out';
+  if (list[0].name === me) return 'first';
+  return list.some((e) => e.name === me) ? 'top10' : 'out';
+}
+
+/** A toast if my standing DROPPED since last time (used on reconnect). */
+export function standingDropToast(metric: Metric, prev: Standing | undefined, cur: Standing): ChampionToast | null {
+  if (!prev) return null; // no prior knowledge → baseline, say nothing
+  const cat = CATEGORY_HE[metric];
+  if (prev !== 'out' && cur === 'out') {
+    return { text: `📉 יָרַדְתָּ מֵהַטּוֹפּ 10 בְּ${cat} בִּזְמַן שֶׁלֹּא הָיִיתָ. חֲזֹר לְטַפֵּס!`, icon: '📉', tone: 'pop' };
+  }
+  if (prev === 'first' && cur !== 'first') {
+    return { text: `😮 עָקְפוּ אוֹתְךָ בְּ${cat} בִּזְמַן שֶׁלֹּא הָיִיתָ! חֲזֹר לַמָּקוֹם הָרִאשׁוֹן`, icon: '⚔️', tone: 'pop' };
+  }
+  return null;
+}
+
+const STATUS_KEY = 'blorbo.boardStatus';
+function loadMyStatus(): Partial<Record<Metric, Standing>> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STATUS_KEY) || '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+function saveMyStatus(s: Record<Metric, Standing>): void {
+  try {
+    localStorage.setItem(STATUS_KEY, JSON.stringify(s));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useChampionWatch(): void {
   const pushToast = useGame((s) => s.pushToast);
   const triggerConfetti = useGame((s) => s.triggerConfetti);
   const lastLeader = useRef<Record<Metric, string | null>>({ goo: null, clicks: null, cpm: null });
+  const firstPoll = useRef(true);
 
   useEffect(() => {
     if (!hasGlobalLeaderboard()) return;
@@ -92,9 +133,21 @@ export function useChampionWatch(): void {
       if (!boards || !alive) return;
       const s = useGame.getState();
 
+      const prevStatus = firstPoll.current ? loadMyStatus() : null; // cross-session, first poll only
+      const nextStatus = {} as Record<Metric, Standing>;
+
       for (const metric of METRICS) {
         const list = boards[metric] ?? [];
         const prev = lastLeader.current[metric];
+        nextStatus[metric] = myStanding(list, me);
+
+        // On the first poll of a session: did I lose ground while I was away?
+        // (Fills the gap the live watcher can't see — changes that happened
+        // offline read as the baseline otherwise.)
+        if (prevStatus) {
+          const drop = standingDropToast(metric, prevStatus[metric], nextStatus[metric]);
+          if (drop) pushToast(drop);
+        }
 
         // Have I just overtaken the visible #1? Claim it (once — `prev !== me`
         // guards against the 30s /boards cache re-triggering before it refreshes).
@@ -103,7 +156,10 @@ export function useChampionWatch(): void {
           await pushCheckpoint(); // ensure the cloud save carries my latest score
           const res = await submitScore(me); // claim it on the server
           if (!alive) return;
-          if (res && res[metric]?.rank === 1) celebrateSelf(metric); // only if the server agrees
+          if (res && res[metric]?.rank === 1) {
+            celebrateSelf(metric); // only if the server agrees
+            nextStatus[metric] = 'first';
+          }
           continue;
         }
 
@@ -111,6 +167,9 @@ export function useChampionWatch(): void {
         lastLeader.current[metric] = list[0]?.name ?? null;
         if (notice) pushToast(notice);
       }
+
+      saveMyStatus(nextStatus);
+      firstPoll.current = false;
     };
 
     void check();
