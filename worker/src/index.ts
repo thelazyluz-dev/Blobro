@@ -265,7 +265,9 @@ export default {
       url.pathname === '/admin/release' ||
       url.pathname === '/admin/edit' ||
       url.pathname === '/referral/claim' ||
-      url.pathname === '/referral/me';
+      url.pathname === '/referral/me' ||
+      url.pathname === '/push/subscribe' ||
+      url.pathname === '/push/unsubscribe';
 
     if (request.method === 'OPTIONS') {
       // Credentialed routes need allowlisted-origin CORS, never the wildcard
@@ -390,6 +392,14 @@ export default {
     }
     if (url.pathname === '/referral/me' && request.method === 'GET') {
       return handleReferralMe(request, env);
+    }
+
+    // ── Web Push subscriptions ────────────────────────────────────────────
+    if (url.pathname === '/push/subscribe' && request.method === 'POST') {
+      return handlePushSubscribe(request, env);
+    }
+    if (url.pathname === '/push/unsubscribe' && request.method === 'POST') {
+      return handlePushUnsubscribe(request, env);
     }
 
     return json({ error: 'not-found' }, 404);
@@ -878,6 +888,66 @@ async function grantReferralGooGift(env: Env, referrerId: string, now: number): 
   )
     .bind(save.lifetimeGoo, payload, now, referrerId, row.rev)
     .run();
+}
+
+// ── Web Push subscriptions ────────────────────────────────────────────────
+
+/** POST /push/subscribe {endpoint, keys:{p256dh,auth}} — store this device's push subscription. */
+async function handlePushSubscribe(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+  const body = await readJsonObject(request);
+  const endpoint = typeof body?.endpoint === 'string' ? body.endpoint : '';
+  const keys = body?.keys as { p256dh?: unknown; auth?: unknown } | undefined;
+  const p256dh = typeof keys?.p256dh === 'string' ? keys.p256dh : '';
+  const auth = typeof keys?.auth === 'string' ? keys.auth : '';
+  // Endpoints are https push-service URLs; bound the size and shape defensively.
+  if (!/^https:\/\/./.test(endpoint) || endpoint.length > 1024 || !p256dh || !auth) {
+    return authJson({ error: 'bad-body' }, 400, origin);
+  }
+  try {
+    // endpoint is the PK — a re-subscribe (or a device that moved accounts)
+    // updates the owner + keys in place.
+    await env.DB.prepare(
+      `INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, created, last_offline_push)
+       VALUES (?1, ?2, ?3, ?4, ?5, 0)
+       ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`,
+    )
+      .bind(endpoint, user.id, p256dh, auth, Date.now())
+      .run();
+    return authJson({ ok: true }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/** POST /push/unsubscribe {endpoint} — remove this device's subscription. */
+async function handlePushUnsubscribe(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+  const body = await readJsonObject(request);
+  const endpoint = typeof body?.endpoint === 'string' ? body.endpoint : '';
+  if (!endpoint) return authJson({ error: 'bad-body' }, 400, origin);
+  try {
+    await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?1 AND user_id = ?2')
+      .bind(endpoint, user.id)
+      .run();
+    return authJson({ ok: true }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
 }
 
 // ── Google OAuth (authorization code + PKCE) ──────────────────────────────

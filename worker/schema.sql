@@ -80,6 +80,22 @@ CREATE TABLE IF NOT EXISTS referrals (
 );
 CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals (referrer_id);
 
+-- Web Push subscriptions — one row per device/browser that opted in. `endpoint`
+-- is the push service URL (unique per subscription); p256dh + auth are the
+-- client keys the server needs to encrypt a payload (RFC 8291). No PII: just an
+-- opaque endpoint + keys tied to the internal user id. Rows are pruned when the
+-- push service reports the subscription gone (404/410). New table only —
+-- CREATE IF NOT EXISTS, so apply_schema is enough (no ALTER).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint          TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL,
+  p256dh            TEXT NOT NULL,
+  auth              TEXT NOT NULL,
+  created           INTEGER NOT NULL,
+  last_offline_push INTEGER NOT NULL DEFAULT 0 -- ms of last "offline cap" push, to dedupe per idle period
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions (user_id);
+
 -- One row per active session. Only the SHA-256 hash of the session token is
 -- ever stored — the raw token lives solely in the player's HttpOnly cookie,
 -- so a DB read (backup, dump, injection) can't be replayed as a session.

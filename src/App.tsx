@@ -16,6 +16,7 @@ import { MultiHatchResult } from './ui/MultiHatchResult';
 import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
 import { ReferralShare } from './ui/ReferralShare';
+import { refreshPushSubscription } from './net/push';
 import { OfflineModal } from './ui/OfflineModal';
 import { DailyButton, DailyOverlay } from './ui/DailyOverlay';
 import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
@@ -60,6 +61,9 @@ export function App() {
   // someone HAS signed in — the flag only controls whether it's mandatory.
   useEffect(() => {
     useGame.getState().initAuth();
+    // If the player already opted into notifications, silently re-register the
+    // push subscription (endpoints rotate) — never prompts.
+    void refreshPushSubscription();
   }, []);
 
   // Unlock the AudioContext on the first interaction (browser autoplay policy),

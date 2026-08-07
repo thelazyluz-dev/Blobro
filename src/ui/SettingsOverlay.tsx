@@ -11,6 +11,7 @@ import { haptic } from './haptics';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './pwaInstall';
 import { whatsappShareUrl } from './share';
 import { hasReferralBackend } from '../net/referral';
+import { disablePush, enablePush, notificationPermission, notificationsPref, pushSupported } from '../net/push';
 
 // Invite a friend (WhatsApp) + install the app. Sharing is the growth loop the
 // owner is distributing around; install keeps returning players one tap away.
@@ -276,6 +277,61 @@ function SoundSection() {
   );
 }
 
+// Push-notification opt-in. Renders nothing when push isn't configured/supported
+// (no VAPID key, or an unsupported browser). Toggling ON prompts for permission
+// and registers the device; OFF drops the subscription.
+function NotificationsSection() {
+  const [on, setOn] = useState(() => notificationsPref() && notificationPermission() === 'granted');
+  const [busy, setBusy] = useState(false);
+  const [denied, setDenied] = useState(false);
+
+  if (!pushSupported()) return null;
+
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    setDenied(false);
+    try {
+      if (on) {
+        await disablePush();
+        setOn(false);
+      } else {
+        const r = await enablePush();
+        if (r === 'on') setOn(true);
+        else if (r === 'denied') setDenied(true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section>
+      <h3 className="mb-1.5 font-display text-sm text-cy">הַתְרָאוֹת 🔔</h3>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={busy}
+        aria-pressed={on}
+        className="btn flex w-full items-center justify-between bg-black/25 px-4 py-3 text-sm ring-1 ring-hairline disabled:opacity-60"
+      >
+        <span className="text-bone">{on ? '🔔 הַתְרָאוֹת דְּלוּקוֹת' : '🔕 הַתְרָאוֹת כָּבוּי'}</span>
+        <span className={`flex h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition-colors ${on ? 'bg-cy' : 'bg-black/40'}`}>
+          <span className={`h-5 w-5 rounded-full bg-bone transition-transform ${on ? '-translate-x-5' : 'translate-x-0'}`} />
+        </span>
+      </button>
+      <p className="mt-1 text-[11px] leading-relaxed text-bone/45">
+        קַבֵּל הוֹדָעָה כְּשֶׁמִּישֶׁהוּ שׁוֹבֵר אֶת הַשִּׂיא שֶׁלְּךָ, כְּשֶׁיָּרַדְתָּ מֵהַטּוֹפּ 10, וְכְּשֶׁהַהַכְנָסָה בְּאוֹפְלַיְן הִתְמַלְּאָה.
+      </p>
+      {denied && (
+        <p className="mt-1 text-[11px] leading-relaxed text-hot">
+          הַדַּפְדְּפָן חָסַם הַתְרָאוֹת — צָרִיךְ לְאַפְשֵׁר אוֹתָן לְבּלוֹרְבּוֹ בְּהַגְדָּרוֹת הַמַּכְשִׁיר.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function SettingsOverlay() {
   const open = useGame((s) => s.settingsOpen);
   const setOpen = useGame((s) => s.setSettingsOpen);
@@ -311,6 +367,7 @@ export function SettingsOverlay() {
             </button>
           )}
           <AccountSection />
+          <NotificationsSection />
           <SoundSection />
           <ShareInstallSection />
 

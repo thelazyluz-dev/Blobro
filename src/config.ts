@@ -11,6 +11,13 @@ export const LEADERBOARD_API = 'https://api.bl-or-bo.com';
 // src/ui/AuthGate.tsx no-op cleanly with nothing configured.
 export const AUTH_API = 'https://api.bl-or-bo.com';
 
+// VAPID_PUBLIC_KEY: the Web Push application-server PUBLIC key (base64url). Not a
+// secret — the client needs it to subscribe. Leave EMPTY to disable push
+// entirely (src/net/push.ts no-ops). Generate a keypair once with
+// `npx web-push generate-vapid-keys`; paste the PUBLIC key here and set the
+// PRIVATE key as the Worker secret VAPID_PRIVATE_KEY (see worker/README).
+export const VAPID_PUBLIC_KEY = '';
+
 // AUTH_REQUIRED: the gate flag (see src/ui/AuthGate.tsx / src/App.tsx). This
 // is the ONLY thing separating "you can create an account" from "you must".
 //
