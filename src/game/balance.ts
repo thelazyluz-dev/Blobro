@@ -82,6 +82,10 @@ export const rebirthCap = 20;
 // At this rebirth count a creature unlocks a SECOND ability slot — the player
 // picks any ability type except its native one (see OwnedCharacter.secondAbility).
 export const secondAbilityRebirth = 10;
+// At the FINAL rebirth (the cap) a creature unlocks a THIRD ability slot — the
+// player picks any ability type except its native one AND except the second one,
+// so all three stay distinct (see OwnedCharacter.thirdAbility).
+export const thirdAbilityRebirth = rebirthCap;
 // +25% of the ability's BASE value per rebirth (owner-set). Linear, so it
 // self-decelerates (each rebirth adds a constant absolute amount); at the cap
 // the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a

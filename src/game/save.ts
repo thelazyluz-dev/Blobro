@@ -52,7 +52,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 20 as const;
+export const CURRENT_VERSION = 21 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -126,6 +126,7 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
       evolution?: unknown;
       rebirths?: unknown;
       secondAbility?: unknown;
+      thirdAbility?: unknown;
     } | null;
     const raw0 = Math.max(minCharLevel, nonNegInt(e?.level, minCharLevel));
     const clamped = remapLegacy ? remapLegacyLevel(raw0) : raw0;
@@ -150,11 +151,21 @@ function sanitizeCharacters(raw: unknown, remapLegacy: boolean): OwnedCharacters
       typeof e?.secondAbility === 'string' && (ABILITY_TYPES as readonly string[]).includes(e.secondAbility)
         ? (e.secondAbility as AbilityType)
         : undefined;
+    // Chosen third ability (mastering loop, final rebirth). Same treatment as the
+    // second: keep only a valid type, gated at use so it can't inflate power below
+    // the threshold. Dropped if it duplicates the second (all three stay distinct).
+    const thirdAbility =
+      typeof e?.thirdAbility === 'string' &&
+      (ABILITY_TYPES as readonly string[]).includes(e.thirdAbility) &&
+      e.thirdAbility !== secondAbility
+        ? (e.thirdAbility as AbilityType)
+        : undefined;
     out[key as CharId] = {
       level: clamped,
       ...(evolution > 0 ? { evolution } : {}),
       ...(rebirths > 0 ? { rebirths } : {}),
       ...(secondAbility ? { secondAbility } : {}),
+      ...(thirdAbility ? { thirdAbility } : {}),
     };
   }
   return out;

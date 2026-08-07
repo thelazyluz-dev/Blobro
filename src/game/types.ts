@@ -72,6 +72,14 @@ export interface OwnedCharacter {
    * creature is the on-screen main. Re-choosable. Inactive below the threshold.
    */
   secondAbility?: AbilityType;
+  /**
+   * A THIRD ability the player chose for this creature, unlocked at its FINAL
+   * rebirth (see thirdAbilityRebirth). Any type except the creature's native one
+   * AND except its second one, so all three stay distinct; granted at the
+   * standard rarity value (no rebirth scaling) when this creature is the
+   * on-screen main. Re-choosable. Inactive below the threshold.
+   */
+  thirdAbility?: AbilityType;
 }
 export type OwnedCharacters = Partial<Record<CharId, OwnedCharacter>>;
 
@@ -87,7 +95,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 20;
+  version: 21;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)
