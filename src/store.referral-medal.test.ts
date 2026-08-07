@@ -79,4 +79,26 @@ describe('referral medals', () => {
     expect(shopAccessories.some((a) => a.id === 'acc-referral')).toBe(false);
     expect(shopAccessories.some((a) => a.id === 'acc-referral-gold')).toBe(false);
   });
+
+  it('grantReferralRewards hands out the medals by friend count, idempotently', () => {
+    const owned = () => new Set(useGame.getState().ownedCosmetics);
+
+    // Below the first tier: nothing.
+    useGame.getState().grantReferralRewards(4);
+    expect(owned().has('acc-referral')).toBe(false);
+
+    // 5 friends → the friends medal, but not gold yet.
+    useGame.getState().grantReferralRewards(5);
+    expect(owned().has('acc-referral')).toBe(true);
+    expect(owned().has('acc-referral-gold')).toBe(false);
+
+    // 10 friends → gold too.
+    useGame.getState().grantReferralRewards(10);
+    expect(owned().has('acc-referral-gold')).toBe(true);
+
+    // Idempotent — re-granting doesn't duplicate entries.
+    const n = useGame.getState().ownedCosmetics.length;
+    useGame.getState().grantReferralRewards(10);
+    expect(useGame.getState().ownedCosmetics.length).toBe(n);
+  });
 });

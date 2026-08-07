@@ -6,6 +6,12 @@ import '@fontsource/rubik/700.css';
 import './index.css';
 import { App } from './App';
 import { ErrorBoundary } from './ui/ErrorBoundary';
+import { capturePendingRef } from './net/referral';
+
+// Capture an incoming ?ref=CODE invite BEFORE anything else (and before the
+// Google sign-in redirect, which drops query params) — it's stashed in
+// localStorage and claimed once a session exists (see store.syncReferral).
+capturePendingRef();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('root element missing');

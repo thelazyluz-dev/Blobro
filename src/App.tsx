@@ -15,6 +15,7 @@ import { MilestoneReveal } from './ui/MilestoneReveal';
 import { MultiHatchResult } from './ui/MultiHatchResult';
 import { NicknameWelcome } from './ui/NicknameWelcome';
 import { NumberLegendOverlay } from './ui/NumberLegendOverlay';
+import { ReferralShare } from './ui/ReferralShare';
 import { OfflineModal } from './ui/OfflineModal';
 import { DailyButton, DailyOverlay } from './ui/DailyOverlay';
 import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
@@ -144,6 +145,7 @@ export function App() {
       <NumberLegendOverlay />
       <InstallPrompt />
       <NicknameWelcome />
+      <ReferralShare />
     </div>
   );
 }

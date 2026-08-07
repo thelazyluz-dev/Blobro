@@ -21,6 +21,8 @@ import {
   frenzyMultiplier,
   secondAbilityRebirth,
   thirdAbilityRebirth,
+  referralFriendsForMedal,
+  referralFriendsForGoldMedal,
   luckCap,
   minCharLevel,
   openAllCap,
@@ -91,6 +93,7 @@ import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
+import { claimReferral, clearPendingRef, fetchReferralMe, pendingRef } from './net/referral';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { reportAdEvent } from './net/ads';
 import { decideMergeWinner, fetchCloudSave, pushCloudSave } from './net/save';
@@ -172,6 +175,12 @@ interface GameState {
   // initAuth() below.
   authUser: AuthUser | null;
   authChecked: boolean; // true once we've resolved (cache and/or /auth/me) whether anyone's signed in
+
+  // --- Referral (session-only, NOT part of SaveState). Hydrated from
+  // /referral/me after sign-in; the EARNED medals persist via ownedCosmetics.
+  referralCode: string | null; // this player's own share code (for the invite screen)
+  referralCount: number; // friends who joined via the link AND started playing
+  referralOpen: boolean; // the "invite friends" share sheet is open
 
   // --- cloud-save checkpoint sync (PR 4) — session-only, NOT part of
   // SaveState. cloudRev is the last cloud revision this device knows about
@@ -313,6 +322,11 @@ interface GameState {
   dismissMilestone: () => void;
   pulseMagnitude: (exp: number) => void;
   initAuth: () => void;
+  /** After sign-in: claim any pending ?ref, read the friend count, grant earned medals. */
+  syncReferral: () => Promise<void>;
+  /** Grant the referral medals owed by `count` (idempotent — only adds what's missing). */
+  grantReferralRewards: (count: number) => void;
+  setReferralOpen: (open: boolean) => void;
   restoreBackup: () => Promise<void>;
   setAuthUser: (user: AuthUser | null) => void;
   clearAuthUser: () => void;
@@ -518,6 +532,9 @@ export const useGame = create<GameState>((set, get) => {
 
     authUser: null,
     authChecked: false,
+    referralCode: null,
+    referralCount: 0,
+    referralOpen: false,
     cloudRev: 0,
     cloudSynced: false,
     backupAvailable: null,
@@ -1493,9 +1510,49 @@ export const useGame = create<GameState>((set, get) => {
     initAuth: () => {
       const cached = cachedUser();
       if (cached) set({ authUser: cached, authChecked: true });
-      void fetchMe().then((user) => set({ authUser: user, authChecked: true }));
+      void fetchMe().then((user) => {
+        set({ authUser: user, authChecked: true });
+        // Only once a real session is confirmed: claim any invite and sync the
+        // friend count (which grants earned medals). Guarded so a signed-out
+        // /auth/me never fires a claim that would just 401 and burn the code.
+        if (user) void get().syncReferral();
+      });
     },
     setAuthUser: (user) => set({ authUser: user, authChecked: true }),
+
+    syncReferral: async () => {
+      // Claim a pending invite exactly once (one-shot: cleared whatever the
+      // outcome — an unknown/already/self code will never succeed on a retry
+      // anyway, and a friend can always re-share on a genuine network miss).
+      const ref = pendingRef();
+      if (ref) {
+        await claimReferral(ref);
+        clearPendingRef();
+      }
+      const info = await fetchReferralMe();
+      if (!info) return;
+      set({ referralCode: info.code, referralCount: info.count });
+      get().grantReferralRewards(info.count);
+    },
+
+    grantReferralRewards: (count) => {
+      const s = get();
+      const owned = new Set(s.ownedCosmetics);
+      const before = owned.size;
+      if (count >= referralFriendsForMedal) owned.add('acc-referral');
+      if (count >= referralFriendsForGoldMedal) owned.add('acc-referral-gold');
+      if (owned.size === before) return; // nothing new earned
+      set({ ownedCosmetics: [...owned] });
+      const gold = count >= referralFriendsForGoldMedal;
+      get().pushToast({
+        text: gold ? 'זָכִיתָ בְּמֶדַלְיַת זָהָב! 🏆 עֲנֹד אוֹתָהּ בַּחֲנוּת' : 'זָכִיתָ בְּמֶדַלְיַת חֲבֵרִים! 🏅 עֲנֹד אוֹתָהּ בַּחֲנוּת',
+        icon: gold ? '🏆' : '🏅',
+        tone: 'star',
+      });
+      get().triggerConfetti('rainbow');
+    },
+
+    setReferralOpen: (open) => set({ referralOpen: open }),
     clearAuthUser: () => set({ authUser: null }),
 
     /**
@@ -1565,7 +1622,7 @@ export const useGame = create<GameState>((set, get) => {
     // blob/goo/creatures; only identity is cleared. With AUTH_REQUIRED on,
     // clearing authUser is what returns the player to the gate (see App.tsx).
     signOut: () => {
-      set({ authUser: null });
+      set({ authUser: null, referralCode: null, referralCount: 0, referralOpen: false });
       void logout();
     },
   };

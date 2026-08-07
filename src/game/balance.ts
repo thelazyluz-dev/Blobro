@@ -86,6 +86,11 @@ export const secondAbilityRebirth = 10;
 // player picks any ability type except its native one AND except the second one,
 // so all three stay distinct (see OwnedCharacter.thirdAbility).
 export const thirdAbilityRebirth = rebirthCap;
+// Referral reward tiers — how many friends (who joined via your link AND started
+// playing) earn each medal. The medals are exclusive accessories (see
+// cosmetics.ts) granted client-side from the server-reported friend count.
+export const referralFriendsForMedal = 5;
+export const referralFriendsForGoldMedal = 10;
 // +25% of the ability's BASE value per rebirth (owner-set). Linear, so it
 // self-decelerates (each rebirth adds a constant absolute amount); at the cap
 // the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a
