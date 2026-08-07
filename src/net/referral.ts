@@ -86,7 +86,9 @@ export interface ClaimRewardResult {
   reason?: string;
   tier?: number;
   goo?: number; // referrer's new stored goo after the grant
+  lifetimeGoo?: number; // new stored lifetime goo (grew by the gift) — keep client in sync
   ownedCosmetics?: string[]; // full owned list after any medal grant
+  rev?: number; // new cloud save rev — advance cloudRev so the next checkpoint doesn't 409
   claimed?: number[];
 }
 

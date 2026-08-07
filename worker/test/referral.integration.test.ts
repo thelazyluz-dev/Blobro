@@ -47,7 +47,7 @@ async function refMe(cookie: string): Promise<{ code: string | null; count: numb
 async function claimReward(
   cookie: string,
   tier: number,
-): Promise<{ ok: boolean; reason?: string; claimed?: number[]; goo?: number; ownedCosmetics?: string[] }> {
+): Promise<{ ok: boolean; reason?: string; claimed?: number[]; goo?: number; lifetimeGoo?: number; rev?: number; ownedCosmetics?: string[] }> {
   const res = await call('/referral/claim-reward', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: ORIGIN, Cookie: cookie },
@@ -210,6 +210,10 @@ describe('referral qualification (play-to-count)', () => {
     const r3 = await claimReward(referrer, 3);
     expect(r3.ok).toBe(true);
     expect(r3.claimed).toContain(3);
+    // The claim echoes the new rev + lifetimeGoo so the client can stay in sync
+    // (without this the next checkpoint 409s and progress stalls).
+    expect(typeof r3.rev).toBe('number');
+    expect(typeof r3.lifetimeGoo).toBe('number');
     expect(await storedGoo(referrer)).toBeGreaterThan(goo0);
     // A second claim of the same tier is refused and pays nothing more.
     const gooAfter3 = await storedGoo(referrer);
@@ -233,6 +237,23 @@ describe('referral qualification (play-to-count)', () => {
     const me = await call('/auth/me', { headers: { Cookie: referrer } });
     const body = (await me.json()) as { referral?: { claimed: number[] } };
     expect(body.referral?.claimed.sort()).toEqual([3, 5]);
+  });
+
+  it('a zero-income referrer still gets a floored gift (never 0 for a claimed tier)', async () => {
+    const referrer = await signUp();
+    const { code } = await refMe(referrer);
+    // No creatures → passive income 0 → the hours×production gift would be 0.
+    await putSave(referrer, 0, sampleSave({ characters: {}, goo: 0, lifetimeGoo: 0 }));
+    for (let i = 0; i < 3; i++) {
+      const friend = await signUp();
+      await claim(friend, code!);
+      expect((await putSave(friend, 0, sampleSave({ lifetimeGoo: 50_000 }))).status).toBe(200);
+    }
+    const before = await storedGoo(referrer);
+    const r = await claimReward(referrer, 3);
+    expect(r.ok).toBe(true);
+    // Floored, not zero.
+    expect(await storedGoo(referrer)).toBeGreaterThan(before);
   });
 
   it('surfaces the friend count on /auth/me too', async () => {

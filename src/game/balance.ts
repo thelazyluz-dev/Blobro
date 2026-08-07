@@ -91,6 +91,10 @@ export const thirdAbilityRebirth = rebirthCap;
 // cosmetics.ts) granted client-side from the server-reported friend count.
 export const referralFriendsForGift = 3; // a one-time goo gift (server-granted)
 export const referralGiftHours = 10; // gift size = this many hours of the player's CURRENT production
+// A floor so a referrer with little/no passive income still gets a real reward
+// when they claim a tier (the gift is otherwise hours×production, which is ~0
+// for a click-only player). One-time per tier, gated by real referrals.
+export const referralMinGift = 2000;
 export const referralFriendsForMedal = 5;
 export const referralFriendsForGoldMedal = 10;
 // The medal tiers (5 & 10 friends) also drop a one-shot goo lump on TOP of the

@@ -97,22 +97,28 @@ describe('referral medals', () => {
 
   it('claimReferralTier merges the server grant and is guarded against re-claim', async () => {
     claimReferralReward.mockReset();
-    useGame.setState({ referralCount: 5, referralClaimed: [], goo: 100, ownedCosmetics: ['acc-none'] });
+    useGame.setState({ referralCount: 5, referralClaimed: [], goo: 100, lifetimeGoo: 1_000, cloudRev: 4, ownedCosmetics: ['acc-none'] });
 
     // A tier the player has NOT reached does not even call the server.
     await useGame.getState().claimReferralTier(10);
     expect(claimReferralReward).not.toHaveBeenCalled();
 
-    // Claiming tier 5: the server grants goo + the medal; we merge the result.
+    // Claiming tier 5: the server grants goo + the medal AND bumps the save rev;
+    // we must adopt goo, lifetimeGoo AND cloudRev together, or the next
+    // checkpoint 409s and progress stalls.
     claimReferralReward.mockResolvedValueOnce({
       ok: true,
       tier: 5,
       goo: 5_000,
+      lifetimeGoo: 5_900,
+      rev: 5,
       ownedCosmetics: ['acc-none', 'acc-referral'],
       claimed: [5],
     });
     await useGame.getState().claimReferralTier(5);
     expect(useGame.getState().goo).toBe(5_000);
+    expect(useGame.getState().lifetimeGoo).toBe(5_900); // synced, not left stale
+    expect(useGame.getState().cloudRev).toBe(5); // advanced → next checkpoint won't 409
     expect(useGame.getState().ownedCosmetics).toContain('acc-referral');
     expect(useGame.getState().referralClaimed).toEqual([5]);
 

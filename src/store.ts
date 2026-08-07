@@ -1546,10 +1546,14 @@ export const useGame = create<GameState>((set, get) => {
       const res = await claimReferralReward(tier);
       if (!res || !res.ok) return; // locked / already / network — leave it for a retry
       // Merge the server's authoritative result: the goo lump + any medal landed
-      // in the stored save, and are echoed back so we reflect them at once.
+      // in the stored save, which the server ALSO bumped a rev for. We must adopt
+      // goo, lifetimeGoo AND cloudRev together — otherwise every later checkpoint
+      // 409s and the merge refuses to push for hours (progress stuck locally).
       set((st) => ({
         goo: typeof res.goo === 'number' ? res.goo : st.goo,
+        lifetimeGoo: typeof res.lifetimeGoo === 'number' ? Math.max(st.lifetimeGoo, res.lifetimeGoo) : st.lifetimeGoo,
         ownedCosmetics: res.ownedCosmetics ?? st.ownedCosmetics,
+        cloudRev: typeof res.rev === 'number' ? Math.max(st.cloudRev, res.rev) : st.cloudRev,
         referralClaimed: res.claimed ?? [...st.referralClaimed, tier],
       }));
       const gold = tier >= referralFriendsForGoldMedal;

@@ -905,7 +905,19 @@ async function handleReferralClaimReward(request: Request, env: Env): Promise<Re
       .bind(JSON.stringify(next), user.id)
       .run();
 
-    return authJson({ ok: true, tier: def.friends, goo: grant.goo, ownedCosmetics: grant.ownedCosmetics, claimed: next }, 200, origin);
+    return authJson(
+      {
+        ok: true,
+        tier: def.friends,
+        goo: grant.goo,
+        lifetimeGoo: grant.lifetimeGoo,
+        ownedCosmetics: grant.ownedCosmetics,
+        rev: grant.rev,
+        claimed: next,
+      },
+      200,
+      origin,
+    );
   } catch {
     return authJson({ error: 'db' }, 500, origin);
   }
@@ -976,7 +988,7 @@ async function grantReferralReward(
   now: number,
   hours: number,
   medal?: string,
-): Promise<{ goo: number; ownedCosmetics: string[] } | null> {
+): Promise<{ goo: number; lifetimeGoo: number; ownedCosmetics: string[]; rev: number } | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const row = await env.DB.prepare('SELECT rev, payload FROM saves WHERE user_id = ?1')
       .bind(userId)
@@ -984,17 +996,27 @@ async function grantReferralReward(
     if (!row) return null; // no cloud save yet — can't grant
     const save = migrate(tryParseJson(row.payload), now);
     const rate = plausibilityCeiling(save, 0).passivePerSec;
-    const gift = Math.max(0, Math.floor(rate * hours * 3600));
+    // Floor the goo lump so a referrer with little/no passive income (e.g. a
+    // click-only player with no creatures) still gets a real reward instead of
+    // 0 for a tier that's now marked claimed. Safe: it's one-time per tier and
+    // gated by real qualified referrals, and it's tiny once income grows.
+    const gift = Math.max(balance.referralMinGift, Math.floor(rate * hours * 3600));
     save.goo += gift;
     save.lifetimeGoo += gift;
     if (medal && !save.ownedCosmetics.includes(medal)) save.ownedCosmetics.push(medal);
     const payload = JSON.stringify(save);
+    const nextRev = row.rev + 1;
     const res = await env.DB.prepare(
       'UPDATE saves SET rev = rev + 1, lifetime_goo = ?1, payload = ?2, updated = ?3 WHERE user_id = ?4 AND rev = ?5',
     )
       .bind(save.lifetimeGoo, payload, now, userId, row.rev)
       .run();
-    if ((res.meta?.changes ?? 0) > 0) return { goo: save.goo, ownedCosmetics: save.ownedCosmetics };
+    // Echo back the FULL resulting state (goo, lifetimeGoo, ownedCosmetics, rev)
+    // so the client can advance its cloudRev + lifetimeGoo in lockstep — without
+    // that, the next checkpoint 409s and the merge refuses to push for hours.
+    if ((res.meta?.changes ?? 0) > 0) {
+      return { goo: save.goo, lifetimeGoo: save.lifetimeGoo, ownedCosmetics: save.ownedCosmetics, rev: nextRev };
+    }
     // rev moved under us — loop and re-read once.
   }
   return null;
