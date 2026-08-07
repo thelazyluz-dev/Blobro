@@ -81,6 +81,33 @@ describe('migrate', () => {
     expect(s.characters.fizzik?.evolution ?? 0).toBe(0);
   });
 
+  describe('v20/v21: chosen second & third abilities round-trip and stay distinct', () => {
+    it('keeps a valid second/third ability and drops a third that duplicates the second', () => {
+      const s = migrate(
+        { ...v9Save, characters: { blombo: { level: 1, rebirths: 20, secondAbility: 'tap', thirdAbility: 'crit' } } },
+        NOW,
+      );
+      expect(s.characters.blombo?.secondAbility).toBe('tap');
+      expect(s.characters.blombo?.thirdAbility).toBe('crit');
+
+      const dup = migrate(
+        { ...v9Save, characters: { blombo: { level: 1, rebirths: 20, secondAbility: 'tap', thirdAbility: 'tap' } } },
+        NOW,
+      );
+      expect(dup.characters.blombo?.secondAbility).toBe('tap');
+      expect(dup.characters.blombo?.thirdAbility).toBeUndefined(); // duplicate dropped
+    });
+
+    it('rejects a garbage ability string', () => {
+      const s = migrate(
+        { ...v9Save, characters: { blombo: { level: 1, rebirths: 20, secondAbility: 'wat', thirdAbility: 42 } } },
+        NOW,
+      );
+      expect(s.characters.blombo?.secondAbility).toBeUndefined();
+      expect(s.characters.blombo?.thirdAbility).toBeUndefined();
+    });
+  });
+
   it('keeps only real milestone thresholds', () => {
     const s = migrate({ ...v9Save, milestonesShown: [1e6, 'bad', null, 1e9] }, NOW);
     expect(s.milestonesShown).toEqual([1e6, 1e9]);
