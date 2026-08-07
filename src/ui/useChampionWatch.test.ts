@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { championNotice, myStanding, selfChampionToast, standingDropToast, surpassedLeader } from './useChampionWatch';
+import {
+  championNotice,
+  myStanding,
+  selfChampionToast,
+  standingChangeToast,
+  standingTransition,
+  surpassedLeader,
+} from './useChampionWatch';
 import type { GlobalEntry } from '../net/leaderboard';
 
 const board = (names: string[]): GlobalEntry[] => names.map((name, i) => ({ name, score: 1000 - i }));
@@ -70,23 +77,29 @@ describe('myStanding — where I sit on a board', () => {
   });
 });
 
-describe('standingDropToast — "you lost ground while away" (reconnect)', () => {
-  it('says nothing without a prior standing (baseline)', () => {
-    expect(standingDropToast('clicks', undefined, 'out')).toBeNull();
+describe('standingTransition — classifying how my standing changed', () => {
+  it('is "rose" when I reach #1 from anywhere', () => {
+    expect(standingTransition('top10', 'first')).toBe('rose');
+    expect(standingTransition('out', 'first')).toBe('rose');
   });
-  it('flags losing #1', () => {
-    const t = standingDropToast('clicks', 'first', 'top10');
-    expect(t).not.toBeNull();
-    expect(t!.text).toContain('עָקְפוּ');
-    expect(t!.text).toContain('לְחִיצוֹת');
+  it('is "lost-first" when I fall from #1 to the pack', () => {
+    expect(standingTransition('first', 'top10')).toBe('lost-first');
   });
-  it('flags dropping out of the top-10 (takes priority over losing #1)', () => {
-    const t = standingDropToast('goo', 'first', 'out');
-    expect(t!.text).toContain('טּוֹפּ 10');
+  it('is "dropped-out" when I fall out of the top-10 (from #1 or the pack)', () => {
+    expect(standingTransition('first', 'out')).toBe('dropped-out');
+    expect(standingTransition('top10', 'out')).toBe('dropped-out');
   });
-  it('says nothing when nothing got worse', () => {
-    expect(standingDropToast('clicks', 'first', 'first')).toBeNull();
-    expect(standingDropToast('clicks', 'top10', 'first')).toBeNull(); // improved
-    expect(standingDropToast('clicks', 'out', 'out')).toBeNull();
+  it('is null when nothing meaningfully worsened or I improved', () => {
+    expect(standingTransition('first', 'first')).toBeNull();
+    expect(standingTransition('out', 'top10')).toBeNull(); // climbed into the pack — no nag
+    expect(standingTransition('out', 'out')).toBeNull();
+  });
+});
+
+describe('standingChangeToast — the downgrade messages', () => {
+  it('names the category for each kind', () => {
+    expect(standingChangeToast('clicks', 'lost-first').text).toContain('עָקְפוּ');
+    expect(standingChangeToast('clicks', 'lost-first').text).toContain('לְחִיצוֹת');
+    expect(standingChangeToast('goo', 'dropped-out').text).toContain('טּוֹפּ 10');
   });
 });

@@ -1,26 +1,29 @@
-// Watches the global boards for a change at #1 and reacts two ways (owner
-// request):
-//   • YOU took #1 → a celebratory party (confetti + fanfare + toast), even if
-//     you never opened the leaderboard.
-//   • Someone ELSE took #1 → everyone in that board's top-10 is challenged with
-//     a toast naming them + the category.
+// Watches the global boards and reacts to how MY standing changes on each of
+// them (owner request):
+//   • I take #1        → a celebratory party (confetti + fanfare + toast).
+//   • I lose #1        → "someone overtook you" toast.
+//   • I drop out of top-10 → "you fell out of the top-10" toast.
+//   • someone else takes #1 while I'm a top-10 bystander → a challenge toast.
 //
-// The reliability trick: the board only learns a score when it's submitted, and
-// submits happen rarely (opening the board, joining, a speed result). So instead
-// of waiting for the board to catch up, this watcher compares YOUR LIVE local
-// score to the board's current #1; the moment it passes, it pushes your save and
-// submits to claim the throne, then celebrates. That single write happens only
-// at the actual overtaking moment, so it costs effectively nothing in normal play.
+// The mechanism: my standing per board (first / top10 / out) is PERSISTED across
+// sessions, and every poll compares the current standing to the last known one.
+// Because it's a stored transition rather than a live event, it fires reliably
+// whether the change happened while I watched, between polls, or while the app
+// was closed (on reconnect) — with no baseline spam (the very first observation
+// just seeds the store).
 //
-// Pull-based and polite: polls the ONE cached /boards endpoint on a slow
-// interval, only while the tab is visible and the player has a nickname.
+// Reliability trick for taking #1: the board only learns a score on submit, so
+// instead of waiting for it to catch up we compare MY live local score to the
+// board's current #1; the moment it passes we push + submit to claim the throne
+// (one write, only at that moment), and hold it through the board's ~30s cache
+// lag so a stale board never spuriously reads as "I lost it".
 
 import { useEffect, useRef } from 'react';
 import { playMilestone } from '../audio/sfx';
 import { fetchBoards, hasGlobalLeaderboard, playerName, submitScore, type GlobalEntry, type Metric } from '../net/leaderboard';
 import { pushCheckpoint, useGame } from '../store';
 
-const POLL_MS = 60_000;
+const POLL_MS = 20_000;
 const METRICS: Metric[] = ['goo', 'clicks', 'cpm'];
 const CATEGORY_HE: Record<Metric, string> = { goo: 'גּוּ', clicks: 'לְחִיצוֹת', cpm: 'מְהִירוּת' };
 
@@ -31,12 +34,9 @@ export interface ChampionToast {
 }
 
 /**
- * Pure decision for the "someone ELSE is the new #1" challenge toast: given a
- * board's current top-10, the leader we last saw, and the player's nickname,
- * return the toast — or null. Null when nothing changed, when there was no
- * previous leader yet (baseline), when the new leader is the player themselves
- * (that celebration is handled by the claim path), or when the player isn't in
- * this board's top-10 (only competitors are told).
+ * The "someone ELSE is the new #1" challenge toast, for a top-10 bystander (not
+ * the dethroned player — that's a standing transition). Null on baseline, no
+ * change, self, or when the player isn't competing on this board.
  */
 export function championNotice(
   metric: Metric,
@@ -45,10 +45,10 @@ export function championNotice(
   me: string,
 ): ChampionToast | null {
   const leader = list[0]?.name ?? null;
-  if (!leader || leader === prevLeader) return null; // no new champion
-  if (prevLeader === null) return null; // first time we've seen this board — baseline only
-  if (leader === me) return null; // self-celebration is the claim path's job, not this
-  if (!me || !list.some((e) => e.name === me)) return null; // not competing on this board
+  if (!leader || leader === prevLeader) return null;
+  if (prevLeader === null) return null; // baseline only
+  if (leader === me) return null; // my own #1 is a standing transition, handled elsewhere
+  if (!me || !list.some((e) => e.name === me)) return null; // not competing here
   return { text: `👑 ${leader} תָּפַס אֶת הַמָּקוֹם הָרִאשׁוֹן בְּ${CATEGORY_HE[metric]}!`, icon: '👑', tone: 'pop' };
 }
 
@@ -68,9 +68,8 @@ function myValueFor(metric: Metric, s: { goo: number; clicks: number; bestCpm: n
   return metric === 'goo' ? s.goo : metric === 'cpm' ? s.bestCpm : s.clicks;
 }
 
-// My standing on a board — persisted across sessions so that opening the app can
-// tell me if I LOST ground while I was away (the live watcher only catches
-// changes it witnesses; a change that happened offline reads as the baseline).
+// My standing on a board — persisted across sessions so any change (up or down),
+// whenever it happened, is caught by comparing to the last stored value.
 export type Standing = 'first' | 'top10' | 'out';
 export function myStanding(list: GlobalEntry[], me: string): Standing {
   if (!me || list.length === 0) return 'out';
@@ -78,17 +77,21 @@ export function myStanding(list: GlobalEntry[], me: string): Standing {
   return list.some((e) => e.name === me) ? 'top10' : 'out';
 }
 
-/** A toast if my standing DROPPED since last time (used on reconnect). */
-export function standingDropToast(metric: Metric, prev: Standing | undefined, cur: Standing): ChampionToast | null {
-  if (!prev) return null; // no prior knowledge → baseline, say nothing
-  const cat = CATEGORY_HE[metric];
-  if (prev !== 'out' && cur === 'out') {
-    return { text: `📉 יָרַדְתָּ מֵהַטּוֹפּ 10 בְּ${cat} בִּזְמַן שֶׁלֹּא הָיִיתָ. חֲזֹר לְטַפֵּס!`, icon: '📉', tone: 'pop' };
-  }
-  if (prev === 'first' && cur !== 'first') {
-    return { text: `😮 עָקְפוּ אוֹתְךָ בְּ${cat} בִּזְמַן שֶׁלֹּא הָיִיתָ! חֲזֹר לַמָּקוֹם הָרִאשׁוֹן`, icon: '⚔️', tone: 'pop' };
-  }
+export type StandingChange = 'rose' | 'lost-first' | 'dropped-out' | null;
+/** Classify a standing transition into the notification it deserves (or none). */
+export function standingTransition(prev: Standing, cur: Standing): StandingChange {
+  if (prev !== 'first' && cur === 'first') return 'rose'; // took #1
+  if (prev !== 'out' && cur === 'out') return 'dropped-out'; // fell out of the top-10
+  if (prev === 'first' && cur === 'top10') return 'lost-first'; // overtaken at #1
   return null;
+}
+
+/** The toast for a downward standing change ('lost-first' | 'dropped-out'). */
+export function standingChangeToast(metric: Metric, change: 'lost-first' | 'dropped-out'): ChampionToast {
+  const cat = CATEGORY_HE[metric];
+  return change === 'dropped-out'
+    ? { text: `📉 יָרַדְתָּ מֵהַטּוֹפּ 10 בְּ${cat}. חֲזֹר לְטַפֵּס!`, icon: '📉', tone: 'pop' }
+    : { text: `😮 עָקְפוּ אוֹתְךָ בְּ${cat}! חֲזֹר לַמָּקוֹם הָרִאשׁוֹן`, icon: '⚔️', tone: 'pop' };
 }
 
 const STATUS_KEY = 'blorbo.boardStatus';
@@ -100,7 +103,7 @@ function loadMyStatus(): Partial<Record<Metric, Standing>> {
     return {};
   }
 }
-function saveMyStatus(s: Record<Metric, Standing>): void {
+function saveMyStatus(s: Partial<Record<Metric, Standing>>): void {
   try {
     localStorage.setItem(STATUS_KEY, JSON.stringify(s));
   } catch {
@@ -112,7 +115,7 @@ export function useChampionWatch(): void {
   const pushToast = useGame((s) => s.pushToast);
   const triggerConfetti = useGame((s) => s.triggerConfetti);
   const lastLeader = useRef<Record<Metric, string | null>>({ goo: null, clicks: null, cpm: null });
-  const firstPoll = useRef(true);
+  const status = useRef<Partial<Record<Metric, Standing>>>(loadMyStatus()); // seeded from last session
 
   useEffect(() => {
     if (!hasGlobalLeaderboard()) return;
@@ -127,55 +130,56 @@ export function useChampionWatch(): void {
     const check = async () => {
       if (document.visibilityState === 'hidden') return;
       const me = playerName().trim();
-      if (!me) return; // not on any board → nothing could concern this player
+      if (!me) return; // not on any board → nothing concerns this player
 
       const boards = await fetchBoards();
       if (!boards || !alive) return;
       const s = useGame.getState();
 
-      const prevStatus = firstPoll.current ? loadMyStatus() : null; // cross-session, first poll only
-      const nextStatus = {} as Record<Metric, Standing>;
-
       for (const metric of METRICS) {
         const list = boards[metric] ?? [];
-        const prev = lastLeader.current[metric];
-        nextStatus[metric] = myStanding(list, me);
+        const prev = status.current[metric];
+        const myVal = myValueFor(metric, s);
 
-        // On the first poll of a session: did I lose ground while I was away?
-        // (Fills the gap the live watcher can't see — changes that happened
-        // offline read as the baseline otherwise.)
-        if (prevStatus) {
-          const drop = standingDropToast(metric, prevStatus[metric], nextStatus[metric]);
-          if (drop) pushToast(drop);
-        }
-
-        // Have I just overtaken the visible #1? Claim it (once — `prev !== me`
-        // guards against the 30s /boards cache re-triggering before it refreshes).
-        if (prev !== me && surpassedLeader(list, myValueFor(metric, s), me)) {
-          lastLeader.current[metric] = me; // one claim attempt per throne
-          await pushCheckpoint(); // ensure the cloud save carries my latest score
-          const res = await submitScore(me); // claim it on the server
+        // Resolve my CURRENT standing, accounting for:
+        //  (a) holding #1 through the board's cache lag — a stale board that
+        //      still shows the old leader shouldn't read as "I lost it" while my
+        //      live score is still ahead;
+        //  (b) CLAIMING #1 the moment my live score passes the visible leader
+        //      (push + submit once, only at that transition).
+        let cur = myStanding(list, me);
+        if (prev === 'first') {
+          const top = list[0];
+          const reallyBehind = !!top && top.name !== me && myVal <= top.score;
+          if (!reallyBehind) cur = 'first';
+        } else if (surpassedLeader(list, myVal, me)) {
+          await pushCheckpoint();
+          const res = await submitScore(me);
           if (!alive) return;
-          if (res && res[metric]?.rank === 1) {
-            celebrateSelf(metric); // only if the server agrees
-            nextStatus[metric] = 'first';
-          }
-          continue;
+          if (res && res[metric]?.rank === 1) cur = 'first';
         }
 
-        const notice = championNotice(metric, list, prev, me);
-        lastLeader.current[metric] = list[0]?.name ?? null;
-        if (notice) pushToast(notice);
-      }
+        // Notify on a change — but never on the very first observation (baseline).
+        if (prev !== undefined) {
+          const change = standingTransition(prev, cur);
+          if (change === 'rose') celebrateSelf(metric);
+          else if (change) pushToast(standingChangeToast(metric, change));
+          else {
+            // I didn't move; a NEW champion may have emerged (bystander FYI).
+            const n = championNotice(metric, list, lastLeader.current[metric], me);
+            if (n) pushToast(n);
+          }
+        }
 
-      saveMyStatus(nextStatus);
-      firstPoll.current = false;
+        lastLeader.current[metric] = list[0]?.name ?? null;
+        status.current[metric] = cur;
+      }
+      saveMyStatus(status.current);
     };
 
     void check();
     const id = window.setInterval(() => void check(), POLL_MS);
-    // Re-check the moment the tab becomes visible again (a throne may have
-    // changed while it was hidden and polling was paused).
+    // Re-check the moment the tab becomes visible again.
     const onVisible = () => {
       if (document.visibilityState === 'visible') void check();
     };
