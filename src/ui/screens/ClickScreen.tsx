@@ -45,6 +45,7 @@ interface Floater {
   amount: number;
   frenzy: boolean;
   crit: boolean;
+  expiry: number; // performance.now() ms when the single sweeper drops it
 }
 interface RainDrop {
   id: number;
@@ -59,11 +60,23 @@ interface Particle {
   dy: number;
   color: string;
   size: number;
+  expiry: number; // performance.now() ms when the single sweeper drops it
 }
 
 let uid = 0;
 const PARTICLE_COLORS = ['#A3FF12', '#FFD84D', '#00E5FF'];
 const FRENZY_COLORS = ['#FF2E88', '#FFD84D', '#00E5FF', '#A3FF12'];
+
+// Fast-tapping performance budget (the ~3000+ CPM jank fix). At 50 taps/sec the
+// old path spawned 5–23 particles PER tap plus a floater, a squash, a combo
+// re-render and a getBoundingClientRect EACH — hundreds of animating nodes and
+// dozens of re-renders a second. These bound it: heavy visuals fire at most
+// ~20×/sec, never more than a fixed number live at once, and one sweeper (not a
+// timer per tap) reaps them. The tap's goo + sound + combo still fire every tap.
+const HEAVY_VISUAL_MIN_MS = 50; // ≤ ~20 particle/floater bursts per second
+const COMBO_RENDER_MIN_MS = 90; // coalesce the combo counter to ~10 updates/sec
+const MAX_PARTICLES = 48; // hard cap on concurrent tap particles
+const MAX_FLOATERS = 12; // hard cap on concurrent tap floaters
 
 export function ClickScreen() {
   const goo = useGame((s) => s.goo);
@@ -121,6 +134,11 @@ export function ClickScreen() {
   const critFlashTimer = useRef<number>();
   const comboRef = useRef({ count: 0, last: 0 });
   const comboTimer = useRef<number>();
+  // Fast-tapping perf: throttle heavy visuals + the combo counter, and cache the
+  // blob's rect so a tap never forces a layout read (see HEAVY_VISUAL_MIN_MS).
+  const lastHeavyRef = useRef(0);
+  const lastComboRenderRef = useRef(0);
+  const blobRectRef = useRef<DOMRect | null>(null);
   // Latest income values, read when a rain event spawns.
   const rateRef = useRef(rate);
   const clickRef = useRef(perClick);
@@ -184,6 +202,43 @@ export function ClickScreen() {
     popTimer.current = window.setTimeout(() => setPop(false), 200);
     return () => window.clearTimeout(popTimer.current);
   }, [goo, reduced]);
+
+  // Cache the blob's rect so a tap never has to call getBoundingClientRect
+  // (a forced layout read interleaved with DOM writes = jank at high tap rates).
+  // The blob doesn't move while you play, so we only refresh it on resize/scroll.
+  useEffect(() => {
+    const refresh = () => {
+      blobRectRef.current = blobRef.current?.getBoundingClientRect() ?? null;
+    };
+    refresh();
+    window.addEventListener('resize', refresh);
+    window.addEventListener('scroll', refresh, true);
+    return () => {
+      window.removeEventListener('resize', refresh);
+      window.removeEventListener('scroll', refresh, true);
+    };
+  }, []);
+
+  // One sweeper reaps expired tap particles/floaters, instead of a setTimeout per
+  // spawn (50+ timers/sec while drumming). Returning the SAME array when nothing
+  // expired lets React bail out, so an idle screen never re-renders from this.
+  useEffect(() => {
+    if (reduced) return;
+    const id = window.setInterval(() => {
+      const now = performance.now();
+      setParticles((prev) => {
+        if (!prev.length) return prev;
+        const next = prev.filter((p) => p.expiry > now);
+        return next.length === prev.length ? prev : next;
+      });
+      setFloaters((prev) => {
+        if (!prev.length) return prev;
+        const next = prev.filter((f) => f.expiry > now);
+        return next.length === prev.length ? prev : next;
+      });
+    }, 150);
+    return () => window.clearInterval(id);
+  }, [reduced]);
 
   // Golden-bonus spawn loop (only alive while this screen is mounted).
   useEffect(() => {
@@ -296,7 +351,14 @@ export function ClickScreen() {
     // (they reward steady tapping without demanding metronomic, bot-like taps).
     c.count = t - c.last < COMBO_WINDOW_MS ? c.count + 1 : Math.max(1, Math.floor(c.count / 2));
     c.last = t;
-    setCombo(c.count);
+    // Coalesce the combo-counter re-render to ~10/sec: the exact number ticking
+    // 50×/sec re-rendered the whole screen; the pitch/particle count read the ref
+    // (c.count) directly, so only the on-screen "×N" chip needs this, and a
+    // sub-100ms lag on it is invisible.
+    if (t - lastComboRenderRef.current > COMBO_RENDER_MIN_MS) {
+      lastComboRenderRef.current = t;
+      setCombo(c.count);
+    }
     window.clearTimeout(comboTimer.current);
     comboTimer.current = window.setTimeout(() => {
       comboRef.current.count = 0;
@@ -341,6 +403,13 @@ export function ClickScreen() {
     // carry the feedback instead.
     if (reduced || speedActive) return;
 
+    // Throttle the heavy visuals to ~20/sec. At 3000+ CPM (50 taps/sec) the
+    // per-tap particle burst + floater + squash + crit flash was the jank; the
+    // eye can't tell 50 bursts/sec from 20, so we simply skip the visual work on
+    // taps that land inside the window. The goo, sound and combo above still ran.
+    if (t - lastHeavyRef.current < HEAVY_VISUAL_MIN_MS) return;
+    lastHeavyRef.current = t;
+
     if (crit) {
       setCritFlash(true);
       window.clearTimeout(critFlashTimer.current);
@@ -350,16 +419,23 @@ export function ClickScreen() {
     setSquash(true);
     window.setTimeout(() => setSquash(false), 180);
 
-    const rect = blobRef.current?.getBoundingClientRect();
+    // Cached rect (refreshed on resize/scroll) — no layout read on the tap path.
+    const rect = blobRectRef.current;
     const x = rect ? e.clientX - rect.left : 0;
     const y = rect ? e.clientY - rect.top : 0;
 
-    const fid = ++uid;
-    setFloaters((prev) => [...prev, { id: fid, x, y, amount: gain, frenzy, crit }]);
-    window.setTimeout(() => setFloaters((prev) => prev.filter((f) => f.id !== fid)), crit ? 900 : 700);
+    const now = t;
+    const fExpiry = now + (crit ? 900 : 700);
+    // Cap concurrent floaters — drop the oldest rather than grow without bound.
+    setFloaters((prev) => {
+      const f: Floater = { id: ++uid, x, y, amount: gain, frenzy, crit, expiry: fExpiry };
+      const base = prev.length >= MAX_FLOATERS ? prev.slice(prev.length - MAX_FLOATERS + 1) : prev;
+      return [...base, f];
+    });
 
     const count = (frenzy ? 9 : 5) + (crit ? 8 : 0) + Math.min(6, Math.floor(c.count / 3));
     const palette = crit ? ['#FFD84D', '#FFF4E0', '#FF2E88'] : frenzy ? FRENZY_COLORS : PARTICLE_COLORS;
+    const pExpiry = now + 600;
     const next: Particle[] = [];
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.8 - 0.4;
@@ -370,11 +446,14 @@ export function ClickScreen() {
         dy: Math.sin(angle) * dist - 20,
         color: palette[i % palette.length],
         size: 8 + Math.random() * (frenzy ? 12 : 8),
+        expiry: pExpiry,
       });
     }
-    setParticles((prev) => [...prev, ...next]);
-    const ids = new Set(next.map((p) => p.id));
-    window.setTimeout(() => setParticles((prev) => prev.filter((p) => !ids.has(p.id))), 600);
+    // Cap concurrent particles — keep only the most recent MAX_PARTICLES.
+    setParticles((prev) => {
+      const merged = prev.length + next.length > MAX_PARTICLES ? [...prev, ...next].slice(-MAX_PARTICLES) : [...prev, ...next];
+      return merged;
+    });
   };
 
   return (
