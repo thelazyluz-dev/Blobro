@@ -144,11 +144,14 @@ export function ReferralShare() {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 p-6" onClick={() => setOpen(false)} role="presentation">
       <div
-        className="surface anim-pop-in w-full max-w-xs rounded-3xl p-6 text-center"
+        className="surface anim-pop-in flex max-h-[88vh] w-full max-w-xs flex-col rounded-3xl p-5 text-center"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
+        {/* Everything scrolls between the (implicit) top and the pinned close
+            button, so on short screens the close is always reachable. */}
+        <div className="min-h-0 flex-1 overflow-y-auto pe-1">
         <div className="text-5xl">🏅</div>
         <div className="mt-2 font-display text-2xl text-pop">הַזְמֵן חֲבֵרִים</div>
         <p className="mx-auto mt-1 max-w-[17rem] text-base leading-relaxed text-bone/80">
@@ -199,10 +202,14 @@ export function ReferralShare() {
         >
           שַׁתֵּף אֶת הַקִּישׁוּר 📤
         </button>
+        </div>
+
+        {/* Pinned outside the scroll area — always visible, so the sheet is never
+            hard to leave even when the reward tiers make the content overflow. */}
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="mt-2 w-full rounded-full bg-black/30 py-2 text-sm text-bone/70 ring-1 ring-bone/20 active:scale-95"
+          className="mt-3 w-full shrink-0 rounded-full bg-black/30 py-2.5 text-sm text-bone/70 ring-1 ring-bone/20 active:scale-95"
         >
           סְגוֹר
         </button>
