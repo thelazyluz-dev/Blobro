@@ -17,12 +17,16 @@ import { createPortal } from 'react-dom';
 import { playBonus, playCrit, playMilestone, playPurchase, playRainDrop } from '../audio/sfx';
 import { cpmWindowMs } from '../game/cpm';
 import { formatGoo } from '../game/format';
-import { useGame } from '../store';
+import { pushCheckpoint, useGame } from '../store';
+import { fetchMyRank, hasGlobalLeaderboard, playerName, submitScore } from '../net/leaderboard';
 import { haptic } from './haptics';
 import { useReducedMotion } from './useReducedMotion';
 
 const WINDOW_S = Math.round(cpmWindowMs / 1000);
 const MILESTONE_EVERY = 50; // a little zap + buzz + flash every N taps
+// Live taps/sec at which the "heat" meter is full and the ring/flame max out.
+// ~12/sec is a hot sustained pace well short of the multi-finger ceiling.
+const HEAT_REF_CPS = 12;
 
 /**
  * The start chip AND the renderless controller. It runs the countdown, watches
@@ -173,19 +177,35 @@ export function SpeedFocusOverlay({
   const [frac, setFrac] = useState(1); // fraction of time LEFT (ring drain)
   const [count, setCount] = useState(3); // 3·2·1 (0 → GO!)
   const [flash, setFlash] = useState(0); // last 50-tap milestone flashed
+  const [countKey, setCountKey] = useState(0); // bumps at each milestone → count pops
+  const [liveCps, setLiveCps] = useState(0); // taps/sec over a short rolling window
   const flashRef = useRef(0);
+  const cpsSamples = useRef<{ t: number; taps: number }[]>([]); // rolling (time, taps) buffer
 
-  // Running: one 100ms ticker drives both the timer text and the ring drain.
+  // Running: one 100ms ticker drives the timer text, the ring drain AND the live
+  // taps/sec readout. Live CPS is sampled here (reading the store's speedTaps),
+  // so it never touches the hot tap path — the counter is updated where taps are
+  // already registered, and we just measure the slope over a ~1.2s window.
   useEffect(() => {
     if (phase !== 'running') {
       setSecLeft(WINDOW_S);
       setFrac(1);
+      setLiveCps(0);
+      cpsSamples.current = [];
       return;
     }
     const id = window.setInterval(() => {
-      const left = useGame.getState().speedEndsAt - Date.now();
+      const now = Date.now();
+      const left = useGame.getState().speedEndsAt - now;
       setSecLeft(Math.max(0, Math.ceil(left / 1000)));
       if (!reduced) setFrac(Math.max(0, Math.min(1, left / cpmWindowMs)));
+      // Live taps/sec: slope of speedTaps across the last ~1.2s of samples.
+      const tapsNow = useGame.getState().speedTaps;
+      const buf = cpsSamples.current;
+      buf.push({ t: now, taps: tapsNow });
+      while (buf.length > 1 && now - buf[0].t > 1200) buf.shift();
+      const dt = (now - buf[0].t) / 1000;
+      setLiveCps(dt > 0.15 ? Math.max(0, (tapsNow - buf[0].taps) / dt) : 0);
       if (left <= 0) window.clearInterval(id);
     }, 100);
     return () => window.clearInterval(id);
@@ -210,6 +230,7 @@ export function SpeedFocusOverlay({
     if (milestone >= MILESTONE_EVERY && milestone !== flashRef.current) {
       flashRef.current = milestone;
       setFlash(milestone);
+      setCountKey(milestone); // re-key the count so it pops once per milestone
       const t = window.setTimeout(() => setFlash(0), 650);
       return () => window.clearTimeout(t);
     }
@@ -222,6 +243,9 @@ export function SpeedFocusOverlay({
   const elapsed = Math.max(0.001, WINDOW_S - secLeft);
   const projected = running ? Math.round((taps / elapsed) * WINDOW_S) : 0;
   const ahead = running && bestCpm > 0 && projected >= bestCpm;
+  // Heat 0..1 from the live pace — drives the meter and warms the ring/flame.
+  const heat = Math.max(0, Math.min(1, liveCps / HEAT_REF_CPS));
+  const hot = heat > 0.75;
 
   // Put the spotlight + ring on the ACTUAL blob (fresh each render/tick).
   const rect = blobRef.current?.getBoundingClientRect();
@@ -272,24 +296,66 @@ export function SpeedFocusOverlay({
           strokeLinecap="round"
           strokeDasharray={C}
           strokeDashoffset={C * (1 - frac)}
-          style={{ filter: `drop-shadow(0 0 6px ${ringColor})`, transition: reduced ? undefined : 'stroke 0.4s linear' }}
+          style={{
+            // The ring glows brighter the faster you tap — heat feeds the blur.
+            filter: `drop-shadow(0 0 ${reduced ? 6 : 6 + heat * 12}px ${ringColor})`,
+            transition: reduced ? undefined : 'stroke 0.4s linear',
+          }}
         />
       </svg>
-      {/* Top HUD, on a solid gradient so it's never hidden behind the header. */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[72] flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-12 pt-16">
+      {/* Final-seconds edge pulse — a red vignette that breathes in the last 5s.
+          pointer-events-none, so it never blocks a tap. */}
+      {urgent && (
+        <div
+          className={`pointer-events-none fixed inset-0 z-[72] ${reduced ? '' : 'anim-edge-pulse'}`}
+          aria-hidden
+          style={{ boxShadow: 'inset 0 0 90px 18px rgba(255,46,136,0.55)' }}
+        />
+      )}
+      {/* Top HUD, on a solid gradient so it's never hidden behind the header.
+          Everything the player watches while tapping lives here, grouped high and
+          large, so a single glance reads the whole run. The block is
+          pointer-events-none — taps fall straight through it to the surface
+          below, so the readouts NEVER steal a finger. */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[72] flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-10 pt-12">
         {running ? (
           <>
-            <div className={`font-display text-7xl tabular ${urgent ? 'anim-count-pop text-hot' : 'text-cy'}`}>
+            <div className={`font-display text-6xl leading-none tabular ${urgent ? 'anim-count-pop text-hot' : 'text-cy'}`}>
               0:{String(secLeft).padStart(2, '0')}
             </div>
-            <div className="text-2xl text-bone tabular">
-              {taps} <span className="text-bone/60">הַקָּשׁוֹת</span>
+            {/* Live tap count — big, and pops once at each 50-tap milestone. */}
+            <div key={countKey} className="anim-count-pop mt-1 font-display text-6xl leading-none tabular text-bone">
+              {taps}
+            </div>
+            <div className="-mt-0.5 text-xs tracking-wide text-bone/55">הַקָּשׁוֹת</div>
+            {/* Live rate (taps/sec) + projected final — the two numbers that tell
+                you, moment to moment, whether you're on pace to break the record. */}
+            <div className="mt-1 flex items-center gap-2 font-display text-lg tabular">
+              <span className={hot ? 'text-hot' : 'text-goo'}>
+                {hot ? '🔥' : '⚡'} {liveCps.toFixed(1)}
+                <span className="text-sm text-bone/50"> /שְׁנִיָּה</span>
+              </span>
+              <span className="text-bone/30">·</span>
+              <span className="text-bone/70">
+                צֶפִי ~{projected}
+              </span>
+            </div>
+            {/* Heat meter — fills with your live pace; the ring/flame warm with it. */}
+            <div className="mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${heat * 100}%`,
+                  background: 'linear-gradient(90deg,#00E5FF,#FFD84D,#FF2E88)',
+                  transition: reduced ? undefined : 'width 0.15s linear',
+                }}
+              />
             </div>
             {bestCpm > 0 &&
               (ahead ? (
-                <div className="anim-breathe font-display text-goo">🔥 מוֹבִיל עַל הַשִּׂיא ({bestCpm})!</div>
+                <div className="anim-breathe font-display text-sm text-goo">🔥 מוֹבִיל עַל הַשִּׂיא ({bestCpm})!</div>
               ) : (
-                <div className="text-sm text-bone/50">שִׂיא לִשְׁבֹּר: {bestCpm}</div>
+                <div className="text-xs text-bone/45">שִׂיא לִשְׁבֹּר: {bestCpm}</div>
               ))}
           </>
         ) : (
@@ -330,8 +396,11 @@ export function SpeedFocusOverlay({
 }
 
 /** Fire-and-forget: share the result text, or copy it if the Web Share API is absent. */
-async function shareResult(taps: number, isRecord: boolean) {
-  const text = `${isRecord ? '🏆 שִׂיא חָדָשׁ בְּאֶתְגָּר הַמְּהִירוּת! ' : '⚡ אֶתְגָּר הַמְּהִירוּת בְּבּלוֹרְבּוֹ! '}עָשִׂיתִי ${taps} הַקָּשׁוֹת בְּדַקָּה — נַסּוּ לְנַצֵּחַ אוֹתִי 👉 https://bl-or-bo.com`;
+async function shareResult(taps: number, isRecord: boolean, avgCps: number, rank: number | null) {
+  const head = isRecord ? '🏆 שִׂיא חָדָשׁ בְּאֶתְגָּר הַמְּהִירוּת! ' : '⚡ אֶתְגָּר הַמְּהִירוּת בְּבּלוֹרְבּוֹ! ';
+  const pace = ` (${avgCps.toFixed(1)} לְשְׁנִיָּה)`;
+  const place = rank ? ` · מָקוֹם ~#${rank} בָּעוֹלָם` : '';
+  const text = `${head}עָשִׂיתִי ${taps} הַקָּשׁוֹת בְּדַקָּה${pace}${place} — נַסּוּ לְנַצֵּחַ אוֹתִי 👉 https://bl-or-bo.com`;
   try {
     const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> };
     if (nav.share) {
@@ -344,6 +413,13 @@ async function shareResult(taps: number, isRecord: boolean) {
   }
 }
 
+/** Where the player's speed record placed on the global ⚡ board. */
+type RankState =
+  | { kind: 'loading' }
+  | { kind: 'done'; rank: number; total: number }
+  | { kind: 'nojoin' } // signed-out / hasn't joined a board yet → offer to join
+  | { kind: 'hidden' }; // no backend, offline, or the lookup failed → show nothing
+
 /** The dedicated result screen shown when a minute ends. */
 export function SpeedResult() {
   const phase = useGame((s) => s.speedPhase);
@@ -351,9 +427,60 @@ export function SpeedResult() {
   const bestCpm = useGame((s) => s.bestCpm);
   const armSpeed = useGame((s) => s.armSpeed);
   const cancelSpeed = useGame((s) => s.cancelSpeed);
+  const setProgressOpen = useGame((s) => s.setProgressOpen);
+  const reduced = useReducedMotion();
+  const [rankState, setRankState] = useState<RankState>({ kind: 'hidden' });
+
+  // Look up where this record placed on the ⚡ (cpm) board.
+  //  • a NEW record: push the save first (so the server sees the new best), then
+  //    submit — submit both writes the record onto the board and returns the
+  //    fresh rank.
+  //  • a miss: a cheap read-only /rank (no write) for the current standing.
+  // Degrades to a "join the board" prompt when signed out, or to nothing when
+  // there's no backend / the call fails, so the result never blocks on the net.
+  useEffect(() => {
+    if (phase !== 'result' || !result) return;
+    if (!hasGlobalLeaderboard()) {
+      setRankState({ kind: 'hidden' });
+      return;
+    }
+    const name = playerName().trim();
+    if (!name) {
+      setRankState({ kind: 'nojoin' });
+      return;
+    }
+    let cancelled = false;
+    setRankState({ kind: 'loading' });
+    (async () => {
+      let placed: { rank: number; total: number } | null = null;
+      try {
+        if (result.isRecord) {
+          await pushCheckpoint();
+          const s = await submitScore(name);
+          if (s?.cpm?.rank) placed = { rank: s.cpm.rank, total: s.total };
+        } else {
+          const r = await fetchMyRank('cpm');
+          if (r) placed = { rank: r.rank, total: r.total };
+        }
+      } catch {
+        /* fall through to hidden */
+      }
+      if (cancelled) return;
+      setRankState(placed ? { kind: 'done', rank: placed.rank, total: placed.total } : { kind: 'hidden' });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, result]);
 
   if (phase !== 'result' || !result) return null;
-  const { taps, isRecord, reward } = result;
+  const { taps, isRecord, reward, avgCps, prevBest } = result;
+  const gain = isRecord && prevBest > 0 ? taps - prevBest : 0;
+  const openBoard = () => {
+    cancelSpeed();
+    setProgressOpen(true, 'leaderboard');
+  };
+  const sharedRank = rankState.kind === 'done' ? rankState.rank : null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 p-6" onClick={cancelSpeed}>
       <div className="surface anim-pop-in w-full max-w-xs rounded-3xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
@@ -363,12 +490,40 @@ export function SpeedResult() {
         </div>
         <div className="mt-3 font-display text-6xl tabular text-goo">{taps}</div>
         <div className="text-sm text-bone/60">הַקָּשׁוֹת בְּדַקָּה</div>
+        {/* Average pace — the taps/sec the whole minute averaged. */}
+        <div className="mt-1 font-display text-lg tabular text-cy">
+          ⚡ {avgCps.toFixed(1)} <span className="text-sm text-bone/50">לְחִיצוֹת לְשְׁנִיָּה</span>
+        </div>
         {isRecord ? (
-          <div className="mt-3 text-pop">+{formatGoo(reward)} גּוּ · פְרֶנְזִי! 🔥</div>
+          <div className="mt-3 text-pop">
+            +{formatGoo(reward)} גּוּ · פְרֶנְזִי! 🔥
+            {gain > 0 && <div className="text-sm text-goo">+{gain} מֵהַשִּׂיא הַקּוֹדֵם</div>}
+          </div>
         ) : (
           <div className="mt-3 text-bone/60">הַשִּׂיא שֶׁלְּךָ: {bestCpm}</div>
         )}
-        <div className="mt-5 flex gap-2">
+        {/* Leaderboard placement (approximate ~#, from the server histogram). */}
+        <div className="mt-3 min-h-[2.75rem]">
+          {rankState.kind === 'loading' && <div className="text-sm text-bone/40">מְחַשֵּׁב מָקוֹם בַּטַּבְלָה…</div>}
+          {rankState.kind === 'done' && (
+            <div className={`rounded-2xl bg-cy/10 px-3 py-2 ring-1 ring-cy/30 ${reduced ? '' : 'anim-pop-in'}`}>
+              <div className="font-display text-xl text-cy">🏅 מָקוֹם ~#{rankState.rank.toLocaleString('en-US')}</div>
+              {rankState.total > 0 && (
+                <div className="text-xs text-bone/50">מִתּוֹךְ {rankState.total.toLocaleString('en-US')} בְּאֶתְגָּר הַמְּהִירוּת</div>
+              )}
+            </div>
+          )}
+          {rankState.kind === 'nojoin' && (
+            <button
+              type="button"
+              onClick={openBoard}
+              className="w-full rounded-2xl bg-cy/10 px-3 py-2 text-sm text-cy ring-1 ring-cy/30 active:scale-95"
+            >
+              🏅 הִצְטָרֵף לַטַּבְלָה כְּדֵי לִרְאוֹת אֶת הַמָּקוֹם שֶׁלְּךָ
+            </button>
+          )}
+        </div>
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={armSpeed}
@@ -378,7 +533,7 @@ export function SpeedResult() {
           </button>
           <button
             type="button"
-            onClick={() => shareResult(taps, isRecord)}
+            onClick={() => shareResult(taps, isRecord, avgCps, sharedRank)}
             className="rounded-full bg-goo/20 px-4 py-2.5 text-goo ring-1 ring-goo/40 active:scale-95"
             aria-label="שתף תוצאה"
           >
