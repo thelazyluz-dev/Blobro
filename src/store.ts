@@ -19,6 +19,7 @@ import {
   evolveLevels,
   frenzyDurationMs,
   frenzyMultiplier,
+  secondAbilityRebirth,
   luckCap,
   minCharLevel,
   openAllCap,
@@ -33,7 +34,7 @@ import {
   starBonusFor,
   type AchievementContext,
 } from './game/achievements';
-import { abilityOf, type Ability } from './game/abilities';
+import { abilityForType, abilityOf, type Ability, type AbilityType } from './game/abilities';
 import { charactersById, incomeMultById, unlockCreatures } from './game/characters';
 import {
   DEFAULT_ACCESSORY,
@@ -261,6 +262,8 @@ interface GameState {
   evolveCreature: (id: CharId) => void;
   evolveWithLevelUp: (id: CharId) => void;
   rebirthCreature: (id: CharId) => void;
+  /** Choose/replace a creature's SECOND ability (unlocked at rebirth 10; type != native). */
+  setSecondAbility: (id: CharId, type: AbilityType) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
   upgradeAllCreatures: () => void;
@@ -939,10 +942,23 @@ export const useGame = create<GameState>((set, get) => {
       const def = charactersById[id];
       set({
         goo: s.goo - cost,
-        characters: { ...s.characters, [id]: { level: minCharLevel, rebirths: reb + 1 } },
+        // Reset level/evolution, but KEEP the earned second ability across rebirths.
+        characters: {
+          ...s.characters,
+          [id]: { level: minCharLevel, rebirths: reb + 1, ...(held.secondAbility ? { secondAbility: held.secondAbility } : {}) },
+        },
       });
       get().pushToast({ text: `${def.nameHe} נוֹלַד מֵחָדָשׁ! 🔄 (לֵידָה ${reb + 1})`, icon: '🔄', tone: 'star' });
       get().triggerConfetti('rainbow');
+    },
+
+    setSecondAbility: (id, type) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held || (held.rebirths ?? 0) < secondAbilityRebirth) return; // not unlocked yet
+      // Can't pick the creature's own native ability (must diversify).
+      if (type === abilityOf(id, charactersById[id].rarity, 0).type) return;
+      set({ characters: { ...s.characters, [id]: { ...held, secondAbility: type } } });
     },
 
     // Level a creature straight up with goo (the collection goo sink).
@@ -1085,8 +1101,8 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const m = mods();
       const perSec = gooPerSec(s.characters, m);
-      const ab = selectActiveAbility(s);
-      const bonusMult = ab?.type === 'bonus' ? 1 + ab.value : 1;
+      const bonusAb = selectActiveAbilities(s).find((a) => a.type === 'bonus');
+      const bonusMult = bonusAb ? 1 + bonusAb.value : 1;
       const reward = Math.round(
         Math.max(
           Math.round(perSec * bonusIncomeSeconds),
@@ -1668,6 +1684,26 @@ export const selectActiveAbility = (s: GameState): Ability | null => {
   return abilityOf(id, charactersById[id].rarity, held.rebirths ?? 0);
 };
 
+/**
+ * ALL abilities the equipped-main creature grants right now: its native ability,
+ * plus the SECOND ability it earned at its 10th rebirth (chosen by the player,
+ * at the standard rarity value). Consumers fold every entry — modsOf
+ * (tap/income/crit/luck), the combo mechanic and the golden-bonus mechanic — so
+ * a second ability of any type takes effect. Empty when nothing is displayed.
+ */
+export const selectActiveAbilities = (s: GameState): Ability[] => {
+  const id = s.equippedMain;
+  const held = id ? s.characters[id] : undefined;
+  if (!id || !held) return [];
+  const rarity = charactersById[id].rarity;
+  const native = abilityOf(id, rarity, held.rebirths ?? 0);
+  const list = [native];
+  if ((held.rebirths ?? 0) >= secondAbilityRebirth && held.secondAbility && held.secondAbility !== native.type) {
+    list.push(abilityForType(held.secondAbility, rarity));
+  }
+  return list;
+};
+
 // Convenience selectors used across screens.
 /**
  * Modifiers WITHOUT the equipped-main creature's active ability — the "base"
@@ -1695,10 +1731,10 @@ const baseModsOf = (s: GameState): Modifiers => {
 
 const modsOf = (s: GameState): Modifiers => {
   const m = baseModsOf(s);
-  // The equipped main creature's ability (tap/income/crit/luck fold into the
-  // modifiers here; combo/bonus are applied where those mechanics live).
-  const ab = selectActiveAbility(s);
-  if (ab) {
+  // The equipped main creature's abilities — native AND the earned second one
+  // (tap/income/crit/luck fold into the modifiers here; combo/bonus are applied
+  // where those mechanics live).
+  for (const ab of selectActiveAbilities(s)) {
     if (ab.type === 'tap') m.clickMultiplier *= 1 + ab.value;
     else if (ab.type === 'income') m.incomeMultiplier *= 1 + ab.value;
     else if (ab.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab.value);

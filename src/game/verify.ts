@@ -24,8 +24,8 @@
 // this ceiling rises with it automatically — a hardcoded number would silently
 // start flagging honest players the day that event shipped.
 
-import { adRewardMult, critChanceCap, critMultiplier, frenzyMultiplier, luckCap } from './balance';
-import { abilityOf } from './abilities';
+import { adRewardMult, critChanceCap, critMultiplier, frenzyMultiplier, luckCap, secondAbilityRebirth } from './balance';
+import { abilityForType, abilityOf } from './abilities';
 import { charactersById } from './characters';
 import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
 import { EVENTS } from './events';
@@ -102,6 +102,21 @@ function modsFor(save: SaveState) {
     else if (ab.type === 'income') m.incomeMultiplier *= 1 + ab.value;
     else if (ab.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab.value);
     else if (ab.type === 'luck') m.luck = Math.min(luckCap, m.luck + ab.value);
+
+    // Fold the earned SECOND ability too (unlocked at rebirth 10, chosen type
+    // != native, standard rarity value), exactly as the client's modsOf does —
+    // otherwise the ceiling is blind to the extra tap/income a legit player earns
+    // from it. Gated on the same threshold so a forged secondAbility on a
+    // low-rebirth creature can't inflate the ceiling.
+    const held = save.characters[id];
+    const rarity = charactersById[id as keyof typeof charactersById].rarity;
+    if (held && (held.rebirths ?? 0) >= secondAbilityRebirth && held.secondAbility && held.secondAbility !== ab.type) {
+      const ab2 = abilityForType(held.secondAbility, rarity);
+      if (ab2.type === 'tap') m.clickMultiplier *= 1 + ab2.value;
+      else if (ab2.type === 'income') m.incomeMultiplier *= 1 + ab2.value;
+      else if (ab2.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab2.value);
+      else if (ab2.type === 'luck') m.luck = Math.min(luckCap, m.luck + ab2.value);
+    }
   }
   return m;
 }
