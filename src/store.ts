@@ -20,6 +20,7 @@ import {
   frenzyDurationMs,
   frenzyMultiplier,
   secondAbilityRebirth,
+  thirdAbilityRebirth,
   luckCap,
   minCharLevel,
   openAllCap,
@@ -262,8 +263,10 @@ interface GameState {
   evolveCreature: (id: CharId) => void;
   evolveWithLevelUp: (id: CharId) => void;
   rebirthCreature: (id: CharId) => void;
-  /** Choose/replace a creature's SECOND ability (unlocked at rebirth 10; type != native). */
+  /** Choose/replace a creature's SECOND ability (unlocked at rebirth 10; type != native/third). */
   setSecondAbility: (id: CharId, type: AbilityType) => void;
+  /** Choose/replace a creature's THIRD ability (unlocked at the final rebirth; type != native/second). */
+  setThirdAbility: (id: CharId, type: AbilityType) => void;
   levelUpCreature: (id: CharId) => void;
   levelUpCreatureMax: (id: CharId) => void;
   upgradeAllCreatures: () => void;
@@ -942,10 +945,15 @@ export const useGame = create<GameState>((set, get) => {
       const def = charactersById[id];
       set({
         goo: s.goo - cost,
-        // Reset level/evolution, but KEEP the earned second ability across rebirths.
+        // Reset level/evolution, but KEEP the earned second/third abilities across rebirths.
         characters: {
           ...s.characters,
-          [id]: { level: minCharLevel, rebirths: reb + 1, ...(held.secondAbility ? { secondAbility: held.secondAbility } : {}) },
+          [id]: {
+            level: minCharLevel,
+            rebirths: reb + 1,
+            ...(held.secondAbility ? { secondAbility: held.secondAbility } : {}),
+            ...(held.thirdAbility ? { thirdAbility: held.thirdAbility } : {}),
+          },
         },
       });
       get().pushToast({ text: `${def.nameHe} נוֹלַד מֵחָדָשׁ! 🔄 (לֵידָה ${reb + 1})`, icon: '🔄', tone: 'star' });
@@ -956,9 +964,22 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const held = s.characters[id];
       if (!held || (held.rebirths ?? 0) < secondAbilityRebirth) return; // not unlocked yet
-      // Can't pick the creature's own native ability (must diversify).
+      // Can't pick the creature's own native ability, nor its chosen third — all
+      // three ability slots must stay distinct.
       if (type === abilityOf(id, charactersById[id].rarity, 0).type) return;
+      if (type === held.thirdAbility) return;
       set({ characters: { ...s.characters, [id]: { ...held, secondAbility: type } } });
+    },
+
+    setThirdAbility: (id, type) => {
+      const s = get();
+      const held = s.characters[id];
+      if (!held || (held.rebirths ?? 0) < thirdAbilityRebirth) return; // not unlocked yet
+      // Can't pick the creature's own native ability, nor its chosen second — all
+      // three ability slots must stay distinct.
+      if (type === abilityOf(id, charactersById[id].rarity, 0).type) return;
+      if (type === held.secondAbility) return;
+      set({ characters: { ...s.characters, [id]: { ...held, thirdAbility: type } } });
     },
 
     // Level a creature straight up with goo (the collection goo sink).
@@ -1696,10 +1717,19 @@ export const selectActiveAbilities = (s: GameState): Ability[] => {
   const held = id ? s.characters[id] : undefined;
   if (!id || !held) return [];
   const rarity = charactersById[id].rarity;
-  const native = abilityOf(id, rarity, held.rebirths ?? 0);
+  const reb = held.rebirths ?? 0;
+  const native = abilityOf(id, rarity, reb);
   const list = [native];
-  if ((held.rebirths ?? 0) >= secondAbilityRebirth && held.secondAbility && held.secondAbility !== native.type) {
+  if (reb >= secondAbilityRebirth && held.secondAbility && held.secondAbility !== native.type) {
     list.push(abilityForType(held.secondAbility, rarity));
+  }
+  if (
+    reb >= thirdAbilityRebirth &&
+    held.thirdAbility &&
+    held.thirdAbility !== native.type &&
+    held.thirdAbility !== held.secondAbility
+  ) {
+    list.push(abilityForType(held.thirdAbility, rarity));
   }
   return list;
 };

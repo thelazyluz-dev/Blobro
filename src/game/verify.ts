@@ -24,7 +24,7 @@
 // this ceiling rises with it automatically — a hardcoded number would silently
 // start flagging honest players the day that event shipped.
 
-import { adRewardMult, critChanceCap, critMultiplier, frenzyMultiplier, luckCap, secondAbilityRebirth } from './balance';
+import { adRewardMult, critChanceCap, critMultiplier, frenzyMultiplier, luckCap, secondAbilityRebirth, thirdAbilityRebirth } from './balance';
 import { abilityForType, abilityOf } from './abilities';
 import { charactersById } from './characters';
 import { backgroundIncomeBonus, clickCosmeticBonus } from './cosmetics';
@@ -116,6 +116,24 @@ function modsFor(save: SaveState) {
       else if (ab2.type === 'income') m.incomeMultiplier *= 1 + ab2.value;
       else if (ab2.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab2.value);
       else if (ab2.type === 'luck') m.luck = Math.min(luckCap, m.luck + ab2.value);
+    }
+
+    // Fold the earned THIRD ability too (unlocked at the final rebirth, chosen
+    // type != native AND != second, standard rarity value). Same gating so a
+    // forged thirdAbility below the threshold — or one duplicating the native or
+    // second slot — can't inflate the ceiling.
+    if (
+      held &&
+      (held.rebirths ?? 0) >= thirdAbilityRebirth &&
+      held.thirdAbility &&
+      held.thirdAbility !== ab.type &&
+      held.thirdAbility !== held.secondAbility
+    ) {
+      const ab3 = abilityForType(held.thirdAbility, rarity);
+      if (ab3.type === 'tap') m.clickMultiplier *= 1 + ab3.value;
+      else if (ab3.type === 'income') m.incomeMultiplier *= 1 + ab3.value;
+      else if (ab3.type === 'crit') m.critChance = Math.min(critChanceCap, m.critChance + ab3.value);
+      else if (ab3.type === 'luck') m.luck = Math.min(luckCap, m.luck + ab3.value);
     }
   }
   return m;
