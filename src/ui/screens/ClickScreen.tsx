@@ -27,7 +27,7 @@ import {
 import { bigScaleNameHe, formatExact, formatGoo, formatGooHero } from '../../game/format';
 import { autoClicksPerSec } from '../../game/economy';
 import { DEFAULT_BLOB, accessoryById, blobById } from '../../game/cosmetics';
-import { selectActiveAbility, selectClickPower, selectComboMelody, selectGooPerSec, useGame } from '../../store';
+import { selectActiveAbilities, selectClickPower, selectComboMelody, selectGooPerSec, useGame } from '../../store';
 import { haptic } from '../haptics';
 import { SmoothNumber } from '../SmoothNumber';
 import { BonusButton } from '../AdBonus';
@@ -76,7 +76,7 @@ export function ClickScreen() {
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const clicks = useGame((s) => s.clicks);
   const nicknameOpen = useGame((s) => s.nicknameOpen);
-  const activeAbility = useGame(selectActiveAbility);
+  const activeAbilities = useGame(selectActiveAbilities);
   const frenzyUntil = useGame((s) => s.frenzyUntil);
   // The starter blob is always our original green one (skins are retired).
   const { colors: blobColors, shape: blobShape } = blobById(DEFAULT_BLOB);
@@ -314,7 +314,8 @@ export function ClickScreen() {
       (comboMilestones.includes(c.count) ||
         (c.count >= comboRepeatEvery && c.count % comboRepeatEvery === 0));
     if (isMilestone) {
-      const comboMult = activeAbility?.type === 'combo' ? 1 + activeAbility.value : 1;
+      const comboAb = activeAbilities.find((a) => a.type === 'combo');
+      const comboMult = comboAb ? 1 + comboAb.value : 1;
       const amount = c.count * clickRef.current * comboRewardMult * comboMult;
       grantGoo(amount);
       const m = useGame.getState().muted;

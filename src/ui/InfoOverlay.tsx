@@ -8,7 +8,7 @@ import { autoClicksPerSec } from '../game/economy';
 import { charactersById } from '../game/characters';
 import { formatGoo } from '../game/format';
 import {
-  selectActiveAbility,
+  selectActiveAbilities,
   selectClickPower,
   selectGooPerSec,
   selectRebirthIncomeBonus,
@@ -55,7 +55,7 @@ export function InfoOverlay() {
   const creatureRate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
   const starBonus = useGame(selectStarBonus);
-  const ability = useGame(selectActiveAbility);
+  const abilities = useGame(selectActiveAbilities);
   const autoTapLevel = useGame((s) => s.upgrades.autoTap);
   const mainId = useGame((s) => s.equippedMain);
   // Rebirth income is per-creature and ALWAYS live for every reborn creature —
@@ -107,7 +107,7 @@ export function InfoOverlay() {
           <div className="pt-2 text-center text-[11px] font-bold text-bone/45">בַּלְּחִיצוֹת</div>
           <Row icon="👆" label="כָּל נְגִיעָה שָׁוָה" value={formatGoo(perClick)} />
 
-          {(starBonus > 0 || ability || rebirthIncomePct > 0) && (
+          {(starBonus > 0 || abilities.length > 0 || rebirthIncomePct > 0) && (
             <div className="pt-2 text-center text-[11px] font-bold text-bone/45">הַבּוֹנוּסִים שֶׁלְּךָ</div>
           )}
           {starBonus > 0 && (
@@ -118,14 +118,15 @@ export function InfoOverlay() {
               value={`+${Math.round(starBonus * 100)}%`}
             />
           )}
-          {ability && (
+          {abilities.map((a, i) => (
             <Row
-              icon={ABILITY_META[ability.type].icon}
-              label={`יְכֹלֶת שֶׁל ${mainName}`}
-              hint={ABILITY_META[ability.type].descHe(abilityPct(ability))}
-              value={`+${abilityPct(ability)}%`}
+              key={a.type}
+              icon={ABILITY_META[a.type].icon}
+              label={i === 0 ? `יְכֹלֶת שֶׁל ${mainName}` : 'יְכֹלֶת שְׁנִיָּה'}
+              hint={ABILITY_META[a.type].descHe(abilityPct(a))}
+              value={`+${abilityPct(a)}%`}
             />
-          )}
+          ))}
           {rebirthIncomePct > 0 && (
             <Row
               icon="🔄"
