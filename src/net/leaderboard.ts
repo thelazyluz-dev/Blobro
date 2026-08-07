@@ -149,6 +149,39 @@ export async function submitScore(name: string, _clicks?: number, _goo?: number)
   }
 }
 
+export interface RankResult {
+  rank: number; // the player's approximate 1-based position on this metric's board
+  score: number; // the player's stored value for the metric
+  total: number; // how many players are on the board
+}
+
+/**
+ * Read-only rank lookup for one metric — GET /rank?by=…, no write. The server
+ * answers from its cached score histogram (near-zero cost, refreshed once a
+ * minute), so this is cheap enough to call on every speed-challenge result to
+ * show "where you placed". Returns null when there's no backend, the player
+ * isn't signed in / hasn't joined a board, or the request fails — callers just
+ * hide the placement line. NB: the rank reflects the player's STORED score, so
+ * a brand-new record only moves it after the save is pushed + submitted; the
+ * result screen uses submitScore's fresh rank on a record and this on a miss.
+ */
+export async function fetchMyRank(by: Metric): Promise<RankResult | null> {
+  if (!hasGlobalLeaderboard()) return null;
+  try {
+    const res = await fetch(`${BASE()}/rank?by=${by}`, { credentials: 'include' });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { rank?: unknown; score?: unknown; total?: unknown };
+    if (typeof data.rank !== 'number' || data.rank <= 0) return null;
+    return {
+      rank: data.rank,
+      score: typeof data.score === 'number' ? data.score : 0,
+      total: typeof data.total === 'number' ? data.total : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** The global top-N for a metric, or null on no-backend/failure. */
 export async function fetchTop(by: Metric, limit = 50): Promise<GlobalEntry[] | null> {
   if (!hasGlobalLeaderboard()) return null;

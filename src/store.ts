@@ -120,6 +120,10 @@ export interface SpeedResult {
   taps: number;
   isRecord: boolean;
   reward: number;
+  /** Average taps per second over the minute (taps / 60) — shown on the result. */
+  avgCps: number;
+  /** The record BEFORE this run, so the result can show the Δ you gained. */
+  prevBest: number;
 }
 export type ToastTone = 'goo' | 'star' | 'pop';
 export interface Toast {
@@ -768,8 +772,10 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       if (s.speedPhase !== 'running') return;
       const taps = s.speedTaps;
+      const prevBest = s.bestCpm; // captured BEFORE finishSpeedTest ratchets it
       const { isRecord, reward } = get().finishSpeedTest(taps);
-      set({ speedPhase: 'result', speedEndsAt: 0, speedResult: { taps, isRecord, reward } });
+      const avgCps = taps / (cpmWindowMs / 1000);
+      set({ speedPhase: 'result', speedEndsAt: 0, speedResult: { taps, isRecord, reward, avgCps, prevBest } });
     },
 
     buyUpgrade: (id) => {

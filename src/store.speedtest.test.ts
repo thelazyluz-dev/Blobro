@@ -81,6 +81,9 @@ describe('speed-test phase machine', () => {
     expect(g().speedResult?.taps).toBe(250);
     expect(g().speedResult?.isRecord).toBe(true);
     expect(g().bestCpm).toBe(250);
+    // Result carries the average pace (taps/60) and the record BEFORE this run.
+    expect(g().speedResult?.avgCps).toBeCloseTo(250 / 60, 5);
+    expect(g().speedResult?.prevBest).toBe(100);
   });
 
   it('beginSpeedTest is a no-op unless counting down; cancel clears everything', () => {
