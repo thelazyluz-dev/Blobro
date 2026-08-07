@@ -89,6 +89,8 @@ export const thirdAbilityRebirth = rebirthCap;
 // Referral reward tiers — how many friends (who joined via your link AND started
 // playing) earn each medal. The medals are exclusive accessories (see
 // cosmetics.ts) granted client-side from the server-reported friend count.
+export const referralFriendsForGift = 3; // a one-time goo gift (server-granted)
+export const referralGiftHours = 1; // gift size = this many hours of the player's CURRENT production
 export const referralFriendsForMedal = 5;
 export const referralFriendsForGoldMedal = 10;
 // +25% of the ability's BASE value per rebirth (owner-set). Linear, so it

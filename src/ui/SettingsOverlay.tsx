@@ -10,6 +10,7 @@ import { useGame } from '../store';
 import { haptic } from './haptics';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './pwaInstall';
 import { whatsappShareUrl } from './share';
+import { hasReferralBackend } from '../net/referral';
 
 // Invite a friend (WhatsApp) + install the app. Sharing is the growth loop the
 // owner is distributing around; install keeps returning players one tap away.
@@ -39,8 +40,20 @@ function ShareInstallSection() {
     }
   };
 
+  const openReferral = useGame((s) => s.setReferralOpen);
   return (
     <section className="flex flex-col gap-2">
+      {/* Invite friends → medals. The rewarding invite (opens the share sheet);
+          the plain app-share below is just "tell people about Blorbo". */}
+      {hasReferralBackend() && (
+        <button
+          type="button"
+          onClick={() => openReferral(true)}
+          className="btn w-full bg-gradient-to-r from-cy/25 to-pop/25 py-2.5 text-center text-sm font-bold text-bone ring-1 ring-cy/30"
+        >
+          🏅 הַזְמֵן חֲבֵרִים — קַבֵּל מֶדַלְיָה!
+        </button>
+      )}
       <div className="flex gap-2">
         <a
           href={whatsappShareUrl()}

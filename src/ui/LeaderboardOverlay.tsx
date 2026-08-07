@@ -140,17 +140,6 @@ export function LeaderboardContent({ active }: { active: boolean }) {
         {global ? '🌍 טַבְלָה עוֹלָמִית — כֻּלָּם רוֹאִים' : 'נשמר במכשיר בלבד'}
       </div>
 
-      {/* Invite friends → medals. Opens the share sheet (ReferralShare). */}
-      {global && (
-        <button
-          type="button"
-          onClick={() => useGame.getState().setReferralOpen(true)}
-          className="mt-2 w-full rounded-2xl bg-gradient-to-r from-cy/20 to-pop/20 px-3 py-2 text-sm font-bold text-bone ring-1 ring-cy/30 active:scale-95"
-        >
-          🏅 הַזְמֵן חֲבֵרִים — קַבֵּל מֶדַלְיָה!
-        </button>
-      )}
-
       {/* Metric toggle: taps, held goo, and the taps-per-minute record. */}
       {global && (
         <div className="mb-3 mt-2 flex gap-1 rounded-full bg-black/30 p-1 ring-1 ring-hairline">

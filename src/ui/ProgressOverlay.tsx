@@ -27,7 +27,7 @@ export function ProgressButton() {
   return (
     <button
       type="button"
-      onClick={() => setOpen(true, readyCount > 0 ? 'achievements' : 'stats')}
+      onClick={() => setOpen(true, 'leaderboard')}
       aria-label="ההתקדמות שלי"
       className={`flex h-11 shrink-0 items-center gap-1 rounded-full bg-black/40 px-3 ring-1 active:scale-90 ${
         readyCount > 0 ? 'anim-breathe ring-pop' : 'ring-hairline'
