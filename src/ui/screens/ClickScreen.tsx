@@ -33,7 +33,7 @@ import { SmoothNumber } from '../SmoothNumber';
 import { BonusButton } from '../AdBonus';
 import { CharacterBody } from '../characters';
 import { AccessoryOverlay, MainBlob } from '../MainBlob';
-import { SpeedFocusOverlay, SpeedResult, SpeedRing, SpeedTest, useSpeedActive } from '../SpeedTest';
+import { SpeedFocusOverlay, SpeedResult, SpeedTest, useSpeedActive } from '../SpeedTest';
 import { useReducedMotion } from '../useReducedMotion';
 
 const COMBO_WINDOW_MS = comboWindowMs;
@@ -510,9 +510,7 @@ export function ClickScreen() {
         </div>
       )}
 
-      {/* z-30 lifts the blob (and its countdown ring) above the speed-test focus
-          dim (z-20), so during a test the blob is the one bright, tappable thing. */}
-      <div className={`relative flex flex-1 items-center justify-center ${speedActive ? 'z-30' : ''}`}>
+      <div className="relative flex flex-1 items-center justify-center">
         <div
           className={`pointer-events-none absolute h-72 w-72 rounded-full ${reduced ? '' : 'anim-breathe'}`}
           style={{
@@ -521,7 +519,6 @@ export function ClickScreen() {
               : 'radial-gradient(circle, rgba(163,255,18,0.35), transparent 65%)',
           }}
         />
-        <SpeedRing />
 
         <button
           ref={blobRef}
@@ -684,7 +681,7 @@ export function ClickScreen() {
       {/* Speed-test focus mode + result screen (fixed overlays; render nothing
           unless a test is active). During a test the whole screen taps via the
           same handler the blob uses. */}
-      <SpeedFocusOverlay onTap={handleClick} />
+      <SpeedFocusOverlay onTap={handleClick} blobRef={blobRef} />
       <SpeedResult />
     </div>
   );

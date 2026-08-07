@@ -12,7 +12,8 @@
 // robot hand never touches it), so the hot tap path is untouched. The record
 // feeds the SAME bestCpm the passive rolling window does (game/cpm.ts).
 
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
+import { type PointerEvent as ReactPointerEvent, type RefObject, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { playBonus, playCrit, playMilestone, playPurchase, playRainDrop } from '../audio/sfx';
 import { cpmWindowMs } from '../game/cpm';
 import { formatGoo } from '../game/format';
@@ -146,87 +147,49 @@ export function useSpeedActive() {
 }
 
 /**
- * The countdown ring, drawn around the main blob. Full during the 3·2·1, then
- * drains over the minute, shifting cyan → gold → hot-pink as time runs low.
+ * Focus mode. Rendered via a PORTAL to <body> so it escapes the app's flex-column
+ * stacking contexts (the header at z-30 and the bottom nav sit ABOVE <main>, so
+ * an in-main overlay left those regions un-dimmed and their taps uncounted).
+ * From the body it can:
+ *   • DARKEN everything — header, bottom bar, every button — via a spotlight dim
+ *     with a transparent hole over the blob (so the blob stays bright);
+ *   • count a tap ANYWHERE on screen via one full-screen surface above it all;
+ *   • leave only the cancel button live, with a "buttons are locked" note.
+ * The ring + spotlight are positioned on the real blob via `blobRef`.
  */
-export function SpeedRing() {
-  const phase = useGame((s) => s.speedPhase);
-  const reduced = useReducedMotion();
-  const [frac, setFrac] = useState(1); // fraction of time LEFT
-
-  useEffect(() => {
-    if (phase !== 'running') {
-      setFrac(1);
-      return;
-    }
-    if (reduced) return;
-    // A countdown ring doesn't need 60fps — a ~10fps interval drains it just as
-    // smoothly with a fraction of the re-renders (matters while the whole screen
-    // is being tapped hard).
-    const id = window.setInterval(() => {
-      const left = useGame.getState().speedEndsAt - Date.now();
-      setFrac(Math.max(0, Math.min(1, left / cpmWindowMs)));
-      if (left <= 0) window.clearInterval(id);
-    }, 100);
-    return () => window.clearInterval(id);
-  }, [phase, reduced]);
-
-  if (phase !== 'countdown' && phase !== 'running') return null;
-  const R = 46;
-  const C = 2 * Math.PI * R;
-  const color = frac > 0.5 ? '#00E5FF' : frac > 0.25 ? '#FFD84D' : '#FF2E88';
-  return (
-    <svg
-      viewBox="0 0 100 100"
-      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90"
-      style={{ width: 300, height: 300 }}
-      aria-hidden
-    >
-      <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
-      <circle
-        cx="50"
-        cy="50"
-        r={R}
-        fill="none"
-        stroke={color}
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray={C}
-        strokeDashoffset={C * (1 - frac)}
-        style={{ filter: `drop-shadow(0 0 6px ${color})`, transition: reduced ? undefined : 'stroke 0.4s linear' }}
-      />
-    </svg>
-  );
-}
-
-/**
- * Focus mode: dims the rest of the screen (the blob is lifted above this) and
- * shows the 3·2·1·GO, the big timer, live tap count, "beat your record" hint and
- * a milestone flash. The dim is visual-only (pointer-events-none) so only the
- * blob taps — but a full-screen surface behind it makes the WHOLE screen a tap
- * target during the run.
- */
-export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Element>) => void }) {
+export function SpeedFocusOverlay({
+  onTap,
+  blobRef,
+}: {
+  onTap: (e: ReactPointerEvent<Element>) => void;
+  blobRef: RefObject<HTMLButtonElement | null>;
+}) {
   const phase = useGame((s) => s.speedPhase);
   const taps = useGame((s) => s.speedTaps);
   const bestCpm = useGame((s) => s.bestCpm);
   const cancelSpeed = useGame((s) => s.cancelSpeed);
+  const reduced = useReducedMotion();
   const [secLeft, setSecLeft] = useState(WINDOW_S);
+  const [frac, setFrac] = useState(1); // fraction of time LEFT (ring drain)
   const [count, setCount] = useState(3); // 3·2·1 (0 → GO!)
   const [flash, setFlash] = useState(0); // last 50-tap milestone flashed
   const flashRef = useRef(0);
 
-  // Live timer while running.
+  // Running: one 100ms ticker drives both the timer text and the ring drain.
   useEffect(() => {
     if (phase !== 'running') {
       setSecLeft(WINDOW_S);
+      setFrac(1);
       return;
     }
     const id = window.setInterval(() => {
-      setSecLeft(Math.max(0, Math.ceil((useGame.getState().speedEndsAt - Date.now()) / 1000)));
-    }, 200);
+      const left = useGame.getState().speedEndsAt - Date.now();
+      setSecLeft(Math.max(0, Math.ceil(left / 1000)));
+      if (!reduced) setFrac(Math.max(0, Math.min(1, left / cpmWindowMs)));
+      if (left <= 0) window.clearInterval(id);
+    }, 100);
     return () => window.clearInterval(id);
-  }, [phase]);
+  }, [phase, reduced]);
 
   // Live 3·2·1·GO number while counting down.
   useEffect(() => {
@@ -252,20 +215,61 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
     }
   }, [taps, phase]);
 
-  if (phase !== 'countdown' && phase !== 'running') return null;
+  if ((phase !== 'countdown' && phase !== 'running') || typeof document === 'undefined') return null;
+
   const running = phase === 'running';
   const urgent = running && secLeft <= 5;
   const elapsed = Math.max(0.001, WINDOW_S - secLeft);
   const projected = running ? Math.round((taps / elapsed) * WINDOW_S) : 0;
   const ahead = running && bestCpm > 0 && projected >= bestCpm;
 
-  return (
+  // Put the spotlight + ring on the ACTUAL blob (fresh each render/tick).
+  const rect = blobRef.current?.getBoundingClientRect();
+  const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+  const cy = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.46;
+  const rad = rect ? rect.width / 2 : 130;
+
+  const R = 46;
+  const C = 2 * Math.PI * R;
+  const ringColor = frac > 0.5 ? '#00E5FF' : frac > 0.25 ? '#FFD84D' : '#FF2E88';
+
+  return createPortal(
     <>
-      <div className="pointer-events-none fixed inset-0 z-20 bg-void/70 backdrop-blur-[2px]" aria-hidden />
-      {/* Whole-screen tap surface (owner request) — a tap ANYWHERE counts. */}
-      <div className="fixed inset-0 z-[25]" onPointerDown={onTap} aria-label="הַקֵּשׁ בְּכָל מָקוֹם" role="button" />
+      {/* Spotlight dim — darkens EVERYTHING (header, bottom bar, every button)
+          except a hole over the blob, so it reads clearly as "focus mode; the
+          rest is inactive". */}
+      <div
+        className="pointer-events-none fixed inset-0 z-[70]"
+        aria-hidden
+        style={{
+          background: `radial-gradient(circle at ${cx}px ${cy}px, transparent ${rad - 4}px, rgba(9,5,20,0.82) ${rad + 46}px)`,
+        }}
+      />
+      {/* One full-screen tap surface ABOVE everything — a tap on ANY spot counts. */}
+      <div className="fixed inset-0 z-[71]" onPointerDown={onTap} aria-label="הַקֵּשׁ בְּכָל מָקוֹם" role="button" />
+      {/* Countdown ring, centred on the blob. */}
+      <svg
+        viewBox="0 0 100 100"
+        className="pointer-events-none fixed z-[71]"
+        style={{ left: cx, top: cy, width: 300, height: 300, transform: 'translate(-50%,-50%) rotate(-90deg)' }}
+        aria-hidden
+      >
+        <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
+        <circle
+          cx="50"
+          cy="50"
+          r={R}
+          fill="none"
+          stroke={ringColor}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - frac)}
+          style={{ filter: `drop-shadow(0 0 6px ${ringColor})`, transition: reduced ? undefined : 'stroke 0.4s linear' }}
+        />
+      </svg>
       {/* Top HUD, on a solid gradient so it's never hidden behind the header. */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-12 pt-16">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[72] flex flex-col items-center gap-1 bg-gradient-to-b from-void via-void/95 to-transparent px-4 pb-12 pt-16">
         {running ? (
           <>
             <div className={`font-display text-7xl tabular ${urgent ? 'anim-count-pop text-hot' : 'text-cy'}`}>
@@ -289,21 +293,26 @@ export function SpeedFocusOverlay({ onTap }: { onTap: (e: ReactPointerEvent<Elem
       </div>
       {/* Milestone flash — big, cheap, fades. */}
       {flash > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 top-1/3 z-40 text-center">
+        <div className="pointer-events-none fixed inset-x-0 top-1/3 z-[72] text-center">
           <span className="anim-count-pop font-display text-6xl text-goo text-glow-pop">🔥 {flash}!</span>
         </div>
       )}
-      {/* The only escape — kept ABOVE the bottom nav so it's never hidden by it. */}
-      <div className="fixed inset-x-0 bottom-24 z-40 flex justify-center">
+      {/* Cancel is the ONLY live control — above everything, clear of the nav,
+          with a note that the rest is locked. */}
+      <div className="fixed inset-x-0 bottom-24 z-[73] flex flex-col items-center gap-1.5">
+        <span className="pointer-events-none rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] text-bone/50">
+          🔒 שְׁאָר הַכַּפְתּוֹרִים נְעוּלִים בַּמִּבְחָן
+        </span>
         <button
           type="button"
           onClick={cancelSpeed}
-          className="rounded-full bg-black/60 px-5 py-2 text-sm text-bone/75 ring-1 ring-bone/25 active:scale-95"
+          className="rounded-full bg-black/70 px-5 py-2 text-sm text-bone/80 ring-1 ring-bone/25 active:scale-95"
         >
           בִּטּוּל ✕
         </button>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
