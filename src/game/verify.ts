@@ -35,12 +35,15 @@ import type { SaveState } from './types';
 
 /**
  * Physical tap ceiling. Originally 25/sec ("well above a fast adult's ~10"),
- * and real play disproved it: two players racing the taps-per-minute board
- * both pinned exactly 25×60 for a full minute — multi-finger drumming on a
- * touchscreen sustains more than one finger ever could. Doubled so an honest
- * record can't hit the wall again; still far below anything a script does.
+ * and real play keeps disproving it: first two players pinned exactly 25×60 for
+ * a full minute (raised to 50), then players began pinning 50×60 = 3000 on the
+ * speed challenge — the whole-screen tap surface counts EVERY finger, so ten
+ * fingers drumming ~10/sec each reach ~100/sec together. Raised to 100/sec
+ * (6000/min) so an honest multi-touch record can't hit the wall; still far
+ * below anything a script does, and tap-goo is dwarfed by passive income
+ * anyway, so the looser tap bound doesn't meaningfully help a cheater.
  */
-export const maxHumanTapsPerSec = 50;
+export const maxHumanTapsPerSec = 100;
 
 /**
  * Floor on the measured interval. Two saves can land within milliseconds of
