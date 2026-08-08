@@ -235,7 +235,12 @@ export function GroupsContent({ active }: { active: boolean }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="text-center text-xs text-bone/50">👥 טַבְלָה פְּרָטִית — רַק חַבְרֵי הַקְּבוּצָה רוֹאִים</div>
+      {/* The privacy line only where there's room to spare (the empty state).
+          In board mode every fixed line steals a board row on small phones —
+          the trust copy also lives on the parents/privacy pages. */}
+      {!hasGroups && (
+        <div className="text-center text-xs text-bone/50">👥 טַבְלָה פְּרָטִית — רַק חַבְרֵי הַקְּבוּצָה רוֹאִים</div>
+      )}
 
       {!backend && <div className="py-6 text-center text-sm text-bone/50">קְבוּצוֹת זְמִינוֹת רַק עִם חִבּוּר לָרֶשֶׁת.</div>}
 
@@ -325,7 +330,7 @@ export function GroupsContent({ active }: { active: boolean }) {
           )}
 
           {/* Metric toggle — same three boards as the global leaderboard. */}
-          <div className="mb-2 mt-2 flex gap-1 rounded-full bg-black/30 p-1 ring-1 ring-hairline">
+          <div className="my-1.5 flex gap-1 rounded-full bg-black/30 p-1 ring-1 ring-hairline">
             {(['clicks', 'goo', 'cpm'] as GroupMetric[]).map((m) => (
               <button
                 key={m}
@@ -369,33 +374,29 @@ export function GroupsContent({ active }: { active: boolean }) {
             ))}
           </div>
 
-          {/* Invite: OS share sheet (or copy), plus the raw code for kids who
-              share it out loud at school instead of sending a link. */}
-          <button
-            type="button"
-            onClick={onShare}
-            className="btn mt-2 w-full bg-goo py-2.5 text-base text-void"
-          >
-            {shared ? 'הֻעְתַּק! ✓' : 'הַזְמֵן לַקְּבוּצָה 📤'}
-          </button>
-          <div className="mt-2 flex items-center justify-center gap-2 text-xs text-bone/60">
-            <span>קוֹד הַקְּבוּצָה:</span>
-            <span className="rounded-full bg-black/40 px-2.5 py-1 font-display text-sm text-bone ring-1 ring-hairline tabular" dir="ltr">
-              {selected.code}
-            </span>
+          {/* Compact footer — ONE row: the invite share + the group code as a
+              tap-to-copy chip (kids who trade codes out loud at school just tap
+              it). The old three stacked rows squeezed the board down to ~two
+              visible members on a real phone (owner report). */}
+          <div className="mt-2 flex items-stretch gap-2">
+            <button type="button" onClick={onShare} className="btn min-w-0 flex-1 bg-goo py-2.5 text-base text-void">
+              {shared ? 'הֻעְתַּק! ✓' : 'הַזְמֵן לַקְּבוּצָה 📤'}
+            </button>
             <button
               type="button"
               onClick={onCopyCode}
-              className="rounded-full bg-black/40 px-2.5 py-1 text-bone/80 ring-1 ring-hairline active:scale-95"
+              title="הַעְתֵּק אֶת קוֹד הַקְּבוּצָה"
+              className="btn flex shrink-0 items-center gap-1 bg-black/40 px-3 font-display text-sm text-bone ring-1 ring-hairline active:scale-95"
+              dir="ltr"
             >
-              {codeCopied ? '✓' : 'הַעְתֵּק'}
+              {codeCopied ? '✓' : `${selected.code} 📋`}
             </button>
           </div>
 
           <button
             type="button"
             onClick={onLeave}
-            className={`mt-2 w-full py-1.5 text-xs active:scale-95 ${confirmLeave ? 'font-bold text-hot' : 'text-bone/40'}`}
+            className={`mt-1 w-full py-1 text-[11px] active:scale-95 ${confirmLeave ? 'font-bold text-hot' : 'text-bone/40'}`}
           >
             {confirmLeave ? 'בְּטוּחִים? לִלְחֹץ שׁוּב כְּדֵי לַעֲזֹב' : 'עֲזֹב קְבוּצָה'}
           </button>

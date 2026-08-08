@@ -63,13 +63,13 @@ export function ProgressOverlay() {
       role="presentation"
     >
       <div
-        className="surface anim-pop-in flex max-h-[86vh] w-full max-w-sm flex-col rounded-3xl p-5"
+        className="surface anim-pop-in flex max-h-[90vh] w-full max-w-sm flex-col rounded-3xl p-5"
         style={{ boxShadow: '0 0 0 2px #FFD84D, 0 24px 60px -20px #000' }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="mb-3 text-center font-display text-3xl text-bone">🏆 הַהִתְקַדְּמוּת שֶׁלִּי</div>
+        <div className="mb-2 text-center font-display text-3xl text-bone">🏆 הַהִתְקַדְּמוּת שֶׁלִּי</div>
 
         {/* h-11 per tab (not just the row) — a short pill row here would land
             under the 44px touch-target minimum. Five tabs can't fit one row on a
@@ -78,7 +78,7 @@ export function ProgressOverlay() {
             So: a fixed TWO-ROW grid — three tabs up, two down, everything always
             visible, nothing scrolls. grid-cols-6 with 2/2/2 + 3/3 spans keeps
             both rows perfectly balanced. */}
-        <div className="mb-3 grid grid-cols-6 gap-1 rounded-2xl bg-black/30 p-1 ring-1 ring-hairline">
+        <div className="mb-2 grid grid-cols-6 gap-1 rounded-2xl bg-black/30 p-1 ring-1 ring-hairline">
           {TABS.map((t, i) => (
             <button
               key={t.id}
