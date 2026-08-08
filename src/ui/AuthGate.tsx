@@ -62,11 +62,6 @@ export function AuthGate() {
         </ul>
 
         <p className="mt-4 px-1 text-sm leading-relaxed text-bone">מוּכָנִים לְשַׂחֵק? 🎮</p>
-        {/* Kid-friendly framing: the CHILD can hand the phone to a parent for one
-            tap, rather than being told they need an adult's account themselves. */}
-        <p className="mt-1 px-1 text-[11px] leading-relaxed text-bone/60">
-          בַּקְּשׁוּ מֵהוֹרֶה לְהִכָּנֵס בִּלְחִיצָה אַחַת — כָּךְ הַהִתְקַדְּמוּת נִשְׁמֶרֶת. 🧑‍🦱
-        </p>
 
         {configured ? (
           <a
