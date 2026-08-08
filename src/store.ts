@@ -114,7 +114,7 @@ import type {
 export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades' | 'shop';
 
 // The three tabs inside the "My Progress" panel (ProgressOverlay).
-export type ProgressTab = 'stats' | 'achievements' | 'leaderboard';
+export type ProgressTab = 'stats' | 'achievements' | 'leaderboard' | 'champions';
 
 export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
 // Speed-test runtime phases: off (idle) → countdown (3·2·1·GO) → running (the

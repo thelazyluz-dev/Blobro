@@ -10,13 +10,15 @@
 
 import { selectClaimableIds, useGame, type ProgressTab } from '../store';
 import { AchievementsContent } from './AchievementsOverlay';
+import { ChampionsContent } from './ChampionsOverlay';
 import { LeaderboardContent } from './LeaderboardOverlay';
 import { StatsContent } from './StatsOverlay';
 
 const TABS: Array<{ id: ProgressTab; label: string }> = [
   { id: 'stats', label: 'סְטָטִיסְטִיקוֹת' },
   { id: 'achievements', label: 'הִישֵּׂגִים' },
-  { id: 'leaderboard', label: 'טַבְלַת מוֹבִילִים' },
+  { id: 'leaderboard', label: 'טַבְלָה' },
+  { id: 'champions', label: '👑 אַלּוּפִים' },
 ];
 
 export function ProgressButton() {
@@ -96,6 +98,7 @@ export function ProgressOverlay() {
             </div>
           )}
           {tab === 'leaderboard' && <LeaderboardContent active={open && tab === 'leaderboard'} />}
+          {tab === 'champions' && <ChampionsContent active={open && tab === 'champions'} />}
         </div>
 
         <button type="button" onClick={() => setOpen(false)} className="btn mt-4 w-full bg-cy py-3 text-lg text-void">

@@ -219,3 +219,33 @@ export async function fetchBoards(): Promise<Record<Metric, GlobalEntry[]> | nul
   }
 }
 
+/** One entry in the Hall of Champions — a player who reached the decillion win. */
+export interface ChampionEntry {
+  rank: number; // 1-based place in the roll (earliest champions first)
+  name: string; // leaderboard nickname, or a default for a champion who never set one
+  wonAt: number; // ms since epoch — when they reached the summit
+}
+
+/**
+ * The Hall of Champions: everyone who reached the decillion victory summit,
+ * earliest first. Public and cached; a safe no-op ([] never mistaken for a
+ * loading error is the caller's job) → null when there's no backend.
+ */
+export async function fetchChampions(): Promise<ChampionEntry[] | null> {
+  if (!hasGlobalLeaderboard()) return null;
+  try {
+    const res = await fetch(`${BASE()}/champions`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { entries?: unknown };
+    if (!Array.isArray(data.entries)) return null;
+    return data.entries
+      .map((e) => e as Record<string, unknown>)
+      .filter(
+        (e) => typeof e.name === 'string' && typeof e.rank === 'number' && typeof e.wonAt === 'number',
+      )
+      .map((e) => ({ rank: e.rank as number, name: e.name as string, wonAt: e.wonAt as number }));
+  } catch {
+    return null;
+  }
+}
+

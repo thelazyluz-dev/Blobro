@@ -340,6 +340,17 @@ export default {
       }
     }
 
+    // ── Hall of Champions (public, cached) ────────────────────────────────
+    // The roll of honour: everyone who has reached the decillion victory
+    // summit, earliest first. Read-only, no session, no PII (nickname only).
+    if (url.pathname === '/champions' && request.method === 'GET') {
+      try {
+        return await handleChampions(env);
+      } catch {
+        return json({ error: 'db' }, 500);
+      }
+    }
+
     // ── A player's own rank in a metric ───────────────────────────────────
     // ── Your own rank in a metric (session required) ──────────────────────
     if (url.pathname === '/rank' && request.method === 'GET') {
@@ -2030,6 +2041,53 @@ async function handleBoards(env: Env): Promise<Response> {
   return json(data, 200, headers);
 }
 
+// ── Hall of Champions ───────────────────────────────────────────────────────
+// The public roll of honour: every account that has reached the decillion
+// victory summit, EARLIEST FIRST (won_at ASC) — the pioneers head the list, and
+// because won_at is stamped once and never moves, a champion's place never
+// shifts as newcomers arrive. The nickname is LEFT JOINed from `scores` via the
+// same de-hyphenated-user-id relation the rest of the leaderboard uses; a
+// champion who never picked a leaderboard nickname shows a kid-safe default.
+// No PII (nickname only), no session, and cached in-isolate + browser-side like
+// /boards — the Hall changes rarely, so a 60s stale read is invisible.
+const CHAMPIONS_TTL_MS_DEFAULT = 60_000;
+const CHAMPIONS_LIMIT = 100;
+let championsCache: { data: unknown; at: number } | null = null;
+
+// Test hook (like RANK_HISTOGRAM_TTL_MS): the integration suite sets this to '0'
+// so a read right after an enrolment sees fresh rows instead of the up-to-a-
+// minute-stale roll production intentionally serves.
+function championsTtl(env: Env): number {
+  const raw = (env as { CHAMPIONS_TTL_MS?: string }).CHAMPIONS_TTL_MS;
+  const n = raw != null ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : CHAMPIONS_TTL_MS_DEFAULT;
+}
+
+async function handleChampions(env: Env): Promise<Response> {
+  const now = Date.now();
+  const headers = { 'Cache-Control': 'public, max-age=60' };
+  if (championsCache && now - championsCache.at < championsTtl(env)) {
+    return json(championsCache.data, 200, headers);
+  }
+  const { results } = await env.DB.prepare(
+    `SELECT c.won_at AS wonAt, s.name AS name
+       FROM champions c
+       LEFT JOIN scores s ON s.code = REPLACE(c.user_id, '-', '')
+      ORDER BY c.won_at ASC
+      LIMIT ?1`,
+  )
+    .bind(CHAMPIONS_LIMIT)
+    .all<{ wonAt: number; name: string | null }>();
+  const entries = (results ?? []).map((r, i) => ({
+    rank: i + 1,
+    name: r.name ?? 'אַלּוּף אַלְמוֹנִי', // a champion who never set a leaderboard nickname
+    wonAt: r.wonAt,
+  }));
+  const data = { generatedAt: now, entries };
+  championsCache = { data, at: now };
+  return json(data, 200, headers);
+}
+
 // ── Approximate ranks from a once-a-minute score histogram ──────────────────
 //
 // The per-player rank used to be `COUNT(*) WHERE col > me` on EVERY board open —
@@ -2465,6 +2523,29 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
         .run();
     } catch (err) {
       console.error('activity log failed', err);
+    }
+
+    // ── Hall of Champions (endgame) ───────────────────────────────────────
+    // The first time a save carrying the decillion champion crown lands, stamp
+    // the moment of victory. INSERT OR IGNORE on the user_id PK records it
+    // once, ever — the "won at" time never moves, so the Hall's earliest-first
+    // ordering is stable. Guarded on lifetimeGoo too: the crown is only ever
+    // granted at the 1e33 summit, so a save with the cosmetic but without the
+    // progress behind it (a hand-edited ownedCosmetics list) is not enrolled —
+    // a cheap consistency belt on top of the leaderboard's own barring. Best-
+    // effort: a failure here (e.g. the champions table not created yet on a
+    // pre-schema deploy) never affects the save.
+    try {
+      if (
+        sanitized.ownedCosmetics.includes('acc-champion') &&
+        sanitized.lifetimeGoo >= balance.decillionWinGoo
+      ) {
+        await env.DB.prepare('INSERT OR IGNORE INTO champions (user_id, won_at) VALUES (?1, ?2)')
+          .bind(user.id, now)
+          .run();
+      }
+    } catch (err) {
+      console.error('champion record failed', err);
     }
 
     return authJson({ rev: newRev, updated: now }, 200, origin);

@@ -218,3 +218,21 @@ CREATE TABLE IF NOT EXISTS ad_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ad_events_created ON ad_events (created DESC);
+
+-- ── Hall of Champions (endgame) ────────────────────────────────────────────
+--
+-- One row per account that has reached the decillion victory summit (1e33 goo —
+-- the client's winDecillion grants the exclusive 'acc-champion' crown, and the
+-- worker's savePut stamps this row the first time a save carrying that crown
+-- lands). `won_at` is written ONCE, via INSERT OR IGNORE on the user_id PK, so
+-- it records the exact moment of winning and never moves — the ordering that
+-- makes the Hall a roll of honour (earliest champions first) is therefore
+-- stable forever. No PII: the internal id only. The public /champions board
+-- LEFT JOINs `scores` for the player's chosen nickname (never a real name), so
+-- an account that never picked a leaderboard nickname simply shows a default.
+-- New table only — CREATE IF NOT EXISTS, so apply_schema is enough (no ALTER).
+CREATE TABLE IF NOT EXISTS champions (
+  user_id TEXT PRIMARY KEY,  -- references users.id
+  won_at  INTEGER NOT NULL   -- ms since epoch, stamped once at the first crowned save
+);
+CREATE INDEX IF NOT EXISTS idx_champions_won_at ON champions (won_at ASC);
