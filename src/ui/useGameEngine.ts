@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { playMagnitude, playMilestone } from '../audio/sfx';
 import { speakCompliment, speakName } from '../audio/speech';
-import { decillionWinGoo, saveIntervalMs } from '../game/balance';
+import { googolWinGoo, saveIntervalMs } from '../game/balance';
 import { unlockCreatures } from '../game/characters';
 import { bigScaleNameHe } from '../game/format';
 import { milestonesCrossed } from '../game/milestones';
@@ -70,6 +70,24 @@ export function useGameEngine(): boolean {
   // below your previous peak never re-fires, so it's not spammy.
   useEffect(() => {
     if (!loaded) return;
+
+    // Retroactive win: the live crossing below only fires when goo moves ACROSS
+    // the threshold while the tab is open. A player who was ALREADY at or above
+    // the win line when this build loaded (e.g. the bar was raised beneath their
+    // feet, or they crossed it offline) would never trigger it and would never
+    // get the crown. Grant it once here, on load, so every current player who
+    // already qualifies is caught up — this is the "update all current players"
+    // half of the win. winGoogol is idempotent, so an existing champion is a
+    // no-op and this never re-opens the screen after it's been dismissed.
+    {
+      const s0 = useGame.getState();
+      if (s0.goo >= googolWinGoo && !s0.ownedCosmetics.includes('acc-champion')) {
+        s0.winGoogol();
+        playMilestone(s0.muted);
+        speakCompliment(s0.muted);
+      }
+    }
+
     let peak = useGame.getState().goo;
     const unsub = useGame.subscribe((s) => {
       const next = s.goo;
@@ -79,18 +97,18 @@ export function useGameEngine(): boolean {
 
       const muted = useGame.getState().muted;
 
-      // The decillion win — the endgame moment. The first time held goo crosses
-      // the win threshold, grant the champion crown and open the victory screen.
-      // winDecillion is idempotent (owning the crown is the persisted proof) and
-      // marks the 1e33 milestone shown so its regular reveal below never stacks
+      // The googol win — the endgame moment. The first time held goo crosses the
+      // win threshold, grant the champion crown and open the victory screen.
+      // winGoogol is idempotent (owning the crown is the persisted proof) and
+      // marks the 1e100 milestone shown so its regular reveal below never stacks
       // on top of the victory takeover. It fires its own rainbow confetti.
       let victoryFired = false;
       if (
-        before < decillionWinGoo &&
-        next >= decillionWinGoo &&
+        before < googolWinGoo &&
+        next >= googolWinGoo &&
         !useGame.getState().ownedCosmetics.includes('acc-champion')
       ) {
-        useGame.getState().winDecillion();
+        useGame.getState().winGoogol();
         playMilestone(muted);
         speakCompliment(muted);
         victoryFired = true;

@@ -219,7 +219,7 @@ export async function fetchBoards(): Promise<Record<Metric, GlobalEntry[]> | nul
   }
 }
 
-/** One entry in the Hall of Champions — a player who reached the decillion win. */
+/** One entry in the Hall of Champions — a player who reached the googol win. */
 export interface ChampionEntry {
   rank: number; // 1-based place in the roll (earliest champions first)
   name: string; // leaderboard nickname, or a default for a champion who never set one
@@ -227,7 +227,7 @@ export interface ChampionEntry {
 }
 
 /**
- * The Hall of Champions: everyone who reached the decillion victory summit,
+ * The Hall of Champions: everyone who reached the googol victory summit,
  * earliest first. Public and cached; a safe no-op ([] never mistaken for a
  * loading error is the caller's job) → null when there's no backend.
  */

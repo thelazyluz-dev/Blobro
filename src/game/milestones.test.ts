@@ -31,6 +31,14 @@ describe('milestonesCrossed — which "did you know" facts fire on a goo jump', 
     expect(milestonesCrossed(6e23, 1e33).some((m) => m.goo === 1e33)).toBe(true);
   });
 
+  it('crowns the climb with the googol ending (the game-win summit)', () => {
+    // The final milestone IS the win threshold (balance.googolWinGoo = 1e100),
+    // so crossing it fires the same celebration the victory screen owns.
+    expect(milestones.some((m) => m.goo === 1e100)).toBe(true);
+    expect(milestones[milestones.length - 1].goo).toBe(1e100); // the last, biggest fact
+    expect(milestonesCrossed(1e90, 1e100).some((m) => m.goo === 1e100)).toBe(true);
+  });
+
   it('every milestone has nikud-bearing title copy and a fact', () => {
     for (const m of milestones) {
       expect(m.titleHe.length).toBeGreaterThan(0);

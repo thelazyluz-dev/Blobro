@@ -119,6 +119,34 @@ describe('migrate', () => {
     expect(twice).toEqual(once);
   });
 
+  describe('v22: the champion crown is re-anchored to the googol win bar', () => {
+    it('strips a crown from a save that never reached the (new) googol summit', () => {
+      const s = migrate(
+        { ...v9Save, lifetimeGoo: 1e33, ownedCosmetics: ['blob-goo', 'acc-champion', 'acc-referral'] },
+        NOW,
+      );
+      expect(s.ownedCosmetics).not.toContain('acc-champion'); // below googol → reset
+      expect(s.ownedCosmetics).toContain('acc-referral'); // other exclusives untouched
+    });
+
+    it('un-equips the crown if it was worn but is no longer owned', () => {
+      const s = migrate(
+        { ...v9Save, lifetimeGoo: 1e33, ownedCosmetics: ['blob-goo', 'acc-champion'], equippedAccessory: 'acc-champion' },
+        NOW,
+      );
+      expect(s.ownedCosmetics).not.toContain('acc-champion');
+      expect(s.equippedAccessory).toBe('acc-none'); // fell back to the default
+    });
+
+    it('keeps the crown for a legitimate googol champion (lifetime >= 1e100)', () => {
+      const s = migrate(
+        { ...v9Save, lifetimeGoo: 1e100, goo: 1e100, ownedCosmetics: ['blob-goo', 'acc-champion'] },
+        NOW,
+      );
+      expect(s.ownedCosmetics).toContain('acc-champion'); // earned under the new bar
+    });
+  });
+
   describe('v16: prestige crystals — the invariant against edited saves', () => {
     it('defaults to zero for older saves', () => {
       const s = migrate(v9Save, NOW);

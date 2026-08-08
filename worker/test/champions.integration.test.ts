@@ -1,5 +1,5 @@
-// Hall of Champions (endgame). Reaching the decillion summit (owning the
-// exclusive 'acc-champion' crown, with the 1e33 lifetime progress behind it)
+// Hall of Champions (endgame). Reaching the googol summit (owning the
+// exclusive 'acc-champion' crown, with the 1e100 lifetime progress behind it)
 // enrolls an account in a public roll of honour. These tests pin: the crown
 // enrolls, a plain save does not, the "won at" time is stamped once and never
 // moves, the board is earliest-first, and the nickname comes from `scores`
@@ -66,10 +66,10 @@ const submit = (cookie: string, name: string) =>
 
 const champions = () => call('/champions');
 
-// A won save: the exclusive crown plus the 1e33 progress it is only ever
-// granted for. (1e33 < MAX_GOO 1e36, so this is legitimate, not absurd.)
+// A won save: the exclusive crown plus the 1e100 progress it is only ever
+// granted for. (1e100 < MAX_GOO 1e103, so this is legitimate, not absurd.)
 const wonSave = (over: Record<string, unknown> = {}) =>
-  save({ ownedCosmetics: ['acc-champion'], lifetimeGoo: 1e33, goo: 1e33, ...over });
+  save({ ownedCosmetics: ['acc-champion'], lifetimeGoo: 1e100, goo: 1e100, ...over });
 
 beforeEach(async () => {
   // A shared D1 persists across tests in a file; clear the champions roll so
@@ -105,10 +105,10 @@ describe('the Hall of Champions', () => {
     expect(body.entries).toHaveLength(0);
   });
 
-  it('does NOT enroll a hand-edited crown without the 1e33 progress behind it', async () => {
+  it('does NOT enroll a hand-edited crown without the 1e100 progress behind it', async () => {
     const cookie = await signUp();
     // The cosmetic is present but lifetimeGoo is nowhere near the summit — the
-    // consistency guard drops it (the crown is only ever granted at 1e33).
+    // consistency guard drops it (the crown is only ever granted at 1e100).
     await putSave(cookie, save({ ownedCosmetics: ['acc-champion'], lifetimeGoo: 2_500 }));
     const body = (await (await champions()).json()) as { entries: unknown[] };
     expect(body.entries).toHaveLength(0);
@@ -134,7 +134,7 @@ describe('the Hall of Champions', () => {
     const wonAt = first.entries[0].wonAt;
 
     // Earn more and save again, still crowned — the enrollment must not re-stamp.
-    await putSave(cookie, wonSave({ lifetimeGoo: 2e33, goo: 2e33 }), 1);
+    await putSave(cookie, wonSave({ lifetimeGoo: 2e100, goo: 2e100 }), 1);
     const second = (await (await champions()).json()) as { entries: { wonAt: number }[] };
     expect(second.entries).toHaveLength(1);
     expect(second.entries[0].wonAt).toBe(wonAt); // unchanged

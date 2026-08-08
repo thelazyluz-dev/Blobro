@@ -95,7 +95,7 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveState {
-  version: 21;
+  version: 22;
   goo: number;
   lifetimeGoo: number;
   bestCpm: number; // record MANUAL taps in any rolling minute (see game/cpm.ts)

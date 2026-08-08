@@ -1,5 +1,5 @@
 // The Hall of Champions — the endgame roll of honour. Everyone who reached the
-// decillion victory summit (see EG-2 / winDecillion), earliest first: the
+// googol victory summit (see EG-2 / winGoogol), earliest first: the
 // pioneers head the list and their place never shifts as newcomers arrive.
 //
 // Hosted as one tab inside ProgressOverlay (see ProgressOverlay.tsx), so this
@@ -71,7 +71,7 @@ export function ChampionsContent({ active }: { active: boolean }) {
         {global && loading && !rows && <div className="py-6 text-center text-sm text-bone/50">טוֹעֵן…</div>}
         {global && rows && rows.length === 0 && !loading && (
           <div className="py-8 text-center text-sm leading-relaxed text-bone/50">
-            עוֹד אַף אֶחָד לֹא הִגִּיעַ לַדֶּצִילְיוֹן.
+            עוֹד אַף אֶחָד לֹא הִגִּיעַ לַגּוּגּוֹל.
             <br />
             תִּהְיֶה הָאַלּוּף הָרִאשׁוֹן! 👑
           </div>

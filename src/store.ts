@@ -30,7 +30,7 @@ import {
   maxEvolution,
   rebirthCap,
   upgradeAllCooldownMs,
-  decillionWinGoo,
+  googolWinGoo,
 } from './game/balance';
 import {
   achievements as achievementDefs,
@@ -237,7 +237,7 @@ interface GameState {
   confettiKind: ConfettiKind;
   unlockReveal: CharId | null; // a click-unlocked creature currently being celebrated
   milestone: Milestone | null; // a big number milestone currently being celebrated
-  victory: boolean; // the one-time decillion victory screen is open (transient)
+  victory: boolean; // the one-time googol victory screen is open (transient)
   magnitudePulse: number; // increments each time goo crosses an order of magnitude
   magnitudeExp: number; // the exponent (10^exp) of the latest order-of-magnitude crossing
   // "Upgrade all" pacing (session-only, never persisted): the button is locked
@@ -325,8 +325,8 @@ interface GameState {
   showMilestone: (m: Milestone) => void;
   markMilestonesShown: (goos: number[]) => void;
   dismissMilestone: () => void;
-  /** The one-time decillion win: grant the champion crown + open the victory screen (idempotent). */
-  winDecillion: () => void;
+  /** The one-time googol win: grant the champion crown + open the victory screen (idempotent). */
+  winGoogol: () => void;
   dismissVictory: () => void;
   pulseMagnitude: (exp: number) => void;
   initAuth: () => void;
@@ -1519,15 +1519,15 @@ export const useGame = create<GameState>((set, get) => {
       set((s) => ({ milestonesShown: [...new Set([...s.milestonesShown, ...goos])] })),
     dismissMilestone: () => set({ milestone: null }),
 
-    // The decillion victory — fires once (owning the crown is the proof, so this
-    // is idempotent). Grants the champion crown, marks the 1e33 milestone shown
+    // The googol victory — fires once (owning the crown is the proof, so this
+    // is idempotent). Grants the champion crown, marks the 1e100 milestone shown
     // so its regular reveal doesn't also stack, and opens the victory screen.
-    winDecillion: () =>
+    winGoogol: () =>
       set((s) => {
         if (s.ownedCosmetics.includes('acc-champion')) return {};
         return {
           ownedCosmetics: [...new Set([...s.ownedCosmetics, 'acc-champion'])],
-          milestonesShown: [...new Set([...s.milestonesShown, decillionWinGoo])],
+          milestonesShown: [...new Set([...s.milestonesShown, googolWinGoo])],
           victory: true,
           confettiBursts: s.confettiBursts + 1,
           confettiKind: 'rainbow',

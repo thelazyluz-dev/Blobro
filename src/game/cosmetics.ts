@@ -322,10 +322,10 @@ export const accessories: Accessory[] = [
     clickBonus: 1.0, incomeBonus: 0.25, art: 'medal', exclusive: true },
   { id: 'acc-referral-gold', kind: 'accessory', nameHe: 'מֶדַלְיַת זָהָב', cost: 0,
     clickBonus: 2.0, incomeBonus: 0.5, art: 'medal-gold', exclusive: true },
-  // The decillion champion crown — granted ONCE for reaching the 1e33 victory
-  // summit (see store.winDecillion). Exclusive (never sold), the strongest
-  // trophy, and owning it is the persisted proof that you won.
-  { id: 'acc-champion', kind: 'accessory', nameHe: 'כֶּתֶר הַדֶּצִילְיוֹן', cost: 0,
+  // The googol champion crown — granted ONCE for reaching the 1e100 victory
+  // summit (see store.winGoogol). Exclusive (never sold), the strongest trophy,
+  // and owning it is the persisted proof that you won.
+  { id: 'acc-champion', kind: 'accessory', nameHe: 'כֶּתֶר הַגּוּגּוֹל', cost: 0,
     clickBonus: 3.0, incomeBonus: 0.75, art: 'crown', exclusive: true },
 ];
 

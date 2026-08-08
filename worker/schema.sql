@@ -221,8 +221,8 @@ CREATE INDEX IF NOT EXISTS idx_ad_events_created ON ad_events (created DESC);
 
 -- ── Hall of Champions (endgame) ────────────────────────────────────────────
 --
--- One row per account that has reached the decillion victory summit (1e33 goo —
--- the client's winDecillion grants the exclusive 'acc-champion' crown, and the
+-- One row per account that has reached the googol victory summit (1e100 goo —
+-- the client's winGoogol grants the exclusive 'acc-champion' crown, and the
 -- worker's savePut stamps this row the first time a save carrying that crown
 -- lands). `won_at` is written ONCE, via INSERT OR IGNORE on the user_id PK, so
 -- it records the exact moment of winning and never moves — the ordering that

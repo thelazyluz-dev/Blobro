@@ -202,8 +202,8 @@ const DEFAULT_LIMIT = 50;
 // Sane ceilings. Clicks are physical taps; goo is total earned. Anything above
 // these is impossible and hard-rejected (4xx) rather than clamped.
 const MAX_CLICKS = 5_000_000; // ~weeks of nonstop tapping — no human exceeds this
-const MAX_GOO = 1e36; // headroom ABOVE the decillion (1e33) win: after a player
-// wins, goo keeps climbing for a good while (up to a thousand decillions) instead
+const MAX_GOO = 1e103; // headroom ABOVE the googol (1e100) win: after a player
+// wins, goo keeps climbing for a good while (up to a thousand googols) instead
 // of freezing at the ceiling the moment they reach the summit. Still absurd-junk
 // protection (first-save-absurd bars
 // beyond this), and the plausibility audit — which is rate-based and scales
@@ -341,7 +341,7 @@ export default {
     }
 
     // ── Hall of Champions (public, cached) ────────────────────────────────
-    // The roll of honour: everyone who has reached the decillion victory
+    // The roll of honour: everyone who has reached the googol victory
     // summit, earliest first. Read-only, no session, no PII (nickname only).
     if (url.pathname === '/champions' && request.method === 'GET') {
       try {
@@ -2042,7 +2042,7 @@ async function handleBoards(env: Env): Promise<Response> {
 }
 
 // ── Hall of Champions ───────────────────────────────────────────────────────
-// The public roll of honour: every account that has reached the decillion
+// The public roll of honour: every account that has reached the googol
 // victory summit, EARLIEST FIRST (won_at ASC) — the pioneers head the list, and
 // because won_at is stamped once and never moves, a champion's place never
 // shifts as newcomers arrive. The nickname is LEFT JOINed from `scores` via the
@@ -2526,11 +2526,11 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
     }
 
     // ── Hall of Champions (endgame) ───────────────────────────────────────
-    // The first time a save carrying the decillion champion crown lands, stamp
+    // The first time a save carrying the googol champion crown lands, stamp
     // the moment of victory. INSERT OR IGNORE on the user_id PK records it
     // once, ever — the "won at" time never moves, so the Hall's earliest-first
     // ordering is stable. Guarded on lifetimeGoo too: the crown is only ever
-    // granted at the 1e33 summit, so a save with the cosmetic but without the
+    // granted at the 1e100 summit, so a save with the cosmetic but without the
     // progress behind it (a hand-edited ownedCosmetics list) is not enrolled —
     // a cheap consistency belt on top of the leaderboard's own barring. Best-
     // effort: a failure here (e.g. the champions table not created yet on a
@@ -2538,7 +2538,7 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
     try {
       if (
         sanitized.ownedCosmetics.includes('acc-champion') &&
-        sanitized.lifetimeGoo >= balance.decillionWinGoo
+        sanitized.lifetimeGoo >= balance.googolWinGoo
       ) {
         await env.DB.prepare('INSERT OR IGNORE INTO champions (user_id, won_at) VALUES (?1, ?2)')
           .bind(user.id, now)

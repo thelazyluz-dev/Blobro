@@ -144,24 +144,55 @@ export const milestones: Milestone[] = [
   {
     goo: 1e33,
     titleHe: 'דֶצִילְיוֹן!',
-    factHe: 'המספר האגדי: 1 ואחריו 33 אפסים! רק אלופים אמיתיים מגיעים לכאן. 🏆',
+    factHe: 'הַמִּסְפָּר הָאַגָּדִי: 1 וְאַחֲרָיו 33 אֲפָסִים! אֲבָל זֶה עֲדַיִן רַק הַהַתְחָלָה שֶׁל הַדֶּרֶךְ לַגּוּגּוֹל. 🏆',
     emoji: '👑',
   },
-  // Beyond the decillion "win" — gentle, playful pats so the number never freezes
-  // silently right after the summit (there are no real-world anchors up here, so
-  // these are pure whimsy). The ceiling (MAX_GOO) sits at 1e36, a thousand
-  // decillions, so both are reachable post-win.
+  // The long climb to the googol "win" (1e100 — see balance.googolWinGoo). Real
+  // cosmic anchors where they exist (atoms in the Earth, the Sun, the whole
+  // observable universe), playful pats in between, so the number keeps meaning
+  // something all the way up. The ceiling (MAX_GOO) sits ABOVE the googol, so
+  // every one of these — including the final 1e100 — is reachable.
   {
-    goo: 1e34,
-    titleHe: 'עֲשָׂרָה דֶּצִילְיוֹנִים!',
-    factHe: 'עָבַרְתָּ אֶת הַדֶּצִילְיוֹן פִּי עֶשֶׂר! אַתָּה כְּבָר בְּאֵזוֹר הָאַגָּדוֹת. 🌟',
-    emoji: '🌟',
+    goo: 1e40,
+    titleHe: 'מֵעֵבֶר לַדִּמְיוֹן!',
+    factHe: 'עָבַרְתָּ אֶת כָּל הַמְּסְפָּרִים שֶׁיֵּשׁ לָהֶם שֵׁם רָגִיל. עַכְשָׁיו מַתְחִיל הֶחָלָל הָאֲמִתִּי! 🌌',
+    emoji: '🌌',
   },
   {
-    goo: 1e35,
-    titleHe: 'מֵאָה דֶּצִילְיוֹנִים!',
-    factHe: 'מִסְפָּר כָּל כָּךְ עֲנָק שֶׁקָּשֶׁה בִּכְלָל לְדַמְיֵן אוֹתוֹ. אַתָּה חַלַּלִּית! 🚀',
-    emoji: '🚀',
+    goo: 1e50,
+    titleHe: 'כָּל הָאָטוֹמִים בְּכַדּוּר הָאָרֶץ!',
+    factHe: 'בְּעֵרֶךְ מִסְפַּר כָּל הָאָטוֹמִים שֶׁמַּרְכִּיבִים אֶת כָּל כַּדּוּר הָאָרֶץ כֻּלּוֹ! 🌍',
+    emoji: '🌍',
+  },
+  {
+    goo: 1e57,
+    titleHe: 'כָּל הָאָטוֹמִים בַּשֶּׁמֶשׁ!',
+    factHe: 'בְּעֵרֶךְ מִסְפַּר כָּל הָאָטוֹמִים בַּשֶּׁמֶשׁ הָעֲנָקִית — כּוֹכָב שָׁלֵם שֶׁל גּוּ! ☀️',
+    emoji: '☀️',
+  },
+  {
+    goo: 1e70,
+    titleHe: 'מִסְפָּר בִּלְתִּי נִתְפָּס!',
+    factHe: 'כְּבָר גָּדוֹל יוֹתֵר מִכָּל מָה שֶׁקַּיָּם בַּמַּעֲרֶכֶת הַשֶּׁמֶשׁ. אַתָּה בְּלִיגָה שֶׁל עַצְמְךָ! 🪐',
+    emoji: '🪐',
+  },
+  {
+    goo: 1e80,
+    titleHe: 'כָּל הָאָטוֹמִים בַּיְּקוּם!',
+    factHe: 'בְּעֵרֶךְ מִסְפַּר כָּל הָאָטוֹמִים בְּכָל הַיְּקוּם הַנִּצְפֶּה כֻּלּוֹ! גָּדוֹל מִזֶּה כִּמְעַט לֹא קַיָּם. 🌠',
+    emoji: '🌠',
+  },
+  {
+    goo: 1e90,
+    titleHe: 'כִּמְעַט גּוּגּוֹל!',
+    factHe: 'נִשְׁאֲרוּ עוֹד עֶשֶׂר אֲפָסִים בִּלְבַד עַד הַגּוּגּוֹל — הַקְּצֶה הָאֲמִתִּי שֶׁל הַמִּשְׂחָק. קָדִימָה! 🔥',
+    emoji: '🔥',
+  },
+  {
+    goo: 1e100,
+    titleHe: 'גּוּגּוֹל! נִצַּחְתָּ! 👑',
+    factHe: 'הִגַּעְתָּ לְגּוּגּוֹל — 1 וְאַחֲרָיו מֵאָה אֲפָסִים, יוֹתֵר מִכָּל הָאָטוֹמִים בַּיְּקוּם! אַתָּה אַלּוּף הַגּוּגּוֹל. 🏆',
+    emoji: '👑',
   },
 ];
 

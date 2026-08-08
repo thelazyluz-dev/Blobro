@@ -1,7 +1,7 @@
-// The decillion victory — the game's endgame moment (owner-approved
+// The googol victory — the game's endgame moment (owner-approved
 // "Victory + Hall of Fame"). When held goo first crosses the win threshold
-// (see useGameEngine → winDecillion), this takes over the screen once, ever:
-// it crowns the player אַלּוּף הַדֶּצִילְיוֹן, hands them the exclusive champion
+// (see useGameEngine → winGoogol), this takes over the screen once, ever:
+// it crowns the player אַלּוּף הַגּוּגּוֹל, hands them the exclusive champion
 // crown, and makes clear the game keeps going. Owning the crown is the
 // persisted proof, so this never re-appears. Honors reduced-motion.
 
@@ -33,8 +33,8 @@ export function VictoryOverlay() {
         goo,
         collectionCount,
         total: collectionOrder.length,
-        titleHe: '👑 אַלּוּף הַדֶּצִילְיוֹן!',
-        factHe: 'הִגַּעְתִּי לְדֶצִילְיוֹן גּוּ וְקִבַּלְתִּי אֶת כֶּתֶר הָאַלּוּפִים! 🏆',
+        titleHe: '👑 אַלּוּף הַגּוּגּוֹל!',
+        factHe: 'הִגַּעְתִּי לְגּוּגּוֹל גּוּ (1 וְאַחֲרָיו מֵאָה אֲפָסִים!) וְקִבַּלְתִּי אֶת כֶּתֶר הָאַלּוּפִים! 🏆',
       });
       setDone(true);
       window.setTimeout(() => setDone(false), 2500);
@@ -69,7 +69,7 @@ export function VictoryOverlay() {
           className="mt-3 font-display text-5xl text-gold"
           style={{ color: '#FFD84D', textShadow: '0 0 32px rgba(255,216,77,0.6)' }}
         >
-          אַלּוּף הַדֶּצִילְיוֹן!
+          אַלּוּף הַגּוּגּוֹל!
         </h2>
 
         <div className="mt-5 font-display text-6xl tabular text-goo text-glow-pop">

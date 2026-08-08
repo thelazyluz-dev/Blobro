@@ -9,6 +9,7 @@ import {
   charIncomeGrowth,
   charIncomeGrowthLegacyAdditive,
   evolveLevels,
+  googolWinGoo,
   leaderboardMaxEntries,
   leaderboardNameMaxLen,
   maxEvolution,
@@ -52,7 +53,7 @@ import type {
   Upgrades,
 } from './types';
 
-export const CURRENT_VERSION = 21 as const;
+export const CURRENT_VERSION = 22 as const;
 
 /**
  * v6 switched creature income from additive (flat +per level) to compounding
@@ -267,7 +268,18 @@ export function migrate(raw: unknown, now: number): SaveState {
 
   // Pre-v6 saves stored additive creature levels — remap them to compounding.
   const remapLegacy = num(data.version, 0) < 6;
-  const ownedCosmetics = sanitizeCosmetics(data.ownedCosmetics);
+  const ownedCosmeticsRaw = sanitizeCosmetics(data.ownedCosmetics);
+  // v22: the win bar was raised to a googol (balance.googolWinGoo). Strip any
+  // champion crown earned under the old, lower bar — only a save whose lifetime
+  // goo actually reached the new summit keeps it. A legitimate googol champion
+  // (lifetime >= 1e100) is untouched; everyone below re-earns it at the new
+  // ending (owner-approved reset). Idempotent, so it's safe to run every load:
+  // it can only ever remove a crown that isn't backed by the required progress.
+  const lifetimeForCrown = Math.max(0, num(data.lifetimeGoo, 0), num(data.goo, 0));
+  const ownedCosmetics =
+    lifetimeForCrown < googolWinGoo
+      ? ownedCosmeticsRaw.filter((id) => id !== 'acc-champion')
+      : ownedCosmeticsRaw;
   // Equip a saved choice only if it's a real, owned item; else the default.
   // Blob skins are retired: the starter blob is always our original green one,
   // so old saves are normalized back to it (no invisible click bonus lingering).
