@@ -3,7 +3,7 @@
 // levelled up right now with your goo. Tapping a creature opens its details,
 // where it can be levelled straight up with goo (and evolved from level 10).
 
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
@@ -89,24 +89,28 @@ const OwnedTile = memo(function OwnedTile({ id, held, canLevel, evolveReady, reb
       type="button"
       onClick={() => onOpen(id)}
       className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95 ${
-        evolveReady ? 'anim-evolve-glow' : rebirthReady ? 'anim-rebirth-glow' : ''
+        evolveReady || rebirthReady ? 'tile-ready' : ''
       }`}
-      style={{
-        backgroundColor: '#170a29',
-        boxShadow: reborn
-          ? `inset 0 0 0 2px #FF2E88, 0 0 22px -3px #FF2E88`
-          : evolved
-            ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
-            : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
-      }}
+      style={
+        {
+          backgroundColor: '#170a29',
+          // Colour for the compositor-cheap ::before ready-pulse (see index.css).
+          '--glow': evolveReady ? 'rgba(255,216,77,0.85)' : 'rgba(255,46,136,0.85)',
+          boxShadow: reborn
+            ? `inset 0 0 0 2px #FF2E88, 0 0 22px -3px #FF2E88`
+            : evolved
+              ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
+              : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
+        } as CSSProperties
+      }
     >
       {canLevel > 0 && (
-        <span className="anim-breathe absolute start-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-goo px-1 text-[11px] font-bold text-void tabular ring-2 ring-void/50">
+        <span className="absolute start-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-goo px-1 text-[11px] font-bold text-void tabular ring-2 ring-void/50">
           {canLevel > 99 ? '99' : canLevel}
         </span>
       )}
       {evolved && <span className="absolute end-1 top-1 text-sm">✨{stage}</span>}
-      <CharacterBody id={id} className="h-12 w-12" evolution={stage} />
+      <CharacterBody id={id} className="h-12 w-12" evolution={stage} aura={false} />
       <span className={`mt-1 max-w-full truncate px-1 text-[10px] ${evolved ? 'text-pop' : 'text-bone/80'}`}>
         {def.nameHe}
       </span>
@@ -267,7 +271,11 @@ export function CollectionScreen() {
           const ids = idsByRarity[rarity];
           const haveHere = ids.filter((id) => owned[id]).length;
           return (
-            <section key={rarity}>
+            // content-visibility skips layout/paint (and the animated glows) for a
+            // section scrolled off-screen; the intrinsic-size estimate keeps the
+            // scrollbar steady. This is the big scroll + idle-FPS win when the
+            // roster is large and several tiles are pulsing.
+            <section key={rarity} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 360px' }}>
               <div className="mb-2 flex items-center gap-2">
                 <span
                   className="inline-block h-3 w-3 rounded-full"

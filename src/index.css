@@ -698,6 +698,39 @@ body {
   .bg-aurora {
     animation: none !important;
   }
+  .tile-ready::before {
+    animation: none !important;
+    opacity: 0.7 !important;
+  }
+}
+
+/* GPU-cheap "ready to evolve / rebirth" pulse for the COLLECTION GRID tiles.
+   The old grid used .anim-evolve-glow / .anim-rebirth-glow, which animate
+   box-shadow + filter — a full-tile REPAINT every frame. Across a grid of
+   pulsing tiles that halved the collection-tab FPS (measured). Here the colored
+   glow lives on a ::before with a FIXED box-shadow and only its OPACITY animates
+   — a compositor-only property, so there's no per-frame repaint. Same "it's
+   ready!" cue, a fraction of the cost. Each tile sets --glow to its colour. (The
+   detail-modal buttons keep the richer .anim-evolve-glow — that's one element,
+   not a grid, so its cost is irrelevant.) */
+.tile-ready::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 22px 3px var(--glow, rgba(255, 216, 77, 0.85));
+  opacity: 0.4;
+  animation: blorbo-tile-ready 1.4s ease-in-out infinite;
+}
+@keyframes blorbo-tile-ready {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Evolution auras: a golden glow that escalates per stage, so an evolved

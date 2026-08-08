@@ -10,6 +10,12 @@ interface Props {
    * used to be pixel-identical to stage 0 despite costing billions (art audit),
    * and now the transformation reads at a glance. */
   evolution?: number;
+  /** Draw the evolution aura (drop-shadow filter) + twinkling stars. Defaults on.
+   * The collection GRID passes `false`: an animated `filter: drop-shadow` on 25
+   * tiny tiles is a real scroll/FPS cost, and on a 12px blob the aura barely
+   * reads anyway — the tile already shows a gold frame + a "✨{stage}" badge, so
+   * evolution stays legible without paying for a per-tile filter. */
+  aura?: boolean;
 }
 
 // Star anchors in the body's 0-100 viewBox, tucked into the corners so they
@@ -34,9 +40,9 @@ function sparklePath(cx: number, cy: number, s: number): string {
 }
 
 /** Renders a character's inline SVG body, with its evolution aura + stars when earned. */
-export const CharacterBody: FC<Props> = ({ id, className, evolution = 0 }) => {
+export const CharacterBody: FC<Props> = ({ id, className, evolution = 0, aura = true }) => {
   const Body = CHARACTER_BODIES[id];
-  if (evolution <= 0) return <Body className={className} />;
+  if (evolution <= 0 || !aura) return <Body className={className} />;
   const stage = Math.min(4, Math.floor(evolution));
   // The wrapper carries the aura class so the filter never fights the body's
   // own className (sizing stays on the svg exactly as before). The star overlay
