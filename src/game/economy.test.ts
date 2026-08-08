@@ -3,8 +3,9 @@
 // felt by real players.
 
 import { describe, expect, it } from 'vitest';
-import { autoTapRateCap, autoTapRatePerLevel, globalMultiplier, rebirthCap, rebirthCostGrowth, rebirthCostSeconds, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
+import { autoTapRateCap, autoTapRatePerLevel, charLevelCap, globalMultiplier, rebirthCap, rebirthCostGrowth, rebirthCostSeconds, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
 import {
+  affordableCreatureLevels,
   autoClicksPerSec,
   charIncome,
   clickPower,
@@ -12,6 +13,7 @@ import {
   evolveIncomeMult,
   gooPerSec,
   levelUpToCost,
+  maxCharLevel,
   modifiersFrom,
   ownedCreatureIncome,
   rebirthCost,
@@ -113,6 +115,38 @@ describe('costs', () => {
       expect(Number.isFinite(m)).toBe(true);
       expect(m).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('level cap (owner rule: 500 unless fully reborn)', () => {
+  it('caps at charLevelCap below the rebirth cap', () => {
+    expect(maxCharLevel(0)).toBe(charLevelCap);
+    expect(maxCharLevel(rebirthCap - 1)).toBe(charLevelCap);
+    expect(charLevelCap).toBe(500);
+  });
+
+  it('lifts the cap entirely once the creature has mastered itself (reached the rebirth cap)', () => {
+    expect(maxCharLevel(rebirthCap)).toBe(Infinity);
+    expect(maxCharLevel(rebirthCap + 5)).toBe(Infinity);
+  });
+
+  it('treats a missing / bogus rebirth count as zero (capped)', () => {
+    expect(maxCharLevel(undefined)).toBe(charLevelCap);
+    expect(maxCharLevel(NaN)).toBe(charLevelCap);
+    expect(maxCharLevel(-3)).toBe(charLevelCap);
+  });
+
+  it('affordableCreatureLevels never sells past the cap for an un-mastered creature', () => {
+    // Handed far more goo than it takes to reach 500 from level 1.
+    const n = affordableCreatureLevels('common', { level: 1 }, mods(), 1e13, 100, 1);
+    expect(n).toBe(charLevelCap - 1); // level 1 → 500 is 499 buys
+    // Sitting AT the cap, nothing more can be bought no matter the bank.
+    expect(affordableCreatureLevels('common', { level: charLevelCap }, mods(), 1e30, 100, 1)).toBe(0);
+  });
+
+  it('a fully-reborn creature is uncapped and keeps buying past 500', () => {
+    const n = affordableCreatureLevels('common', { level: 1, rebirths: rebirthCap }, mods(), 1e13, 100, 1);
+    expect(n).toBeGreaterThan(charLevelCap - 1); // climbs past the wall
   });
 });
 

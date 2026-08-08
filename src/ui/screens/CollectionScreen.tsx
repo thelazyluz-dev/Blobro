@@ -10,6 +10,7 @@ import { speakName } from '../../audio/speech';
 import { playJingle } from '../../audio/synth';
 import { ABILITY_META, ABILITY_TYPES, abilityForType, abilityOf, abilityPct } from '../../game/abilities';
 import {
+  charLevelCap,
   evolveLevels,
   evolveMultiplierByStage,
   maxEvolution,
@@ -25,6 +26,7 @@ import {
   creatureLevelCost,
   evolveCost,
   levelUpToCost,
+  maxCharLevel,
   ownedCreatureIncome,
   rebirthCost,
 } from '../../game/economy';
@@ -392,7 +394,10 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
       evolveCost(def.rarity, { ...held, level: nextEvolveLevel }, costM, costRate, im);
   const canCombinedEvolve = !maxedEvolution && !canEvolve && goo >= combinedEvolveCost;
 
-  // Direct goo leveling.
+  // Direct goo leveling. The level wall (§ owner rule): a creature stops at
+  // charLevelCap until it has mastered itself (reached the rebirth cap), then
+  // levels without bound — maxCharLevel resolves the two.
+  const atLevelCap = held.level >= maxCharLevel(rebirths);
   const levelCost = creatureLevelCost(def.rarity, held, costM, costRate, im);
   const affordLevel = goo >= levelCost;
   const affordN = affordableCreatureLevels(def.rarity, held, costM, goo, costRate, im);
@@ -640,22 +645,34 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             );
           })()}
 
-        {/* Direct level-up with goo — the always-available progression. */}
-        <button
-          type="button"
-          onClick={onLevel}
-          className={`btn mt-4 flex w-full flex-col items-center py-2.5 ${
-            affordLevel ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
-          }`}
-        >
-          <span className="text-lg">⬆️ שַׁדְרֵג רָמָה</span>
-          <span className="text-xs tabular">
-            {affordLevel
-              ? `${formatGoo(levelCost)} גּוּ · +${formatGoo(levelGain)}/שְׁנִיָּה`
-              : `חָסֵר ${formatGoo(levelCost - goo)} גּוּ`}
-          </span>
-        </button>
-        {affordN > 1 && (
+        {/* Direct level-up with goo — the always-available progression, until the
+            level wall. At the cap the button turns into a clear "you've hit the
+            ceiling; master the creature to break it" note instead of a dead
+            buy button. */}
+        {atLevelCap ? (
+          <div className="mt-4 rounded-2xl bg-cy/10 px-3 py-2.5 text-center ring-1 ring-cy/30">
+            <div className="font-display text-base text-cy">🏆 רָמָה מַקְסִימָלִית — {charLevelCap}!</div>
+            <div className="mt-0.5 text-xs text-bone/60">
+              לְהַמְשִׁיךְ מֵעֵבֶר: לֵידָה מֵחָדָשׁ עַד {rebirthCap} תָּסִיר אֶת הַמַּגְבָּלָה 🔄
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onLevel}
+            className={`btn mt-4 flex w-full flex-col items-center py-2.5 ${
+              affordLevel ? 'bg-goo text-void glow-goo' : 'bg-black/30 text-bone/45 ring-hairline'
+            }`}
+          >
+            <span className="text-lg">⬆️ שַׁדְרֵג רָמָה</span>
+            <span className="text-xs tabular">
+              {affordLevel
+                ? `${formatGoo(levelCost)} גּוּ · +${formatGoo(levelGain)}/שְׁנִיָּה`
+                : `חָסֵר ${formatGoo(levelCost - goo)} גּוּ`}
+            </span>
+          </button>
+        )}
+        {!atLevelCap && affordN > 1 && (
           <button
             type="button"
             onClick={onLevelMax}

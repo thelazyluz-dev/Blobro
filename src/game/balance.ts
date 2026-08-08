@@ -57,7 +57,14 @@ export const charIncomeGrowthLegacyAdditive = 0.7; // the pre-v6 additive rate, 
 export const autoTapRatePerLevel = 0.25; // +0.25 auto-taps/sec per level
 export const autoTapRateCap = 10; // up to 10 auto-taps/sec
 export const minCharLevel = 1;
-// No maximum — creatures level up forever, giving more each level (§ user request).
+// A creature can be leveled up to this cap. To climb PAST it, the creature must
+// have "mastered" itself — reached the rebirth cap (rebirthCap, below). Below
+// that, charLevelCap is a hard ceiling; once fully reborn the ceiling lifts and
+// the creature levels without bound again (§ owner request). The pure rule that
+// resolves the two is maxCharLevel() in economy.ts, so the game and anti-cheat
+// agree. Ties the endgame level chase to the rebirth loop: the way to break the
+// wall is to keep rebirthing, not just to keep paying.
+export const charLevelCap = 500;
 
 // --- Evolution chain ---------------------------------------------------------
 // A creature can evolve several times, each stage a bigger shiny worth much more.

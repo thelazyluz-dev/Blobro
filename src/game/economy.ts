@@ -6,6 +6,7 @@ import {
   autoTapRatePerLevel,
   baseByRarity,
   charIncomeGrowth,
+  charLevelCap,
   clickBase,
   creatureLevelPaybackSeconds,
   critBaseChance,
@@ -251,6 +252,19 @@ export function wealthPaybackMult(gooPerSecValue: number): number {
 }
 
 /**
+ * The highest level a creature may reach, given how many times it's been reborn.
+ * Below the rebirth cap the ceiling is charLevelCap (500); once a creature has
+ * mastered itself (rebirths >= rebirthCap) the ceiling lifts and it climbs
+ * without bound (§ owner rule). Shared so the game (store level-up actions) and
+ * anti-cheat compute the exact same wall. A non-finite / negative rebirth count
+ * is treated as 0, exactly like abilityOf's clamp.
+ */
+export function maxCharLevel(rebirths = 0): number {
+  const reb = Number.isFinite(rebirths) ? Math.max(0, Math.floor(rebirths)) : 0;
+  return reb >= rebirthCap ? Infinity : charLevelCap;
+}
+
+/**
  * Goo cost to level a creature from its current level → +1. Priced as a number
  * of seconds of the EXTRA income that level grants (all multipliers folded in),
  * where that second-count scales with the player's wealth (`gooPerSecValue`) —
@@ -313,9 +327,15 @@ export function affordableCreatureLevels(
   incomeMult = 1,
   maxCount = 999,
 ): number {
+  // Never sell a level the creature isn't allowed to reach: the loop stops at
+  // the lower of maxCount and the room left below the level cap (Infinity once
+  // the creature is fully reborn — see maxCharLevel). Below the cap, this is
+  // what makes "level up to max" and the tile badge honour the wall.
+  const room = maxCharLevel(held.rebirths) - held.level;
+  const bound = Math.min(maxCount, Math.max(0, room));
   let count = 0;
   let spent = 0;
-  while (count < maxCount) {
+  while (count < bound) {
     const cost = creatureLevelCost(rarity, { ...held, level: held.level + count }, m, gooPerSecValue, incomeMult);
     if (spent + cost > goo) break;
     spent += cost;

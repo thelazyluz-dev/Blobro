@@ -27,6 +27,7 @@ export {
   evolveCost,
   evolveIncomeMult,
   gooPerSec,
+  maxCharLevel,
   modifiersFrom,
   ownedCreatureIncome,
   rebirthGlobalMult,

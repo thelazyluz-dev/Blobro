@@ -319,6 +319,30 @@ const affordableCreatureLevelsCases = [0, 50, 5_000, 500_000, 1e9].map((goo) => 
     expected: affordableCreatureLevels(rarity, held, mods(modParams), goo, gooPerSecValue, 1),
   };
 });
+// Level-cap cases (§ owner rule): handed enough goo to blow well past level 500,
+// a not-yet-mastered creature still stops AT the cap (level 1 → 500, i.e. 499
+// buys), while a fully-reborn creature (rebirths >= rebirthCap) is uncapped and
+// keeps climbing past it. Pins maxCharLevel through the buyer that consumes it,
+// on BOTH the client and the Worker (they iterate this same array).
+{
+  const rarity: Rarity = 'common';
+  const modParams: ModParams = { upgrades: upgrades(), achievementStarBonus: 0 };
+  const gooPerSecValue = 100;
+  const goo = 1e13; // more than enough to reach 500 from level 1
+  const capCases = [
+    { held: { level: 1 } }, // below the rebirth cap → clamps at 500 (499 buys)
+    { held: { level: 1, rebirths: balance.rebirthCap } }, // mastered → climbs past 500
+  ].map(({ held }) => ({
+    rarity,
+    held,
+    modParams,
+    goo,
+    gooPerSecValue,
+    incomeMult: 1,
+    expected: affordableCreatureLevels(rarity, held, mods(modParams), goo, gooPerSecValue, 1),
+  }));
+  affordableCreatureLevelsCases.push(...capCases);
+}
 
 // ── rollRarity — seeded ──────────────────────────────────────────────────
 interface RollRarityCtx {

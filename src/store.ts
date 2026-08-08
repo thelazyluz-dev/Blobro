@@ -66,6 +66,7 @@ import {
   evolveCost,
   gooPerSec,
   levelUpToCost,
+  maxCharLevel,
   modifiersFrom,
   rebirthCost,
   rebirthGlobalMult,
@@ -1020,6 +1021,13 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       const held = s.characters[id];
       if (!held) return;
+      // The level wall: below the rebirth cap a creature stops at charLevelCap;
+      // once fully reborn the wall lifts (maxCharLevel returns Infinity). Nudge
+      // the player toward the way through it rather than silently doing nothing.
+      if (held.level >= maxCharLevel(held.rebirths)) {
+        get().pushToast({ text: 'הַדְּמוּת בַּתִּקְרָה — לֵידָה מֵחָדָשׁ תִּפְתַּח רָמוֹת נוֹסָפוֹת 🔄', icon: '🔒', tone: 'star' });
+        return;
+      }
       const m = costMods();
       const cost = creatureLevelCost(charactersById[id].rarity, held, m, gooPerSec(s.characters, m), incomeMultById(id));
       if (s.goo < cost) return;
@@ -1069,7 +1077,9 @@ export const useGame = create<GameState>((set, get) => {
         let bestId: CharId | null = null;
         let bestCost = Infinity;
         for (const id of Object.keys(chars) as CharId[]) {
-          const cost = creatureLevelCost(charactersById[id].rarity, chars[id]!, m, rate, incomeMultById(id));
+          const h = chars[id]!;
+          if (h.level >= maxCharLevel(h.rebirths)) continue; // at the wall — skip until reborn
+          const cost = creatureLevelCost(charactersById[id].rarity, h, m, rate, incomeMultById(id));
           if (cost <= goo && cost < bestCost) {
             bestCost = cost;
             bestId = id;
