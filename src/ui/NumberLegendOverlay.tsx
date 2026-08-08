@@ -11,7 +11,8 @@ interface Row {
   zeros: number; // number of zeros after the 1
 }
 
-// Matches the compact formatter's short-scale ladder (game/format.ts).
+// The counter's own short-scale suffix ladder (game/format.ts): a letter badge
+// on each, exactly as it appears on screen up to a decillion.
 const ROWS: Row[] = [
   { suffix: 'K', nameHe: 'אֶלֶף', zeros: 3 },
   { suffix: 'M', nameHe: 'מִילְיוֹן', zeros: 6 },
@@ -25,6 +26,20 @@ const ROWS: Row[] = [
   { suffix: 'No', nameHe: 'נוֹנִילְיוֹן', zeros: 30 },
   { suffix: 'Dc', nameHe: 'דֶצִילְיוֹן', zeros: 33 },
 ];
+
+// Beyond a decillion the counter switches to "10 בחזקת" form (e.g. 1.00e+100),
+// so there's no letter suffix to show — an emoji badge marks each landmark
+// instead. These are the same real-world anchors the milestone celebrations use
+// (§ owner request: extend the legend all the way to a googol), ending on the
+// googol — the game's victory summit.
+const BEYOND: Row[] = [
+  { suffix: '🌍', nameHe: 'כְּמוֹ הָאָטוֹמִים בְּכַדּוּר הָאָרֶץ', zeros: 50 },
+  { suffix: '☀️', nameHe: 'כְּמוֹ הָאָטוֹמִים בַּשֶּׁמֶשׁ', zeros: 57 },
+  { suffix: '🌌', nameHe: 'כְּמוֹ הָאָטוֹמִים בְּכָל הַיְּקוּם', zeros: 80 },
+  { suffix: '👑', nameHe: 'גּוּגּוֹל — הַנִּצָּחוֹן!', zeros: 100 },
+];
+
+const ALL_ROWS: Row[] = [...ROWS, ...BEYOND];
 
 export function NumberLegendOverlay() {
   const open = useGame((s) => s.numberLegendOpen);
@@ -44,7 +59,7 @@ export function NumberLegendOverlay() {
   // Which tier the player is standing in right now: the biggest row whose value
   // the current goo has reached. -1 = still below the first suffix (under 1,000).
   let currentZeros = -1;
-  for (const r of ROWS) if (goo >= Math.pow(10, r.zeros)) currentZeros = r.zeros;
+  for (const r of ALL_ROWS) if (goo >= Math.pow(10, r.zeros)) currentZeros = r.zeros;
 
   return (
     <div
@@ -63,7 +78,7 @@ export function NumberLegendOverlay() {
         <p className="mb-3 text-center text-xs text-bone/55">כָּל אוֹת לְיַד הַמִּסְפָּר אוֹמֶרֶת כַּמָּה הוּא גָּדוֹל!</p>
 
         <div className="flex flex-col gap-1.5 overflow-y-auto pe-1">
-          {ROWS.map((r) => {
+          {ALL_ROWS.map((r) => {
             const here = r.zeros === currentZeros;
             return (
               <div
@@ -94,7 +109,9 @@ export function NumberLegendOverlay() {
               </div>
             );
           })}
-          <p className="mt-1 px-1 text-center text-[11px] text-bone/45">ומעבר לזה? המספרים ממשיכים לגדול לנצח! ♾️</p>
+          <p className="mt-1 px-1 text-center text-[11px] text-bone/45">
+            מֵעַל דֶּצִילְיוֹן הַמִּסְפָּר נִכְתָּב כְּ"10 בְּחֶזְקַת" (לְמָשָׁל e+50). הַגּוּגּוֹל הוּא הַנִּצָּחוֹן — וְאֶפְשָׁר לְהַמְשִׁיךְ עוֹד! 👑
+          </p>
         </div>
 
         <button type="button" onClick={() => setOpen(false)} className="btn mt-4 w-full bg-cy py-3 text-lg text-void">
