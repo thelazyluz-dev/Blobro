@@ -277,6 +277,7 @@ export default {
       url.pathname === '/referral/claim' ||
       url.pathname === '/referral/claim-reward' ||
       url.pathname === '/referral/me' ||
+      url.pathname.startsWith('/group/') ||
       url.pathname === '/push/subscribe' ||
       url.pathname === '/push/unsubscribe';
 
@@ -423,6 +424,23 @@ export default {
     }
     if (url.pathname === '/referral/me' && request.method === 'GET') {
       return handleReferralMe(request, env);
+    }
+
+    // ── Groups (friend / family / class boards — member-only, session-gated) ─
+    if (url.pathname === '/group/create' && request.method === 'POST') {
+      return handleGroupCreate(request, env);
+    }
+    if (url.pathname === '/group/join' && request.method === 'POST') {
+      return handleGroupJoin(request, env);
+    }
+    if (url.pathname === '/group/leave' && request.method === 'POST') {
+      return handleGroupLeave(request, env);
+    }
+    if (url.pathname === '/group/mine' && request.method === 'GET') {
+      return handleGroupMine(request, env);
+    }
+    if (url.pathname === '/group/board' && request.method === 'GET') {
+      return handleGroupBoard(request, env, url);
     }
 
     // ── Web Push subscriptions ────────────────────────────────────────────
@@ -1032,6 +1050,238 @@ async function grantReferralReward(
     // rev moved under us — loop and re-read once.
   }
   return null;
+}
+
+// ── Groups (friend / family / class boards) ──────────────────────────────
+//
+// Small private circles with their own leaderboard. A group is UNLISTED —
+// reachable only by its share code (minted like ref_code: an opaque join
+// capability, not a secret credential) — and its board is MEMBER-ONLY,
+// checked per request, so a class of kids is never browsable by strangers.
+// Board entries carry a nickname + score and NOTHING else: no user id, no
+// code, no join time crosses the wire; "which row is mine" is computed
+// server-side into a plain boolean.
+
+const GROUP_NAME_MIN = 2;
+const GROUP_NAME_MAX = 24; // longer than a nickname (12) — "הַכִּתָּה שֶׁל דָּנָה" needs room
+const MAX_GROUP_MEMBERS = 60; // a whole school class + slack; also caps the board scan
+const MAX_GROUPS_PER_USER = 10; // enough for family + class + friends; blocks group spam
+
+/** How many groups this account belongs to (both caps below check this). */
+async function groupCountFor(env: Env, userId: string): Promise<number> {
+  const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM group_members WHERE user_id = ?1')
+    .bind(userId)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/** POST /group/create {name} → 201 {ok, id, code, name}. Creator auto-joins. */
+async function handleGroupCreate(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const body = await readJsonObject(request);
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  // Same server-side gate as leaderboard nicknames — other kids read this name.
+  if (name.length < GROUP_NAME_MIN || name.length > GROUP_NAME_MAX || !isCleanNickname(name)) {
+    return authJson({ error: 'bad-name' }, 400, origin);
+  }
+
+  try {
+    if ((await groupCountFor(env, user.id)) >= MAX_GROUPS_PER_USER) {
+      return authJson({ error: 'too-many-groups' }, 403, origin);
+    }
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    // Mint a unique share code. Collisions are astronomically unlikely at
+    // 62^8; a couple of retries covers the unique-index race anyway (same
+    // pattern as the ref_code minting in handleReferralMe).
+    let code: string | null = null;
+    for (let i = 0; i < 4 && !code; i++) {
+      const candidate = generateRefCode();
+      try {
+        await env.DB.prepare('INSERT INTO groups (id, code, name, creator_id, created) VALUES (?1, ?2, ?3, ?4, ?5)')
+          .bind(id, candidate, name, user.id, now)
+          .run();
+        code = candidate;
+      } catch {
+        // UNIQUE collision on idx_groups_code — loop and try another candidate.
+      }
+    }
+    if (!code) return authJson({ error: 'db' }, 500, origin);
+    await env.DB.prepare('INSERT INTO group_members (group_id, user_id, joined) VALUES (?1, ?2, ?3)')
+      .bind(id, user.id, now)
+      .run();
+    return authJson({ ok: true, id, code, name }, 201, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/** POST /group/join {code} → {ok, id, name} (idempotent — re-joining is never an error). */
+async function handleGroupJoin(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const body = await readJsonObject(request);
+  const code = typeof body?.code === 'string' ? body.code.trim() : '';
+  // A malformed code answers exactly like an unknown one — no format oracle.
+  if (!REF_CODE_RE.test(code)) return authJson({ error: 'not-found' }, 404, origin);
+
+  try {
+    const group = await env.DB.prepare('SELECT id, name FROM groups WHERE code = ?1')
+      .bind(code)
+      .first<{ id: string; name: string }>();
+    if (!group) return authJson({ error: 'not-found' }, 404, origin);
+
+    // Idempotent BEFORE the caps: an existing member re-tapping a share link
+    // must never be told the group is full.
+    const member = await env.DB.prepare('SELECT 1 AS x FROM group_members WHERE group_id = ?1 AND user_id = ?2')
+      .bind(group.id, user.id)
+      .first();
+    if (member) return authJson({ ok: true, id: group.id, name: group.name, already: true }, 200, origin);
+
+    if ((await groupCountFor(env, user.id)) >= MAX_GROUPS_PER_USER) {
+      return authJson({ error: 'too-many-groups' }, 403, origin);
+    }
+    const size = await env.DB.prepare('SELECT COUNT(*) AS n FROM group_members WHERE group_id = ?1')
+      .bind(group.id)
+      .first<{ n: number }>();
+    if ((size?.n ?? 0) >= MAX_GROUP_MEMBERS) return authJson({ error: 'full' }, 403, origin);
+
+    // OR IGNORE: two devices racing the same join both land on the PK — fine.
+    await env.DB.prepare('INSERT OR IGNORE INTO group_members (group_id, user_id, joined) VALUES (?1, ?2, ?3)')
+      .bind(group.id, user.id, Date.now())
+      .run();
+    return authJson({ ok: true, id: group.id, name: group.name }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/** POST /group/leave {id} → {ok}. The last member out deletes the group row. */
+async function handleGroupLeave(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const body = await readJsonObject(request);
+  const id = typeof body?.id === 'string' ? body.id : '';
+
+  try {
+    // Leaving is idempotent — a membership row that isn't there is still gone.
+    await env.DB.prepare('DELETE FROM group_members WHERE group_id = ?1 AND user_id = ?2').bind(id, user.id).run();
+    // No orphans: an emptied group is unreachable (its code resolves to a
+    // board nobody may see), so delete the row rather than leak it forever.
+    await env.DB.prepare(
+      'DELETE FROM groups WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM group_members WHERE group_id = ?1)',
+    )
+      .bind(id)
+      .run();
+    return authJson({ ok: true }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/** GET /group/mine → {groups:[{id, name, code, members}]} — the caller's own groups. */
+async function handleGroupMine(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  try {
+    // `code` is returned here and ONLY here — it's the caller's own invite
+    // token for a group they already belong to, which is what the share
+    // button needs. The member count rides along in the same query.
+    const { results } = await env.DB.prepare(
+      `SELECT g.id AS id, g.name AS name, g.code AS code,
+              (SELECT COUNT(*) FROM group_members m WHERE m.group_id = g.id) AS members
+         FROM group_members gm JOIN groups g ON g.id = gm.group_id
+        WHERE gm.user_id = ?1
+        ORDER BY gm.joined ASC`,
+    )
+      .bind(user.id)
+      .all<{ id: string; name: string; code: string; members: number }>();
+    return authJson({ groups: results ?? [] }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
+/** GET /group/board?id=…&by=clicks|goo|cpm → the group's private leaderboard (members only). */
+async function handleGroupBoard(request: Request, env: Env, url: URL): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  let user: UserRow | null;
+  try {
+    user = await getUserFromRequest(request, env);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+  if (!user) return authJson({ error: 'unauthenticated' }, 401, origin);
+
+  const id = url.searchParams.get('id') ?? '';
+  const col = metricCol(url.searchParams.get('by'));
+
+  try {
+    // The privacy gate: only members see the board. An unknown id answers the
+    // same as someone else's group — no existence oracle.
+    const group = await env.DB.prepare(
+      `SELECT g.name AS name FROM groups g
+         JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?2
+        WHERE g.id = ?1`,
+    )
+      .bind(id, user.id)
+      .first<{ name: string }>();
+    if (!group) return authJson({ error: 'not-a-member' }, 403, origin);
+
+    // Members → their public scores rows via the same de-hyphenated-user-id
+    // relation the rest of the leaderboard uses (leaderboardCodeFor). LEFT
+    // JOIN so a classmate who just joined and never submitted still appears,
+    // at score 0, immediately. Membership is capped at MAX_GROUP_MEMBERS so
+    // this is a tiny scan — no caching needed.
+    const { results } = await env.DB.prepare(
+      `SELECT gm.user_id AS uid, s.name AS name, COALESCE(s.${col}, 0) AS score
+         FROM group_members gm
+         LEFT JOIN scores s ON s.code = REPLACE(gm.user_id, '-', '')
+        WHERE gm.group_id = ?1
+        ORDER BY score DESC, gm.joined ASC`,
+    )
+      .bind(id)
+      .all<{ uid: string; name: string | null; score: number }>();
+    // `me` is resolved HERE and the id dropped — entries never carry a user
+    // id, a code, or anything else that could identify a child to another.
+    const entries = (results ?? []).map((r) => ({
+      name: r.name ?? 'שַׂחְקָן חָדָשׁ', // a member who never submitted to the public board
+      score: r.score,
+      me: r.uid === user.id,
+    }));
+    return authJson({ id, name: group.name, by: col, entries }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
 }
 
 // ── Web Push subscriptions ────────────────────────────────────────────────

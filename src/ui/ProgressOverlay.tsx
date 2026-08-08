@@ -11,6 +11,7 @@
 import { selectClaimableIds, useGame, type ProgressTab } from '../store';
 import { AchievementsContent } from './AchievementsOverlay';
 import { ChampionsContent } from './ChampionsOverlay';
+import { GroupsContent } from './GroupsOverlay';
 import { LeaderboardContent } from './LeaderboardOverlay';
 import { StatsContent } from './StatsOverlay';
 
@@ -18,6 +19,7 @@ const TABS: Array<{ id: ProgressTab; label: string }> = [
   { id: 'stats', label: 'סְטָטִיסְטִיקוֹת' },
   { id: 'achievements', label: 'הִישֵּׂגִים' },
   { id: 'leaderboard', label: 'טַבְלָה' },
+  { id: 'groups', label: '👥 קְבוּצוֹת' },
   { id: 'champions', label: '👑 אַלּוּפִים' },
 ];
 
@@ -70,14 +72,17 @@ export function ProgressOverlay() {
         <div className="mb-3 text-center font-display text-3xl text-bone">🏆 הַהִתְקַדְּמוּת שֶׁלִּי</div>
 
         {/* h-11 per tab (not just the row) — a short pill row here would read fine
-            visually but land under the 44px touch-target minimum. */}
-        <div className="mb-3 flex gap-1 rounded-full bg-black/30 p-1 ring-1 ring-hairline">
+            visually but land under the 44px touch-target minimum. Five tabs no
+            longer fit a 360px-wide sheet, so the ROW scrolls sideways instead of
+            squeezing: each pill keeps its natural width (shrink-0, no wrap) and
+            still grows to fill the row when there IS room. */}
+        <div className="mb-3 flex gap-1 overflow-x-auto rounded-full bg-black/30 p-1 ring-1 ring-hairline">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`flex h-11 flex-1 items-center justify-center truncate rounded-full text-xs font-bold transition ${
+              className={`flex h-11 flex-1 shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2 text-xs font-bold transition ${
                 tab === t.id ? 'bg-cy text-void' : 'text-bone/60'
               }`}
             >
@@ -98,6 +103,7 @@ export function ProgressOverlay() {
             </div>
           )}
           {tab === 'leaderboard' && <LeaderboardContent active={open && tab === 'leaderboard'} />}
+          {tab === 'groups' && <GroupsContent active={open && tab === 'groups'} />}
           {tab === 'champions' && <ChampionsContent active={open && tab === 'champions'} />}
         </div>
 

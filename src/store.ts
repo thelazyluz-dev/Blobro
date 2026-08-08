@@ -96,6 +96,7 @@ import { createRng } from './game/rng';
 import { CURRENT_VERSION, defaultSaveState, migrate } from './game/save';
 import { upgradeCost } from './game/upgrades';
 import { cachedUser, fetchMe, logout, type AuthUser } from './net/auth';
+import { clearPendingGroup, joinGroup, pendingGroup } from './net/groups';
 import { claimReferral, claimReferralReward, clearPendingRef, fetchReferralMe, pendingRef } from './net/referral';
 import { resetPlayerIdentity, shouldPromptNickname } from './net/leaderboard';
 import { reportAdEvent } from './net/ads';
@@ -114,8 +115,8 @@ import type {
 
 export type Tab = 'click' | 'hatch' | 'collection' | 'upgrades' | 'shop';
 
-// The three tabs inside the "My Progress" panel (ProgressOverlay).
-export type ProgressTab = 'stats' | 'achievements' | 'leaderboard' | 'champions';
+// The tabs inside the "My Progress" panel (ProgressOverlay).
+export type ProgressTab = 'stats' | 'achievements' | 'leaderboard' | 'groups' | 'champions';
 
 export type ConfettiKind = 'confetti' | 'stars' | 'rainbow';
 // Speed-test runtime phases: off (idle) → countdown (3·2·1·GO) → running (the
@@ -1563,6 +1564,19 @@ export const useGame = create<GameState>((set, get) => {
       if (ref) {
         await claimReferral(ref);
         clearPendingRef();
+      }
+      // Join a pending group invite exactly once — but only clear it on a
+      // DEFINITE answer (joined / already / named refusal). A null network miss
+      // keeps the code, so a flaky first load simply retries next sign-in.
+      const groupCode = pendingGroup();
+      if (groupCode) {
+        const joined = await joinGroup(groupCode);
+        if (joined) {
+          clearPendingGroup();
+          if (!('error' in joined) && !joined.already) {
+            get().pushToast({ text: `הִצְטָרַפְתָּ לִקְבוּצַת ״${joined.name}״! 👥`, icon: '👥', tone: 'star' });
+          }
+        }
       }
       const info = await fetchReferralMe();
       if (!info) return;

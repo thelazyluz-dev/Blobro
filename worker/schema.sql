@@ -236,3 +236,33 @@ CREATE TABLE IF NOT EXISTS champions (
   won_at  INTEGER NOT NULL   -- ms since epoch, stamped once at the first crowned save
 );
 CREATE INDEX IF NOT EXISTS idx_champions_won_at ON champions (won_at ASC);
+
+-- ── Groups (friend / family / class boards) ────────────────────────────────
+--
+-- Small private circles with their own leaderboard. A group is UNLISTED: it is
+-- reachable only by its share `code` (an opaque join token, minted like
+-- users.ref_code — a capability to join, never a secret credential), so there
+-- is no browse/search surface where a stranger could find a class of kids. The
+-- board itself is MEMBER-ONLY, enforced server-side per request. No PII:
+-- internal user ids + a display name that goes through the same server-side
+-- profanity filter and length cap as leaderboard nicknames. `creator_id` is
+-- bookkeeping only and is never returned to other members. New tables only —
+-- CREATE IF NOT EXISTS, so apply_schema is enough (no ALTER).
+CREATE TABLE IF NOT EXISTS groups (
+  id         TEXT PRIMARY KEY,   -- crypto.randomUUID()
+  code       TEXT NOT NULL,      -- opaque join/share token (like users.ref_code; never a secret credential)
+  name       TEXT NOT NULL,      -- kid-safe display name (profanity-filtered, length-capped server-side)
+  creator_id TEXT NOT NULL,      -- users.id of the creator (internal id, never returned to other members)
+  created    INTEGER NOT NULL    -- ms since epoch
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_code ON groups (code);
+
+-- One row per membership. The (group_id, user_id) PK makes a re-join a no-op,
+-- and idx_group_members_user serves the "all MY groups" read on every open.
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id TEXT NOT NULL,
+  user_id  TEXT NOT NULL,
+  joined   INTEGER NOT NULL,
+  PRIMARY KEY (group_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members (user_id);
