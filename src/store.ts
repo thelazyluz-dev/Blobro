@@ -30,6 +30,7 @@ import {
   maxEvolution,
   rebirthCap,
   upgradeAllCooldownMs,
+  decillionWinGoo,
 } from './game/balance';
 import {
   achievements as achievementDefs,
@@ -235,6 +236,7 @@ interface GameState {
   confettiKind: ConfettiKind;
   unlockReveal: CharId | null; // a click-unlocked creature currently being celebrated
   milestone: Milestone | null; // a big number milestone currently being celebrated
+  victory: boolean; // the one-time decillion victory screen is open (transient)
   magnitudePulse: number; // increments each time goo crosses an order of magnitude
   magnitudeExp: number; // the exponent (10^exp) of the latest order-of-magnitude crossing
   // "Upgrade all" pacing (session-only, never persisted): the button is locked
@@ -322,6 +324,9 @@ interface GameState {
   showMilestone: (m: Milestone) => void;
   markMilestonesShown: (goos: number[]) => void;
   dismissMilestone: () => void;
+  /** The one-time decillion win: grant the champion crown + open the victory screen (idempotent). */
+  winDecillion: () => void;
+  dismissVictory: () => void;
   pulseMagnitude: (exp: number) => void;
   initAuth: () => void;
   /** After sign-in: claim any pending ?ref, then read code + count + claimed tiers. */
@@ -568,6 +573,7 @@ export const useGame = create<GameState>((set, get) => {
     confettiKind: 'confetti',
     unlockReveal: null,
     milestone: null,
+    victory: false,
     magnitudePulse: 0,
     magnitudeExp: 0,
     upgradeAllReadyAt: 0,
@@ -1502,6 +1508,22 @@ export const useGame = create<GameState>((set, get) => {
     markMilestonesShown: (goos) =>
       set((s) => ({ milestonesShown: [...new Set([...s.milestonesShown, ...goos])] })),
     dismissMilestone: () => set({ milestone: null }),
+
+    // The decillion victory — fires once (owning the crown is the proof, so this
+    // is idempotent). Grants the champion crown, marks the 1e33 milestone shown
+    // so its regular reveal doesn't also stack, and opens the victory screen.
+    winDecillion: () =>
+      set((s) => {
+        if (s.ownedCosmetics.includes('acc-champion')) return {};
+        return {
+          ownedCosmetics: [...new Set([...s.ownedCosmetics, 'acc-champion'])],
+          milestonesShown: [...new Set([...s.milestonesShown, decillionWinGoo])],
+          victory: true,
+          confettiBursts: s.confettiBursts + 1,
+          confettiKind: 'rainbow',
+        };
+      }),
+    dismissVictory: () => set({ victory: false }),
     pulseMagnitude: (exp) => set((s) => ({ magnitudePulse: s.magnitudePulse + 1, magnitudeExp: exp })),
 
     // Call once on app start (see App.tsx). The cache read is synchronous, so

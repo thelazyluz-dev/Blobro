@@ -24,6 +24,7 @@ import { ProgressButton, ProgressOverlay } from './ui/ProgressOverlay';
 import { SettingsButton, SettingsOverlay } from './ui/SettingsOverlay';
 import { Toaster } from './ui/Toaster';
 import { UnlockReveal } from './ui/UnlockReveal';
+import { VictoryOverlay } from './ui/VictoryOverlay';
 import { useChampionWatch } from './ui/useChampionWatch';
 import { useEventMusic } from './ui/useEventMusic';
 import { useFrenzyAudio } from './ui/useFrenzyAudio';
@@ -141,6 +142,7 @@ export function App() {
       <HatchReveal />
       <MultiHatchResult />
       <MilestoneReveal />
+      <VictoryOverlay />
       <UnlockReveal />
       <ProgressOverlay />
       <DailyOverlay />

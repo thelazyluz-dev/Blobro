@@ -100,6 +100,12 @@ export const referralFriendsForGoldMedal = 10;
 // The medal tiers (5 & 10 friends) also drop a one-shot goo lump on TOP of the
 // medal itself — this many hours of the player's current production, each.
 export const referralMedalBonusHours = 6;
+// --- Endgame: the decillion "win" -------------------------------------------
+// Reaching this held-goo peak (a DECILLION, 1e33) is the game's victory summit —
+// it fires a one-time champion celebration and grants the exclusive champion
+// crown (see cosmetics.ts 'acc-champion'). Owning that crown IS the persisted
+// "I won" flag, so no extra save field is needed.
+export const decillionWinGoo = 1e33;
 // +25% of the ability's BASE value per rebirth (owner-set). Linear, so it
 // self-decelerates (each rebirth adds a constant absolute amount); at the cap
 // the ability is ×6 its base (1 + 0.25 × 20). Only ONE ability is active at a

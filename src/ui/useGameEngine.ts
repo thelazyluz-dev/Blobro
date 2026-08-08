@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { playMagnitude, playMilestone } from '../audio/sfx';
 import { speakCompliment, speakName } from '../audio/speech';
-import { saveIntervalMs } from '../game/balance';
+import { decillionWinGoo, saveIntervalMs } from '../game/balance';
 import { unlockCreatures } from '../game/characters';
 import { bigScaleNameHe } from '../game/format';
 import { milestonesCrossed } from '../game/milestones';
@@ -77,8 +77,26 @@ export function useGameEngine(): boolean {
       const before = peak;
       peak = next;
 
-      const crossed = milestonesCrossed(before, next);
       const muted = useGame.getState().muted;
+
+      // The decillion win — the endgame moment. The first time held goo crosses
+      // the win threshold, grant the champion crown and open the victory screen.
+      // winDecillion is idempotent (owning the crown is the persisted proof) and
+      // marks the 1e33 milestone shown so its regular reveal below never stacks
+      // on top of the victory takeover. It fires its own rainbow confetti.
+      let victoryFired = false;
+      if (
+        before < decillionWinGoo &&
+        next >= decillionWinGoo &&
+        !useGame.getState().ownedCosmetics.includes('acc-champion')
+      ) {
+        useGame.getState().winDecillion();
+        playMilestone(muted);
+        speakCompliment(muted);
+        victoryFired = true;
+      }
+
+      const crossed = milestonesCrossed(before, next);
       // Whether a milestone reveal actually fired this tick — it owns the
       // moment when it does. It must NOT swallow the magnitude bookkeeping
       // below: milestones sit on exact round numbers (1e6, 1e9, 1e12, 1e21…),
@@ -101,7 +119,11 @@ export function useGameEngine(): boolean {
             // The fact is already marked shown (so it never re-fires); just
             // acknowledge it with a non-blocking toast.
             useGame.getState().pushToast({ text: 'יַעַד גָּדוֹל נִשְׁבַּר! 🏆', icon: '🎉', tone: 'star' });
-          } else if (!useGame.getState().milestone) {
+          } else if (!useGame.getState().milestone && !victoryFired) {
+            // The victory takeover already owns this tick — a lower milestone
+            // reveal must not stack behind it (only reachable on a huge multi-
+            // decade jump, e.g. an admin edit; normal play crosses one at a
+            // time). It's already marked shown above, so it never re-fires.
             useGame.getState().showMilestone(top);
             playMilestone(muted);
             useGame.getState().triggerConfetti('rainbow');
