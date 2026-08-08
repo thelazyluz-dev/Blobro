@@ -3,7 +3,7 @@
 // levelled up right now with your goo. Tapping a creature opens its details,
 // where it can be levelled straight up with goo (and evolved from level 10).
 
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { playError, playPurchase } from '../../audio/sfx';
 import { speakName } from '../../audio/speech';
@@ -48,10 +48,120 @@ const idsByRarity: Record<Rarity, CharId[]> = RARITY_ORDER.reduce(
   {} as Record<Rarity, CharId[]>,
 );
 
+// The grid's affordability badges (how many levels you can buy, evolve/rebirth
+// glows) depend on `goo`, which the passive tick moves at 10Hz. Re-rendering a
+// 25-tile grid of SVGs — each running a levels-affordable loop — ten times a
+// second was the collection-tab jank (felt on scroll and when opening a card,
+// since the grid keeps churning behind the modal). Reading a THROTTLED goo
+// (~3Hz) instead makes the badges settle a fraction of a second late — invisible
+// next to a rolling counter — while cutting the grid's re-render rate ~3×.
+function useThrottledGoo(ms = 350): number {
+  const [g, setG] = useState(() => useGame.getState().goo);
+  useEffect(() => {
+    const t = window.setInterval(() => setG(useGame.getState().goo), ms);
+    return () => window.clearInterval(t);
+  }, [ms]);
+  return g;
+}
+
+// One owned creature tile. Memoized so a grid re-render (throttled goo tick)
+// only reconciles a tile whose VISIBLE state actually changed — the primitives
+// below are shallow-compared, and `held` keeps its reference across goo ticks
+// (it only changes on an upgrade/evolve/rebirth), so an unchanged tile — SVG and
+// all — is skipped entirely. This is what keeps scrolling smooth.
+interface OwnedTileProps {
+  id: CharId;
+  held: { level: number; evolution?: number; rebirths?: number };
+  canLevel: number;
+  evolveReady: boolean;
+  rebirthReady: boolean;
+  onOpen: (id: CharId) => void;
+}
+const OwnedTile = memo(function OwnedTile({ id, held, canLevel, evolveReady, rebirthReady, onOpen }: OwnedTileProps) {
+  const def = charactersById[id];
+  const stage = held.evolution ?? 0;
+  const evolved = stage > 0;
+  const rebirths = held.rebirths ?? 0;
+  const reborn = rebirths > 0;
+  const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(id)}
+      className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95 ${
+        evolveReady ? 'anim-evolve-glow' : rebirthReady ? 'anim-rebirth-glow' : ''
+      }`}
+      style={{
+        backgroundColor: '#170a29',
+        boxShadow: reborn
+          ? `inset 0 0 0 2px #FF2E88, 0 0 22px -3px #FF2E88`
+          : evolved
+            ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
+            : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
+      }}
+    >
+      {canLevel > 0 && (
+        <span className="anim-breathe absolute start-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-goo px-1 text-[11px] font-bold text-void tabular ring-2 ring-void/50">
+          {canLevel > 99 ? '99' : canLevel}
+        </span>
+      )}
+      {evolved && <span className="absolute end-1 top-1 text-sm">✨{stage}</span>}
+      <CharacterBody id={id} className="h-12 w-12" evolution={stage} />
+      <span className={`mt-1 max-w-full truncate px-1 text-[10px] ${evolved ? 'text-pop' : 'text-bone/80'}`}>
+        {def.nameHe}
+      </span>
+      <span className="mt-0.5 flex max-w-full items-center justify-center gap-1 text-[10px] text-pop tabular">
+        {reborn && (
+          <span
+            className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-void ring-1 ring-void/40"
+            style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}
+          >
+            🔄{rebirths}
+          </span>
+        )}
+        <span>
+          {evolved ? '✨ ' : ''}רמה {held.level}
+        </span>
+      </span>
+    </button>
+  );
+});
+
+// A not-yet-owned slot: a click-unlock silhouette with tap-progress, or a plain
+// "?" for egg creatures. Memoized on [id, clicks] so it's skipped on goo ticks
+// (clicks doesn't move while browsing the collection).
+const LockedTile = memo(function LockedTile({ id, clicks }: { id: CharId; clicks: number }) {
+  const def = charactersById[id];
+  if (def.unlockClicks == null) {
+    return (
+      <div className="flex aspect-square items-center justify-center rounded-2xl bg-black/40 ring-1 ring-bone/10">
+        <span className="font-display text-4xl text-bone/25">?</span>
+      </div>
+    );
+  }
+  const pct = Math.min(100, (clicks / def.unlockClicks) * 100);
+  return (
+    <div
+      className="relative flex aspect-square flex-col items-center justify-center rounded-2xl bg-black/40 p-1 ring-1 ring-bone/10"
+      title={`נפתח ב-${def.unlockClicks.toLocaleString('en-US')} לחיצות`}
+    >
+      <CharacterBody id={id} className="h-11 w-11 opacity-25 grayscale" />
+      <span className="absolute end-1 top-1 text-xs">🔒</span>
+      <span className="mt-1 text-[9px] text-bone/60 tabular" dir="ltr">
+        {clicks.toLocaleString('en-US')}/{def.unlockClicks.toLocaleString('en-US')}
+      </span>
+      <div className="mt-1 h-1 w-11 overflow-hidden rounded-full bg-black/50">
+        <div className="h-full rounded-full bg-cy" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="mt-0.5 text-[8px] text-bone/40">👆 לחיצות</span>
+    </div>
+  );
+});
+
 export function CollectionScreen() {
   const owned = useGame((s) => s.characters);
   const setTab = useGame((s) => s.setTab);
-  const goo = useGame((s) => s.goo);
+  const goo = useThrottledGoo();
   const clicks = useGame((s) => s.clicks);
   // Grid uses these ONLY for pricing/affordability — base (no displayed-creature
   // ability), so a creature's cost is the same whether or not it's on screen.
@@ -74,12 +184,14 @@ export function CollectionScreen() {
     return () => window.clearInterval(t);
   }, [locked]);
 
-  const open = (id: CharId) => {
+  // Stable identity so the memoized tiles don't re-render just because the parent
+  // made a fresh closure on a goo tick.
+  const open = useCallback((id: CharId) => {
     setSelected(id);
     const muted = useGame.getState().muted;
     playJingle(charactersById[id].sound, muted);
     speakName(charactersById[id].nameHe, muted); // say the creature's name on open
-  };
+  }, []);
 
   // Cheapest single level available across owned creatures — enables "upgrade all".
   const cheapest = collectionOrder.reduce((min, id) => {
@@ -178,111 +290,31 @@ export function CollectionScreen() {
                 {ids.map((id) => {
                   const def = charactersById[id];
                   const held = owned[id];
-                  if (!held) {
-                    // Click-unlock creatures show a silhouette + tap-progress so
-                    // the player knows how to earn them; egg creatures stay a "?".
-                    if (def.unlockClicks != null) {
-                      const pct = Math.min(100, (clicks / def.unlockClicks) * 100);
-                      return (
-                        <div
-                          key={id}
-                          className="relative flex aspect-square flex-col items-center justify-center rounded-2xl bg-black/40 p-1 ring-1 ring-bone/10"
-                          title={`נפתח ב-${def.unlockClicks.toLocaleString('en-US')} לחיצות`}
-                        >
-                          <CharacterBody id={id} className="h-11 w-11 opacity-25 grayscale" />
-                          <span className="absolute end-1 top-1 text-xs">🔒</span>
-                          <span className="mt-1 text-[9px] text-bone/60 tabular" dir="ltr">
-                            {clicks.toLocaleString('en-US')}/{def.unlockClicks.toLocaleString('en-US')}
-                          </span>
-                          <div className="mt-1 h-1 w-11 overflow-hidden rounded-full bg-black/50">
-                            <div className="h-full rounded-full bg-cy" style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="mt-0.5 text-[8px] text-bone/40">👆 לחיצות</span>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div
-                        key={id}
-                        className="flex aspect-square items-center justify-center rounded-2xl bg-black/40 ring-1 ring-bone/10"
-                      >
-                        <span className="font-display text-4xl text-bone/25">?</span>
-                      </div>
-                    );
-                  }
+                  if (!held) return <LockedTile key={id} id={id} clicks={clicks} />;
                   const stage = held.evolution ?? 0;
-                  const evolved = stage > 0;
                   const rebirths = held.rebirths ?? 0;
-                  const reborn = rebirths > 0;
-                  const ring = evolved ? '#FFD84D' : rarityColor[def.rarity];
-                  // Cap at 100 — the badge only shows up to "99+", and the full
-                  // 999-deep loop ×25 tiles ran on every 10Hz tick (perf).
+                  // Cap at 100 — the badge only shows up to "99+". Computed in the
+                  // parent (off the throttled goo) and passed down, so the memoized
+                  // tile only reconciles when one of these actually changes.
                   const canLevel = affordableCreatureLevels(def.rarity, held, m, goo, gooPerSecNow, incomeMultOf(def), 100);
-                  // Ready to evolve = reached the next stage's level threshold AND
-                  // you can afford it right now. Shown only as a pulsing gold frame
-                  // (like the evolve button), so it means "you can evolve this now".
                   const evolveReady =
                     stage < maxEvolution &&
                     held.level >= evolveLevels[stage] &&
                     goo >= evolveCost(def.rarity, held, m, gooPerSecNow, incomeMultOf(def));
-                  // "Ready to be reborn now" — max evolution, below the cap, and
-                  // affordable this instant. Mutually exclusive with evolveReady
-                  // (that needs stage < maxEvolution), so the two glows never clash.
                   const rebirthReady =
                     stage >= maxEvolution &&
                     rebirths < rebirthCap &&
                     goo >= rebirthCost(rebirths, gooPerSecNow);
                   return (
-                    <button
+                    <OwnedTile
                       key={id}
-                      type="button"
-                      onClick={() => open(id)}
-                      className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-1 transition active:scale-95 ${
-                        evolveReady ? 'anim-evolve-glow' : rebirthReady ? 'anim-rebirth-glow' : ''
-                      }`}
-                      style={{
-                        backgroundColor: '#170a29',
-                        // Reborn creatures (the mastering loop) get a distinct
-                        // magenta "mastery" frame that wins over gold/rarity, so
-                        // you can spot a reborn one across the grid at a glance.
-                        boxShadow: reborn
-                          ? `inset 0 0 0 2px #FF2E88, 0 0 22px -3px #FF2E88`
-                          : evolved
-                            ? `inset 0 0 0 2px #FFD84D, 0 0 22px -4px #FFD84D`
-                            : `inset 0 0 0 2px ${ring}, 0 0 18px -8px ${ring}`,
-                      }}
-                    >
-                      {canLevel > 0 && (
-                        <span className="anim-breathe absolute start-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-goo px-1 text-[11px] font-bold text-void tabular ring-2 ring-void/50">
-                          {canLevel > 99 ? '99' : canLevel}
-                        </span>
-                      )}
-                      {evolved && (
-                        <span className="absolute end-1 top-1 text-sm">✨{stage}</span>
-                      )}
-                      <CharacterBody id={id} className="h-12 w-12" evolution={stage} />
-                      <span
-                        className={`mt-1 max-w-full truncate px-1 text-[10px] ${evolved ? 'text-pop' : 'text-bone/80'}`}
-                      >
-                        {def.nameHe}
-                      </span>
-                      {/* Level line. The mastery (🔄) count rides INLINE here, as a
-                          little chip beside the level, so it never covers the level
-                          number the way the old bottom-corner badge did. */}
-                      <span className="mt-0.5 flex max-w-full items-center justify-center gap-1 text-[10px] text-pop tabular">
-                        {reborn && (
-                          <span
-                            className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-void ring-1 ring-void/40"
-                            style={{ background: 'linear-gradient(135deg,#33E1FF,#FF2E88)' }}
-                          >
-                            🔄{rebirths}
-                          </span>
-                        )}
-                        <span>
-                          {evolved ? '✨ ' : ''}רמה {held.level}
-                        </span>
-                      </span>
-                    </button>
+                      id={id}
+                      held={held}
+                      canLevel={canLevel}
+                      evolveReady={evolveReady}
+                      rebirthReady={rebirthReady}
+                      onOpen={open}
+                    />
                   );
                 })}
               </div>
@@ -342,7 +374,11 @@ function ClassicBlobSection() {
 function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const def = charactersById[id];
   const held = useGame((s) => s.characters[id]);
-  const goo = useGame((s) => s.goo);
+  // Throttled: the modal's affordability lines don't need the 10Hz counter — a
+  // ~3Hz update keeps its big SVG + cost math from re-rendering ten times a
+  // second while open (part of the "entering a card" jank). `held` still updates
+  // instantly on an upgrade, so the level/stage react immediately.
+  const goo = useThrottledGoo();
   // `m` (with the displayed-creature ability) is for the income numbers shown.
   // Costs use the base mods + base wealth so displaying a creature never moves
   // its upgrade/evolution/rebirth price — the ability is a pure income win.
