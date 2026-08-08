@@ -229,7 +229,11 @@
       const $ = (id) => document.getElementById(id);
       const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
 
-      const UNITS = [[1e33,'Dc'],[1e30,'No'],[1e27,'Oc'],[1e24,'Sp'],[1e21,'Sx'],[1e18,'Qi'],[1e15,'Qa'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+      // The short-scale ladder, mirroring the client's SCALES (src/game/format.ts)
+      // all the way to a duotrigintillion (1e99) so huge late-game / endgame goo
+      // reads as e.g. "3.4Vg" — not "1223434Dc" (the old table stopped at Dc, so
+      // anything past a decillion showed as millions-of-decillions).
+      const UNITS = [[1e99,'Dtg'],[1e96,'Utg'],[1e93,'Tg'],[1e90,'Novg'],[1e87,'Ocvg'],[1e84,'Spvg'],[1e81,'Sxvg'],[1e78,'Qivg'],[1e75,'Qavg'],[1e72,'Tvg'],[1e69,'Dvg'],[1e66,'Uvg'],[1e63,'Vg'],[1e60,'Nod'],[1e57,'Ocd'],[1e54,'Spd'],[1e51,'Sxd'],[1e48,'Qid'],[1e45,'Qad'],[1e42,'Td'],[1e39,'Dd'],[1e36,'Ud'],[1e33,'Dc'],[1e30,'No'],[1e27,'Oc'],[1e24,'Sp'],[1e21,'Sx'],[1e18,'Qi'],[1e15,'Qa'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
       function short(n) {
         n = Number(n) || 0;
         if (n < 1000) return String(Math.round(n));

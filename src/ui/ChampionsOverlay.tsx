@@ -58,7 +58,7 @@ export function ChampionsContent({ active }: { active: boolean }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="text-center text-xs text-bone/50">👑 מִי שֶׁהִגִּיעַ לְדֶצִילְיוֹן וְנִצַּח אֶת הַמִּשְׂחָק</div>
+      <div className="text-center text-xs text-bone/50">👑 מִי שֶׁהִגִּיעַ לְגּוּגּוֹל וְנִצַּח אֶת הַמִּשְׂחָק</div>
 
       <div className="mb-1 mt-3 flex items-center gap-3 px-3 text-[11px] font-bold text-bone/55">
         <span className="w-8 shrink-0 text-center">#</span>
