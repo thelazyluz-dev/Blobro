@@ -12,8 +12,6 @@ import {
   critChanceCap,
   eggCostBase,
   eggCostGrowth,
-  eggCostKnee,
-  eggCostGrowthLate,
   evolveMultiplierByStage,
   evolvePaybackSeconds,
   evolveRarityCostMult,
@@ -236,16 +234,9 @@ export function gooPerSec(owned: OwnedCharacters, m: Modifiers): number {
   return creatureIncome(owned, m);
 }
 
-/**
- * eggCost(n), n = eggs already acquired. Two-phase (see balance.ts): the steep
- * `eggCostGrowth` curve for the first `eggCostKnee` eggs, then the gentle
- * `eggCostGrowthLate` — so early eggs stay a real investment (no spam-hatching to
- * the full collection) while the far tail no longer outruns the whole economy.
- */
+/** eggCost(n) = round(45 × 1.11 ^ n), n = eggs already hatched */
 export function eggCost(n: number): number {
-  if (n <= eggCostKnee) return Math.round(eggCostBase * Math.pow(eggCostGrowth, n));
-  const atKnee = eggCostBase * Math.pow(eggCostGrowth, eggCostKnee);
-  return Math.round(atKnee * Math.pow(eggCostGrowthLate, n - eggCostKnee));
+  return Math.round(eggCostBase * Math.pow(eggCostGrowth, n));
 }
 
 /**
