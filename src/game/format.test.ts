@@ -20,10 +20,18 @@ describe('formatGoo — the compact number the whole UI shows', () => {
     expect(formatGoo(1e12)).toBe('1T');
     expect(formatGoo(1e15)).toBe('1Qa');
     expect(formatGoo(1e33)).toBe('1Dc'); // decillion — the challenge target
+    // The ladder now continues past a decillion (no more raw "e36" on screen)
+    // all the way to a duotrigintillion, so the whole playable range is named.
+    expect(formatGoo(1e36)).toBe('1Ud'); // undecillion
+    expect(formatGoo(1e63)).toBe('1Vg'); // vigintillion
+    expect(formatGoo(1e99)).toBe('1Dtg'); // duotrigintillion — the top suffix
+    expect(formatGoo(1e100)).toBe('10Dtg'); // a googol reads as ten duotrigintillions
   });
 
-  it('falls back to scientific notation only past the suffix table (>=1e36)', () => {
-    expect(formatGoo(1e36)).toBe('1.00e+36');
+  it('falls back to scientific notation only far above the game ceiling', () => {
+    // Everything in the playable range (up to MAX_GOO=1e103) stays named.
+    expect(formatGoo(1e103)).not.toContain('e+');
+    expect(formatGoo(1e123)).toBe('1.00e+123');
   });
 
   it('handles negatives (a shortfall) with a sign', () => {
@@ -43,8 +51,9 @@ describe('formatGooHero — the big fixed-width counter', () => {
     expect(formatGooHero(1_234)).toBe('1.23K');
     expect(formatGooHero(2.396e13)).toBe('23.96T');
   });
-  it('goes scientific at the absurd end and never throws', () => {
-    expect(formatGooHero(1e36)).toBe('1.00e+36');
+  it('goes scientific only far above the game ceiling, and never throws', () => {
+    expect(formatGooHero(1e36)).toBe('1.00Ud'); // named, not scientific
+    expect(formatGooHero(1e123)).toBe('1.00e+123'); // truly absurd only
     expect(formatGooHero(Number.NaN)).toBe('0');
   });
 });

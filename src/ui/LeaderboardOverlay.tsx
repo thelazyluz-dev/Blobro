@@ -18,6 +18,7 @@ import { leaderboardNameMaxLen } from '../game/balance';
 import { formatExact, formatGoo } from '../game/format';
 import { isCleanNickname } from '../game/profanity';
 import {
+  fetchMyRank,
   fetchTop,
   hasGlobalLeaderboard,
   markNicknameAsked,
@@ -25,6 +26,7 @@ import {
   submitScore,
   type GlobalEntry,
   type Metric,
+  type RankResult,
   type SubmitResult,
 } from '../net/leaderboard';
 import { useGame } from '../store';
@@ -62,6 +64,12 @@ export function LeaderboardContent({ active }: { active: boolean }) {
   const [metric, setMetric] = useState<Metric>('clicks');
   const [remote, setRemote] = useState<GlobalEntry[] | null>(null);
   const [myRanks, setMyRanks] = useState<SubmitResult | null>(null);
+  // The account-based rank for the SELECTED metric (GET /rank). This is the
+  // source of truth for "am I on the board and where" — it works even on a
+  // device that never chose a nickname locally (the nickname lives server-side),
+  // which is exactly the cross-device case where the old local-only check made a
+  // ranked player see the join prompt and never see their own row.
+  const [serverRank, setServerRank] = useState<RankResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [joinName, setJoinName] = useState('');
   const [joining, setJoining] = useState(false);
@@ -102,6 +110,21 @@ export function LeaderboardContent({ active }: { active: boolean }) {
     };
   }, [active, global, metric]);
 
+  // On open + metric change: ask the server where THIS ACCOUNT ranks in the
+  // selected metric. Account-based, so a player who's on the board sees their
+  // own row even from a fresh device with no local nickname.
+  useEffect(() => {
+    if (!active || !global) return;
+    let alive = true;
+    setServerRank(null);
+    fetchMyRank(metric).then((r) => {
+      if (alive) setServerRank(r);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [active, global, metric]);
+
   // Local (no-backend) fallback: just the live current run, sorted in.
   const localRows = useMemo(() => {
     const base = leaderboard.map((e) => ({ name: e.name, clicks: e.clicks, you: false }));
@@ -109,7 +132,17 @@ export function LeaderboardContent({ active }: { active: boolean }) {
     return base.sort((a, b) => b.clicks - a.clicks);
   }, [leaderboard, clicks]);
 
-  const myRank = myRanks ? myRanks[metric] : null;
+  // My rank/best for the selected metric: prefer the account-based /rank (works
+  // cross-device), fall back to the submit result. Either gives {rank, best}.
+  const submitRank = myRanks ? myRanks[metric] : null;
+  const myRank: { rank: number; best: number } | null = serverRank
+    ? { rank: serverRank.rank, best: serverRank.score }
+    : submitRank;
+  // My board nickname: the server's copy (authoritative, cross-device) wins over
+  // the local one — a fresh device has a rank but no local name.
+  const myBoardName = serverRank?.name || savedName;
+  // Am I on the board at all? True if the server placed me, OR I joined locally.
+  const onBoard = !!serverRank || joined;
   // clicks and cpm are records — the freshest of server/live wins. goo is the
   // CURRENT balance (owner decision: the board shows what you hold, so
   // spending is a real trade-off), and the live number is always the truth —
@@ -180,7 +213,7 @@ export function LeaderboardContent({ active }: { active: boolean }) {
               // approximate (server histogram), so myRank.rank === i+1 would land
               // the "you" ring on a stranger who happens to sit at that position
               // (the bug that highlighted "אלון" for a player who isn't Alon).
-              const isMe = joined && !!savedName && r.name === savedName;
+              const isMe = !!myBoardName && r.name === myBoardName;
               return (
                 <div
                   key={i}
@@ -219,29 +252,30 @@ export function LeaderboardContent({ active }: { active: boolean }) {
         )}
       </div>
 
-      {/* Your own pinned row — visible even at #5000, unless your row is already
-          shown in the top list above. Keyed on the nickname actually appearing
-          (not the approximate rank), so you always see yourself exactly once. */}
-      {joined && !(remote ?? []).some((r) => r.name === savedName) && (
+      {/* Your own pinned row — always shown when you're on the board (even at
+          #5000, and even on a device with no local nickname), unless your row is
+          already in the top list above. Keyed on the board nickname actually
+          appearing, so you see yourself exactly once. */}
+      {onBoard && !!myBoardName && !(remote ?? []).some((r) => r.name === myBoardName) && (
         <div className="mt-2 flex items-center gap-3 rounded-2xl bg-cy/15 px-3 py-2 ring-2 ring-cy">
           <span className="flex h-7 shrink-0 items-center justify-center rounded-full bg-cy px-2 font-display text-sm text-void">
             {myRank ? `#${myRank.rank}` : '—'}
           </span>
-          <span className="min-w-0 flex-1 truncate text-cy">אַתָּה ({savedName})</span>
+          <span className="min-w-0 flex-1 truncate text-cy">אַתָּה ({myBoardName})</span>
           <span className="shrink-0 font-display text-pop tabular" dir="ltr">
             {fmt(metric, myValue)}
           </span>
         </div>
       )}
-      {joined && myRank && myRank.rank > 0 && (myRanks?.total ?? 0) > 0 && (
+      {onBoard && myRank && myRank.rank > 0 && (serverRank?.total ?? myRanks?.total ?? 0) > 0 && (
         <div className="mt-1 text-center text-[11px] text-bone/45">
-          מְקוֹם {myRank.rank} מִתּוֹךְ {myRanks?.total} שַׂחְקָנִים
+          מְקוֹם {myRank.rank} מִתּוֹךְ {serverRank?.total ?? myRanks?.total} שַׂחְקָנִים
         </div>
       )}
 
-      {/* First-time join (only when no nickname yet). Not an edit box — once you
-          have a name it lives on until a "new game" reset. */}
-      {global && !joined && (
+      {/* First-time join — only when you're NOT already on the board (checked
+          server-side, so a ranked player on a fresh device never sees this). */}
+      {global && !onBoard && (
         <>
           <div className="mt-3 text-center text-xs text-cy">בְּחַר כִּנּוּי כְּדֵי לְהִצְטָרֵף לַטַּבְלָה! 👇</div>
           <div className="mt-2 flex gap-2">

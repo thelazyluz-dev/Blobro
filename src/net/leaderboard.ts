@@ -153,6 +153,7 @@ export interface RankResult {
   rank: number; // the player's approximate 1-based position on this metric's board
   score: number; // the player's stored value for the metric
   total: number; // how many players are on the board
+  name: string; // the player's leaderboard nickname (server-side, account-based)
 }
 
 /**
@@ -170,12 +171,13 @@ export async function fetchMyRank(by: Metric): Promise<RankResult | null> {
   try {
     const res = await fetch(`${BASE()}/rank?by=${by}`, { credentials: 'include' });
     if (!res.ok) return null;
-    const data = (await res.json()) as { rank?: unknown; score?: unknown; total?: unknown };
+    const data = (await res.json()) as { rank?: unknown; score?: unknown; total?: unknown; name?: unknown };
     if (typeof data.rank !== 'number' || data.rank <= 0) return null;
     return {
       rank: data.rank,
       score: typeof data.score === 'number' ? data.score : 0,
       total: typeof data.total === 'number' ? data.total : 0,
+      name: typeof data.name === 'string' ? data.name : '',
     };
   } catch {
     return null;
