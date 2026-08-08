@@ -202,9 +202,10 @@ const DEFAULT_LIMIT = 50;
 // Sane ceilings. Clicks are physical taps; goo is total earned. Anything above
 // these is impossible and hard-rejected (4xx) rather than clamped.
 const MAX_CLICKS = 5_000_000; // ~weeks of nonstop tapping — no human exceeds this
-const MAX_GOO = 1e34; // raised for the "first to a decillion" (1e33) challenge:
-// the board must be able to hold — and rank — a decillion, so the ceiling sits
-// one decade above it. Still absurd-junk protection (first-save-absurd bars
+const MAX_GOO = 1e36; // headroom ABOVE the decillion (1e33) win: after a player
+// wins, goo keeps climbing for a good while (up to a thousand decillions) instead
+// of freezing at the ceiling the moment they reach the summit. Still absurd-junk
+// protection (first-save-absurd bars
 // beyond this), and the plausibility audit — which is rate-based and scales
 // with the player's own income, not with this constant — remains the real
 // defence, so raising this does not weaken it.

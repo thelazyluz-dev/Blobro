@@ -147,6 +147,22 @@ export const milestones: Milestone[] = [
     factHe: 'המספר האגדי: 1 ואחריו 33 אפסים! רק אלופים אמיתיים מגיעים לכאן. 🏆',
     emoji: '👑',
   },
+  // Beyond the decillion "win" — gentle, playful pats so the number never freezes
+  // silently right after the summit (there are no real-world anchors up here, so
+  // these are pure whimsy). The ceiling (MAX_GOO) sits at 1e36, a thousand
+  // decillions, so both are reachable post-win.
+  {
+    goo: 1e34,
+    titleHe: 'עֲשָׂרָה דֶּצִילְיוֹנִים!',
+    factHe: 'עָבַרְתָּ אֶת הַדֶּצִילְיוֹן פִּי עֶשֶׂר! אַתָּה כְּבָר בְּאֵזוֹר הָאַגָּדוֹת. 🌟',
+    emoji: '🌟',
+  },
+  {
+    goo: 1e35,
+    titleHe: 'מֵאָה דֶּצִילְיוֹנִים!',
+    factHe: 'מִסְפָּר כָּל כָּךְ עֲנָק שֶׁקָּשֶׁה בִּכְלָל לְדַמְיֵן אוֹתוֹ. אַתָּה חַלַּלִּית! 🚀',
+    emoji: '🚀',
+  },
 ];
 
 /** The milestones crossed when lifetime goo went from `prev` to `next`,
