@@ -22,7 +22,7 @@ vi.mock('./net/save', async () => {
   return { ...actual, fetchCloudSave: async () => null, pushCloudSave: async () => ({ ok: false, conflict: null }) };
 });
 
-const { useGame, selectGooPerSec, selectMods } = await import('./store');
+const { useGame, selectCostWealth, selectCostMods } = await import('./store');
 const { defaultSaveState } = await import('./game/save');
 const { evolveLevels } = await import('./game/balance');
 const { levelUpToCost, evolveCost } = await import('./game/economy');
@@ -40,8 +40,12 @@ const combinedCost = (level: number) => {
   const s = useGame.getState();
   useGame.setState({ characters: { blombo: { level } } });
   const s2 = useGame.getState();
-  const m = selectMods(s2);
-  const rate = selectGooPerSec(s2);
+  // Price off the SAME base mods + base "cost wealth" the action uses
+  // (selectCostMods / selectCostWealth) — NOT selectMods / selectGooPerSec,
+  // which fold in the live wall-clock EVENT multiplier the action ignores.
+  // Using the event-inflated rate made this flaky under an active goo event.
+  const m = selectCostMods(s2);
+  const rate = selectCostWealth(s2);
   const im = incomeMultOf(charactersById.blombo);
   const target = evolveLevels[0];
   const cost = levelUpToCost('common', { level }, target, m, rate, im) + evolveCost('common', { level: target }, m, rate, im);

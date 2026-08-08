@@ -22,7 +22,7 @@ vi.mock('./net/save', async () => {
   return { ...actual, fetchCloudSave: async () => null, pushCloudSave: async () => ({ ok: false, conflict: null }) };
 });
 
-const { useGame, selectRebirthIncomeBonus, selectGooPerSec } = await import('./store');
+const { useGame, selectRebirthIncomeBonus, selectCostWealth } = await import('./store');
 const { defaultSaveState } = await import('./game/save');
 const { maxEvolution, rebirthCap } = await import('./game/balance');
 const { rebirthCost } = await import('./game/economy');
@@ -57,7 +57,12 @@ describe('rebirthCreature', () => {
     expect(useGame.getState().characters.blombo).toEqual({ level: 100, evolution: maxEvolution });
     // Rich enough → it deducts a positive cost and rebirths. (Modest goo so the
     // deduction is visible — against 1e30 it would round away in float.)
-    const rate = selectGooPerSec(useGame.getState());
+    // Predict the cost from the SAME base "cost wealth" the action prices off
+    // (selectCostWealth = gooPerSec with base mods) — NOT selectGooPerSec, which
+    // also folds in the live wall-clock EVENT multiplier the action deliberately
+    // ignores. Using the wrong rate made this flaky: it failed whenever a goo
+    // event happened to be active at test time.
+    const rate = selectCostWealth(useGame.getState());
     const cost = rebirthCost(0, rate);
     expect(cost).toBeGreaterThan(0);
     useGame.setState({ goo: cost + 5000 });
