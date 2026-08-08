@@ -71,20 +71,22 @@ export function ProgressOverlay() {
       >
         <div className="mb-3 text-center font-display text-3xl text-bone">🏆 הַהִתְקַדְּמוּת שֶׁלִּי</div>
 
-        {/* h-11 per tab (not just the row) — a short pill row here would read fine
-            visually but land under the 44px touch-target minimum. Five tabs no
-            longer fit a 360px-wide sheet, so the ROW scrolls sideways instead of
-            squeezing: each pill keeps its natural width (shrink-0, no wrap) and
-            still grows to fill the row when there IS room. */}
-        <div className="mb-3 flex gap-1 overflow-x-auto rounded-full bg-black/30 p-1 ring-1 ring-hairline">
-          {TABS.map((t) => (
+        {/* h-11 per tab (not just the row) — a short pill row here would land
+            under the 44px touch-target minimum. Five tabs can't fit one row on a
+            360px sheet, and a sideways-scrolling row hid tabs off-screen (a kid
+            never discovers a tab they can't see) and clipped pills at the edge.
+            So: a fixed TWO-ROW grid — three tabs up, two down, everything always
+            visible, nothing scrolls. grid-cols-6 with 2/2/2 + 3/3 spans keeps
+            both rows perfectly balanced. */}
+        <div className="mb-3 grid grid-cols-6 gap-1 rounded-2xl bg-black/30 p-1 ring-1 ring-hairline">
+          {TABS.map((t, i) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`flex h-11 flex-1 shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2 text-xs font-bold transition ${
-                tab === t.id ? 'bg-cy text-void' : 'text-bone/60'
-              }`}
+              className={`flex h-11 items-center justify-center whitespace-nowrap rounded-full px-1 text-xs font-bold transition ${
+                i < 3 ? 'col-span-2' : 'col-span-3'
+              } ${tab === t.id ? 'bg-cy text-void' : 'text-bone/60'}`}
             >
               {t.label}
             </button>
