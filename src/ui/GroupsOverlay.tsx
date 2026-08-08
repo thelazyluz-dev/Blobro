@@ -248,7 +248,7 @@ export function GroupsContent({ active }: { active: boolean }) {
         <div className="min-h-0 flex-1 overflow-y-auto pe-1">
           <div className="mt-4 text-center text-3xl">👨‍👩‍👧‍👦</div>
           <p className="mt-2 text-center text-base leading-relaxed text-bone/80">
-            הִתְחָרוּ מוּל הַחֲבֵרִים, הַמִּשְׁפָּחָה אוֹ הַכִּתָּה!
+            הִתְחָרוּ מוּל הַחֲבֵרִים וְהַמִּשְׁפָּחָה!
           </p>
 
           <div className="mt-4 text-center text-xs text-cy">תְּנוּ שֵׁם לַקְּבוּצָה שֶׁלָּכֶם 👇</div>
