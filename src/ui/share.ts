@@ -11,7 +11,10 @@ export const SHARE_TEXT =
   'בלורבו 🫧 מי הראשון שיגיע לגוגל? 🏆 חמשת הראשונים שמגיעים לגוגל — מתווספת דמות על שמם במשחק!';
 
 /** wa.me deep link — opens the WhatsApp app on mobile, WhatsApp Web on desktop,
- * with the message + link prefilled for the user to pick a chat and send. */
-export function whatsappShareUrl(): string {
-  return `https://wa.me/?text=${encodeURIComponent(`${SHARE_TEXT} ${SHARE_URL}`)}`;
+ * with the message + link prefilled for the user to pick a chat and send.
+ * Pass the player's tracked invite link (referralLink(code)) so a friend who
+ * joins through it is CREDITED to that player; falls back to the bare site URL
+ * only when no code is available yet (never silently un-attributed once it is). */
+export function whatsappShareUrl(link: string = SHARE_URL): string {
+  return `https://wa.me/?text=${encodeURIComponent(`${SHARE_TEXT} ${link}`)}`;
 }

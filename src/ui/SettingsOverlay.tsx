@@ -10,7 +10,7 @@ import { selectReferralClaimable, useGame } from '../store';
 import { haptic } from './haptics';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './pwaInstall';
 import { whatsappShareUrl } from './share';
-import { hasReferralBackend } from '../net/referral';
+import { hasReferralBackend, referralLink } from '../net/referral';
 import { disablePush, enablePush, notificationPermission, notificationsPref, pushSupported } from '../net/push';
 
 // Invite a friend (WhatsApp) + install the app. Sharing is the growth loop the
@@ -19,6 +19,12 @@ function ShareInstallSection() {
   const [installed, setInstalled] = useState(() => isStandalone());
   const [canInstall, setCanInstall] = useState(() => canPromptInstall());
   const [iosSteps, setIosSteps] = useState(false);
+  // The player's own invite code, so the quick-share carries it — a friend who
+  // joins through this link is credited to THIS player. Without it the WhatsApp
+  // share sent the bare site URL and every such join went uncounted.
+  const referralCode = useGame((s) => s.referralCode);
+  const setReferralOpen = useGame((s) => s.setReferralOpen);
+  const trackedShareUrl = referralCode ? whatsappShareUrl(referralLink(referralCode)) : null;
 
   useEffect(
     () =>
@@ -44,14 +50,27 @@ function ShareInstallSection() {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex gap-2">
-        <a
-          href={whatsappShareUrl()}
-          target="_blank"
-          rel="noopener"
-          className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
-        >
-          💬 שַׁתְּפוּ חֲבֵרִים
-        </a>
+        {trackedShareUrl ? (
+          // Code ready → one-tap WhatsApp with the player's TRACKED invite link.
+          <a
+            href={trackedShareUrl}
+            target="_blank"
+            rel="noopener"
+            className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
+          >
+            💬 שַׁתְּפוּ חֲבֵרִים
+          </a>
+        ) : (
+          // No code yet → open the invite sheet, which mints/loads the code and
+          // shares the tracked link. Never sends an un-attributed share.
+          <button
+            type="button"
+            onClick={() => setReferralOpen(true)}
+            className="btn flex-1 bg-black/30 py-2 text-center text-sm text-bone ring-1 ring-hairline"
+          >
+            💬 שַׁתְּפוּ חֲבֵרִים
+          </button>
+        )}
         {!installed && (canInstall || isIOS()) && (
           <button
             type="button"
