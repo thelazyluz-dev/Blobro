@@ -226,7 +226,13 @@ export function LeaderboardContent({ active }: { active: boolean }) {
                   </span>
                   <span className={`min-w-0 flex-1 truncate ${isMe ? 'text-cy' : 'text-bone'}`}>{r.name}</span>
                   <span className="shrink-0 font-display text-pop tabular" dir="ltr">
-                    {fmt(metric, r.score)}
+                    {/* MY row shows my LIVE value (myValue), not the server's
+                        stored snapshot: r.score only refreshes on a cloud
+                        checkpoint, so a top-10 player who kept tapping saw their
+                        own row frozen (e.g. stuck at "150K") while Stats climbed.
+                        This mirrors the pinned own-row below, which already uses
+                        myValue. Other players necessarily stay on r.score. */}
+                    {fmt(metric, isMe ? myValue : r.score)}
                   </span>
                 </div>
               );
