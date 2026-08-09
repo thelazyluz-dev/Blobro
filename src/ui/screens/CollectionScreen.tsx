@@ -700,10 +700,24 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             buy button. */}
         {atLevelCap ? (
           <div className="mt-4 rounded-2xl bg-cy/10 px-3 py-2.5 text-center ring-1 ring-cy/30">
-            <div className="font-display text-base text-cy">🏆 רָמָה מַקְסִימָלִית — {charLevelCap}!</div>
-            <div className="mt-0.5 text-xs text-bone/60">
-              לְהַמְשִׁיךְ מֵעֵבֶר: לֵידָה מֵחָדָשׁ עַד {rebirthCap} תָּסִיר אֶת הַמַּגְבָּלָה 🔄
-            </div>
+            {rebirthCapped ? (
+              // Fully mastered AND leveled to where income stops growing — say so
+              // plainly instead of selling levels that add nothing (the "level
+              // climbs, income frozen" report). This is the top of this creature.
+              <>
+                <div className="font-display text-base text-cy">🏆 הַכְנָסָה מַקְסִימָלִית!</div>
+                <div className="mt-0.5 text-xs text-bone/60">
+                  הַיְּצוּר הַזֶּה נָתַן אֶת הַכֹּל — הַגִּיעַ לַשִּׂיא! שַׁדְרְגוּ יְצוּרִים אֲחֵרִים 🚀
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-display text-base text-cy">🏆 רָמָה מַקְסִימָלִית — {charLevelCap}!</div>
+                <div className="mt-0.5 text-xs text-bone/60">
+                  לְהַמְשִׁיךְ מֵעֵבֶר: לֵידָה מֵחָדָשׁ עַד {rebirthCap} תָּסִיר אֶת הַמַּגְבָּלָה 🔄
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <button

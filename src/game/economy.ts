@@ -5,7 +5,9 @@ import {
   autoTapRateCap,
   autoTapRatePerLevel,
   baseByRarity,
+  charIncomeExpCap,
   charIncomeGrowth,
+  charIncomeMaxLevel,
   charLevelCap,
   clickBase,
   creatureLevelPaybackSeconds,
@@ -135,7 +137,7 @@ export const luckMaxLevel = Math.ceil(luckCap / upgradeConfig.luck.effectPerLeve
 /** charIncome = baseByRarity × charIncomeGrowth^(level − 1) — compounding per
  * level. Exponent is guarded so an absurd level can never overflow to Infinity. */
 export function charIncome(rarity: Rarity, level: number): number {
-  return baseByRarity[rarity] * Math.pow(charIncomeGrowth, Math.min(level - 1, 3000));
+  return baseByRarity[rarity] * Math.pow(charIncomeGrowth, Math.min(level - 1, charIncomeExpCap));
 }
 
 /** Income × for a creature's evolution stage (0 = none). */
@@ -254,14 +256,17 @@ export function wealthPaybackMult(gooPerSecValue: number): number {
 /**
  * The highest level a creature may reach, given how many times it's been reborn.
  * Below the rebirth cap the ceiling is charLevelCap (500); once a creature has
- * mastered itself (rebirths >= rebirthCap) the ceiling lifts and it climbs
- * without bound (§ owner rule). Shared so the game (store level-up actions) and
- * anti-cheat compute the exact same wall. A non-finite / negative rebirth count
- * is treated as 0, exactly like abilityOf's clamp.
+ * mastered itself (rebirths >= rebirthCap) the ceiling lifts to charIncomeMaxLevel
+ * — the last level that still raises income. It used to be Infinity, but income
+ * stops growing at the exponent cap, so "unbounded" levels past that were dead
+ * purchases that read as a bug ("level climbs, income frozen"). Stopping exactly
+ * at charIncomeMaxLevel means every level a player can still buy actually pays.
+ * Shared so the game (store level-up actions) and anti-cheat compute the exact
+ * same wall. A non-finite / negative rebirth count is treated as 0.
  */
 export function maxCharLevel(rebirths = 0): number {
   const reb = Number.isFinite(rebirths) ? Math.max(0, Math.floor(rebirths)) : 0;
-  return reb >= rebirthCap ? Infinity : charLevelCap;
+  return reb >= rebirthCap ? charIncomeMaxLevel : charLevelCap;
 }
 
 /**

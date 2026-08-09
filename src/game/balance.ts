@@ -66,6 +66,19 @@ export const minCharLevel = 1;
 // wall is to keep rebirthing, not just to keep paying.
 export const charLevelCap = 500;
 
+// Income compounds ×charIncomeGrowth per level, but the exponent is clamped so a
+// very deep level can neither overflow Math.pow to Infinity (~level 14.5k) nor
+// let ONE creature outrun the whole game's pacing toward the googol endgame.
+// Raised 3000→4000 (owner): deep leveling keeps paying much longer, while a
+// single fully-evolved+reborn creature's income still lands far below a googol.
+// Past this the creature shows "max income" and stops selling dead levels.
+export const charIncomeExpCap = 4000;
+// The last level that still RAISES income: the exponent (level−1) reaches the
+// cap here, so level charIncomeMaxLevel earns growth^charIncomeExpCap and every
+// level beyond earns exactly the same. This is the level wall for a fully-reborn
+// creature (maxCharLevel returns it once mastered — see economy.ts).
+export const charIncomeMaxLevel = charIncomeExpCap + 1;
+
 // --- Evolution chain ---------------------------------------------------------
 // A creature can evolve several times, each stage a bigger shiny worth much more.
 // Stage s needs the creature at evolveLevels[s-1]; income is × the stage factor.

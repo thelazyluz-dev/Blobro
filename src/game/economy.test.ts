@@ -3,7 +3,7 @@
 // felt by real players.
 
 import { describe, expect, it } from 'vitest';
-import { autoTapRateCap, autoTapRatePerLevel, charLevelCap, globalMultiplier, rebirthCap, rebirthCostGrowth, rebirthCostSeconds, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
+import { autoTapRateCap, autoTapRatePerLevel, charIncomeExpCap, charIncomeMaxLevel, charLevelCap, globalMultiplier, rebirthCap, rebirthCostGrowth, rebirthCostSeconds, rebirthGlobalCap, rebirthIncomeBonus } from './balance';
 import {
   affordableCreatureLevels,
   autoClicksPerSec,
@@ -125,9 +125,21 @@ describe('level cap (owner rule: 500 unless fully reborn)', () => {
     expect(charLevelCap).toBe(500);
   });
 
-  it('lifts the cap entirely once the creature has mastered itself (reached the rebirth cap)', () => {
-    expect(maxCharLevel(rebirthCap)).toBe(Infinity);
-    expect(maxCharLevel(rebirthCap + 5)).toBe(Infinity);
+  it('lifts the cap to the income-max level once the creature has mastered itself', () => {
+    // A mastered creature climbs far past 500 — but only up to charIncomeMaxLevel,
+    // the last level that still raises income. It used to be Infinity, which sold
+    // dead levels past the income cap (level climbs, income frozen). The wall is
+    // now finite and well above the base cap.
+    expect(maxCharLevel(rebirthCap)).toBe(charIncomeMaxLevel);
+    expect(maxCharLevel(rebirthCap + 5)).toBe(charIncomeMaxLevel);
+    expect(charIncomeMaxLevel).toBe(charIncomeExpCap + 1);
+    expect(charIncomeMaxLevel).toBeGreaterThan(charLevelCap);
+  });
+
+  it('income is flat at and beyond the income-max level (the wall pays nothing more)', () => {
+    // The whole reason the wall sits here: one past it earns exactly the same.
+    expect(charIncome('common', charIncomeMaxLevel + 1)).toBe(charIncome('common', charIncomeMaxLevel));
+    expect(charIncome('common', charIncomeMaxLevel)).toBeGreaterThan(charIncome('common', charIncomeMaxLevel - 1));
   });
 
   it('treats a missing / bogus rebirth count as zero (capped)', () => {
