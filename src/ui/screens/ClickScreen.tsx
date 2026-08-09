@@ -78,8 +78,53 @@ const COMBO_RENDER_MIN_MS = 90; // coalesce the combo counter to ~10 updates/sec
 const MAX_PARTICLES = 48; // hard cap on concurrent tap particles
 const MAX_FLOATERS = 12; // hard cap on concurrent tap floaters
 
-export function ClickScreen() {
+// The goo counter is the ONLY part of this ~700-line screen that changes at
+// tick rate (10Hz whenever creatures are earning). Subscribing the screen
+// itself to s.goo re-rendered ALL of it on every tick, forever — a constant
+// battery cost on an idle phone. The counter lives in this leaf instead, so
+// a tick re-renders these few spans and nothing else.
+function GooHeader({ frenzyActive }: { frenzyActive: boolean }) {
   const goo = useGame((s) => s.goo);
+  const reduced = useReducedMotion();
+  const [pop, setPop] = useState(false);
+  const popTimer = useRef<number>();
+
+  // Counter pop on change.
+  useEffect(() => {
+    if (reduced) return;
+    setPop(true);
+    window.clearTimeout(popTimer.current);
+    popTimer.current = window.setTimeout(() => setPop(false), 200);
+    return () => window.clearTimeout(popTimer.current);
+  }, [goo, reduced]);
+
+  return (
+    <header className="mt-2 text-center">
+      {/* Deliberately NOT a button. It used to open the number legend, but it
+          is a ~200x96 target sitting directly above the blob, so a tap that
+          landed a little high opened a modal instead of scoring — on the main
+          screen, where nearly every tap in the game happens. The legend moved
+          to the info row at the bottom, out of the tap path. */}
+      <div role="status" aria-label="מוֹנֶה גּוּ" className="mx-auto block">
+        <div
+          className={`font-display text-7xl leading-none tabular text-glow-pop ${
+            frenzyActive ? 'text-hot' : 'text-pop'
+          } ${pop ? 'anim-count-pop' : ''}`}
+        >
+          <SmoothNumber value={goo} format={formatGooHero} />
+        </div>
+        <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
+      </div>
+      {goo >= 1000 && (
+        <div className="mt-0.5 text-sm text-bone/60 tabular" dir="ltr">
+          <SmoothNumber value={goo} format={formatExact} />
+        </div>
+      )}
+    </header>
+  );
+}
+
+export function ClickScreen() {
   const rate = useGame(selectGooPerSec);
   const perClick = useGame(selectClickPower);
   const comboMelody = useGame(selectComboMelody);
@@ -106,7 +151,6 @@ export function ClickScreen() {
   const [autoFloaters, setAutoFloaters] = useState<{ id: number; amount: number }[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [squash, setSquash] = useState(false);
-  const [pop, setPop] = useState(false);
   const [bonus, setBonus] = useState<{ id: number; top: number } | null>(null);
   const [rain, setRain] = useState<RainDrop[]>([]);
   const [dropFloaters, setDropFloaters] = useState<{ id: number; x: number; y: number; amount: number }[]>([]);
@@ -124,7 +168,6 @@ export function ClickScreen() {
   const [comboBurst, setComboBurst] = useState<{ id: number; milestone: number; amount: number } | null>(null);
   const comboBurstTimer = useRef<number>();
   const blobRef = useRef<HTMLButtonElement>(null);
-  const popTimer = useRef<number>();
   const spawnRef = useRef<number>();
   const firstBonusRef = useRef(true); // the session's first bonus comes early for new players
   const lifeRef = useRef<number>();
@@ -193,15 +236,6 @@ export function ClickScreen() {
     }, 3000);
     return () => window.clearInterval(iv);
   }, [reduced]);
-
-  // Counter pop on change.
-  useEffect(() => {
-    if (reduced) return;
-    setPop(true);
-    window.clearTimeout(popTimer.current);
-    popTimer.current = window.setTimeout(() => setPop(false), 200);
-    return () => window.clearTimeout(popTimer.current);
-  }, [goo, reduced]);
 
   // Cache the blob's rect so a tap never has to call getBoundingClientRect
   // (a forced layout read interleaved with DOM writes = jank at high tap rates).
@@ -547,28 +581,7 @@ export function ClickScreen() {
         </div>
       )}
 
-      <header className="mt-2 text-center">
-        {/* Deliberately NOT a button. It used to open the number legend, but it
-            is a ~200x96 target sitting directly above the blob, so a tap that
-            landed a little high opened a modal instead of scoring — on the main
-            screen, where nearly every tap in the game happens. The legend moved
-            to the info row at the bottom, out of the tap path. */}
-        <div role="status" aria-label="מוֹנֶה גּוּ" className="mx-auto block">
-          <div
-            className={`font-display text-7xl leading-none tabular text-glow-pop ${
-              frenzyActive ? 'text-hot' : 'text-pop'
-            } ${pop ? 'anim-count-pop' : ''}`}
-          >
-            <SmoothNumber value={goo} format={formatGooHero} />
-          </div>
-          <div className="mt-1 text-sm tracking-wide text-bone/60">גּוּ</div>
-        </div>
-        {goo >= 1000 && (
-          <div className="mt-0.5 text-sm text-bone/60 tabular" dir="ltr">
-            <SmoothNumber value={goo} format={formatExact} />
-          </div>
-        )}
-      </header>
+      <GooHeader frenzyActive={frenzyActive} />
 
       {frenzyActive && (
         <div className="anim-bonus-pulse pointer-events-none absolute inset-x-0 top-40 z-10 text-center">

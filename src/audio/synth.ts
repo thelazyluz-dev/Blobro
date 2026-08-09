@@ -33,6 +33,16 @@ export function unlockAudio(): void {
   if (c && c.state === 'suspended') void c.resume();
 }
 
+/**
+ * Park the audio thread. A `running` AudioContext keeps the OS audio pipeline
+ * alive even in total silence, which costs real battery — so the engine
+ * suspends it whenever it cannot be heard (muted, or the tab is hidden).
+ * Always safe: every playback path resume()s on the next audible call.
+ */
+export function suspendAudio(): void {
+  if (ctx && ctx.state === 'running') void ctx.suspend();
+}
+
 const MASTER_GAIN = 0.2; // overall loudness — gentle for kids/headphones
 const DETUNE_CENTS = 7; // chorus width between the two voices per note
 

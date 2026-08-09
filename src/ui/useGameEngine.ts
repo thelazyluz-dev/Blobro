@@ -4,11 +4,13 @@
 import { useEffect } from 'react';
 import { playMagnitude, playMilestone } from '../audio/sfx';
 import { speakCompliment, speakName } from '../audio/speech';
+import { suspendAudio } from '../audio/synth';
 import { googolWinGoo, saveIntervalMs } from '../game/balance';
 import { unlockCreatures } from '../game/characters';
 import { bigScaleNameHe } from '../game/format';
 import { milestonesCrossed } from '../game/milestones';
 import { useGame } from '../store';
+import { startPowerSaver } from './powerSaver';
 
 // Big-number scales already named this session, so the "you reached quadrillion!"
 // toast fires once per scale per session (it only ever triggers on a live
@@ -18,14 +20,13 @@ const bigScalesNamed = new Set<number>();
 export function useGameEngine(): boolean {
   const loaded = useGame((s) => s.loaded);
 
-  // Load once on mount.
+  // Load once on mount, and arm the idle battery saver (see ui/powerSaver.ts).
   useEffect(() => {
+    startPowerSaver();
     void useGame.getState().loadGame();
   }, []);
 
-  // Passive-income tick via requestAnimationFrame. rAF is throttled/paused while
-  // the tab is hidden, so foreground time is handled here and BACKGROUND time is
-  // credited on resume via applyAwayEarnings (see below).
+  // Passive-income tick on a 100ms interval.
   //
   // The tick is deliberately SLOWER than the frame rate. Writing goo into the
   // store every frame re-rendered the whole active screen at 60Hz for as long
@@ -33,34 +34,56 @@ export function useGameEngine(): boolean {
   // actually hold. Income is linear in dt (rates only change on user actions),
   // so crediting the same elapsed time in 100ms slices instead of 16ms slices
   // yields the same goo to the last digit; only the on-screen number updates
-  // at 10Hz, which is as fast as a rolling counter reads anyway. rAF stays the
-  // scheduler (it pauses when hidden, which the away-earnings flow relies on);
-  // frames between ticks just accumulate time.
+  // at 10Hz, which is as fast as a rolling counter reads anyway.
+  //
+  // It used to be a rAF loop that merely CHECKED the clock each frame — 60-120
+  // wakeups a second to do work on 10 of them, a measurable idle battery cost.
+  // setInterval wakes exactly when there is work. The trade: intervals keep
+  // firing (throttled) in a HIDDEN tab, where rAF paused, and hidden time is
+  // already credited on resume by applyAwayEarnings — so hidden ticks must be
+  // skipped explicitly or that time would be counted twice.
   useEffect(() => {
     if (!loaded) return;
-    const displayTickMs = 100;
-    let raf = 0;
     let last = performance.now();
 
-    const frame = (now: number) => {
-      if (now - last >= displayTickMs) {
-        const dt = Math.min(1, (now - last) / 1000); // clamp long pauses
-        last = now;
-        useGame.getState().tick(dt);
-      }
-      raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return; // applyAwayEarnings owns hidden time
+      const now = performance.now();
+      const dt = Math.min(1, (now - last) / 1000); // clamp long pauses
+      last = now;
+      useGame.getState().tick(dt);
+    }, 100);
 
-    // When we come back to the foreground, reset the clock so the first frame
+    // When we come back to the foreground, reset the clock so the first tick
     // doesn't credit the (clamped) gap twice — applyAwayEarnings covers it.
     const resetClock = () => {
       if (document.visibilityState === 'visible') last = performance.now();
     };
     document.addEventListener('visibilitychange', resetClock);
     return () => {
-      cancelAnimationFrame(raf);
+      window.clearInterval(id);
       document.removeEventListener('visibilitychange', resetClock);
+    };
+  }, [loaded]);
+
+  // Park the audio thread whenever it cannot be heard. The AudioContext used
+  // to stay `running` forever once unlocked — a muted or backgrounded game
+  // still kept the OS audio pipeline (and its battery cost) alive. Every
+  // playback path already resume()s a suspended context on the next audible
+  // call, so suspending aggressively is free.
+  useEffect(() => {
+    if (!loaded) return;
+    if (useGame.getState().muted) suspendAudio();
+    const unsub = useGame.subscribe((s, prev) => {
+      if (s.muted && !prev.muted) suspendAudio();
+    });
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') suspendAudio();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      unsub();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [loaded]);
 

@@ -117,15 +117,17 @@ body {
   }
 }
 
+/* Opacity ONLY, deliberately: this used to scale(1.06) too, and the biggest
+   anim-breathe user is the 288px halo gradient behind the blob — rescaling a
+   layer that size every frame costs real GPU time on the phones kids hold,
+   while an opacity fade composites for free and reads the same. */
 @keyframes blorbo-breathe {
   0%,
   100% {
     opacity: 0.6;
-    transform: scale(1);
   }
   50% {
     opacity: 1;
-    transform: scale(1.06);
   }
 }
 
@@ -314,12 +316,18 @@ body {
   }
 }
 
+/* Opacity drift, NOT hue-rotate: animating `filter` on a fixed full-viewport
+   layer forced the browser to re-filter the whole screen every frame for the
+   life of the app — the single most expensive standing animation we had
+   (measured). An opacity breathe on the same gradients composites for free
+   and keeps the background feeling alive. */
 @keyframes blorbo-aurora {
-  0% {
-    filter: hue-rotate(0deg);
-  }
+  0%,
   100% {
-    filter: hue-rotate(360deg);
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
   }
 }
 
@@ -354,7 +362,7 @@ body {
   animation: blorbo-vignette 0.8s ease-in-out infinite;
 }
 
-/* Slow, hue-shifting decorative background layer. */
+/* Slow, breathing decorative background layer. */
 .bg-aurora {
   position: fixed;
   inset: 0;
@@ -365,7 +373,7 @@ body {
     radial-gradient(60% 50% at 85% 12%, rgba(255, 46, 136, 0.22), transparent 60%),
     radial-gradient(55% 45% at 12% 88%, rgba(0, 229, 255, 0.2), transparent 60%),
     radial-gradient(50% 40% at 50% 40%, rgba(163, 255, 18, 0.1), transparent 65%);
-  animation: blorbo-aurora 28s linear infinite;
+  animation: blorbo-aurora 28s ease-in-out infinite;
 }
 
 @keyframes blorbo-charge {
@@ -702,6 +710,31 @@ body {
     animation: none !important;
     opacity: 0.7 !important;
   }
+}
+
+/* Battery saver (ui/powerSaver.ts): after ~15s with no interaction the html
+   element gains .power-save and every DECORATIVE looping animation pauses —
+   the first tap removes the class and everything resumes mid-loop. The blob's
+   own idle bounce (.anim-idle) deliberately keeps running, one composited
+   transform, so an idle game still looks alive rather than frozen; and the
+   first-tap teaching hint (.anim-tap-hint) keeps tapping, because the player
+   it exists for is exactly the one who hasn't interacted yet. Gameplay-state
+   animations (frenzy hue-spin, speed-test vignette/edge pulse, hatch shake)
+   are also left alone — they only exist while someone is actively playing. */
+.power-save .bg-aurora,
+.power-save .anim-breathe,
+.power-save .blob-pupils,
+.power-save .creature-eyes,
+.power-save .creature-sparkle,
+.power-save .creature-wings,
+.power-save .evo-spark,
+.power-save .anim-rebirth-halo,
+.power-save .anim-evolve-glow,
+.power-save .anim-rebirth-glow,
+.power-save .anim-pulse-glow,
+.power-save .tile-ready::before,
+.power-save .evo-aura-4 > svg:first-child {
+  animation-play-state: paused !important;
 }
 
 /* GPU-cheap "ready to evolve / rebirth" pulse for the COLLECTION GRID tiles.

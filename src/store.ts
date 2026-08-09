@@ -449,6 +449,19 @@ function questStateOf(s: {
   };
 }
 
+/**
+ * Last line of defence for the one corruption that destroys everything: a
+ * non-finite core total. JSON.stringify turns NaN/Infinity into null, and the
+ * load-time sanitizer reads null as 0 — so persisting a poisoned snapshot
+ * converts a live bug into a permanent wipe of the player's progress. When
+ * this returns false the writer skips the write and the last GOOD save stays
+ * on disk / in the cloud; a reload then restores it. (tick() refuses
+ * non-finite gains at the source; this catches every other path in.)
+ */
+function saveTotalsFinite(save: SaveState): boolean {
+  return Number.isFinite(save.goo) && Number.isFinite(save.lifetimeGoo) && Number.isFinite(save.clicks);
+}
+
 function snapshot(s: GameState, now: number): SaveState {
   return {
     version: CURRENT_VERSION,
@@ -725,7 +738,12 @@ export const useGame = create<GameState>((set, get) => {
     saveGame: async () => {
       const s = get();
       if (!s.loaded) return;
-      await persist(snapshot(s, Date.now()));
+      const save = snapshot(s, Date.now());
+      if (!saveTotalsFinite(save)) {
+        console.error('save skipped: non-finite totals', save.goo, save.lifetimeGoo, save.clicks);
+        return;
+      }
+      await persist(save);
     },
 
     setTab: (tab) => set({ activeTab: tab }),
@@ -1302,7 +1320,12 @@ export const useGame = create<GameState>((set, get) => {
       const passive = perSec * ev.incomeMult;
       const robot = effectiveClickPower(m, perSec) * autoClicksPerSec(s.upgrades.autoTap) * ev.clickMult;
       const gain = (passive + robot) * ad * dtSeconds;
-      if (gain <= 0) return;
+      // The finite check is load-bearing, not paranoia: a NaN anywhere in the
+      // chain (a corrupted save field, a bad balance edit) would flow into goo
+      // AND lifetimeGoo here 10×/sec, and a persisted NaN reads back as 0 on
+      // the next load — a total wipe. NaN fails every comparison, so `<= 0`
+      // alone would let it straight through.
+      if (!Number.isFinite(gain) || gain <= 0) return;
       set({ goo: s.goo + gain, lifetimeGoo: s.lifetimeGoo + gain });
     },
 
@@ -1751,6 +1774,10 @@ export async function pushCheckpoint(): Promise<void> {
   try {
     const now = Date.now();
     const save = snapshot(s, now);
+    if (!saveTotalsFinite(save)) {
+      console.error('cloud push skipped: non-finite totals', save.goo, save.lifetimeGoo, save.clicks);
+      return; // the finally below still releases pushInFlight
+    }
     const rollback = pendingRollback;
     const merge = pendingMerge;
     let result = await pushCloudSave(s.cloudRev, save, { rollback, merge });

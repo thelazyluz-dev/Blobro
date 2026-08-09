@@ -29,9 +29,11 @@ SESSION_TTL_DAYS = "30"
 VAPID_PUBLIC_KEY = "BPfnGpXYOgYQvCwDfNIDF5fEAV-P--Z0LDrrtC3XSaxvZllZvLARo84x0WryYgvbS5Ovy6tHIiBojvAXOrjGr_Y"
 
 # Scheduled jobs (see the `scheduled` handler in src/index.ts):
-#  • 03:00 UTC — nightly housekeeping (sweep expired sessions + old audit rows).
+#  • hourly — housekeeping (sweep expired sessions + old audit/ad/activity
+#    rows). Nightly stopped keeping up: save_audit can gain more rows a day
+#    than one nightly batch removed, and an unswept backlog compounds forever.
 #  • every 10 min — the offline-income-cap push (notify players whose offline
-#    half-hour just filled). Both tables otherwise grow without bound, and the
-#    project's first constraint is that it must not cost money.
+#    half-hour just filled). The swept tables otherwise grow without bound,
+#    and the project's first constraint is that it must not cost money.
 [triggers]
-crons = ["0 3 * * *", "*/10 * * * *"]
+crons = ["0 * * * *", "*/10 * * * *"]

@@ -235,8 +235,15 @@ const DEFAULT_MIN_SAVE_INTERVAL_MS = 5_000;
 // to characterise normal play.
 const AUDIT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const AD_EVENTS_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
-// Cap on rows removed per nightly run, so housekeeping stays a short query.
+// Daily-activity rows feed the dashboard's 30-day chart; half a year of days
+// is far more context than it ever shows.
+const ACTIVITY_RETENTION_DAYS = 180;
+// Cap on rows removed per DELETE, so each housekeeping query stays short.
 const SWEEP_BATCH = 5_000;
+// A sweep re-runs its DELETE while full batches keep coming (i.e. there is
+// visibly more to do), up to this many rounds per run. The cap bounds one
+// run's work; anything left simply waits for the next hourly run.
+const SWEEP_MAX_BATCHES = 20;
 
 function minSaveIntervalMs(env: Env): number {
   const raw = Number(env.MIN_SAVE_INTERVAL_MS);
@@ -455,58 +462,85 @@ export default {
   },
 
   /**
-   * Nightly housekeeping (see [triggers] in wrangler.toml).
+   * Hourly housekeeping (see [triggers] in wrangler.toml).
    *
-   * Two tables grew without any bound. Sessions were only ever deleted when
-   * someone tried to reuse an expired one, so a player who simply stops
-   * playing leaves a row behind forever. save_audit gains a row per cloud
-   * save — around 1,400 a day per active player — and its whole purpose is
-   * statistical, so a row from months ago is dead weight.
+   * These tables grow without any other bound. Sessions were only ever
+   * deleted when someone tried to reuse an expired one, so a player who
+   * simply stops playing leaves a row behind forever. save_audit gains a row
+   * per cloud save — around 1,400 a day per active player — and its whole
+   * purpose is statistical, so a row from months ago is dead weight.
    *
-   * Both sweeps are bounded by LIMIT so one night's work can never turn into
-   * a long-running query, and failures are swallowed: housekeeping must never
-   * be the reason the API is unavailable.
+   * The sweeps used to run once a NIGHT with a single 5,000-row batch each —
+   * which stops keeping up somewhere around a couple hundred daily players
+   * (save_audit alone can gain far more rows a day than one batch removes),
+   * after which the backlog compounds forever. Now they run hourly and each
+   * sweep repeats its bounded DELETE while full batches keep coming, so
+   * capacity scales with the actual backlog. Every individual query is still
+   * LIMIT-bounded, and failures are swallowed: housekeeping must never be
+   * the reason the API is unavailable.
    */
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
     // The frequent cron only fires the offline-income-cap push; housekeeping
-    // stays nightly. (At 03:00 both crons match and fire as separate events.)
+    // has its own hourly cron. (At the top of each hour both crons match and
+    // fire as separate events.)
     if (event.cron === '*/10 * * * *') {
       await pushOfflineCap(env);
       return;
     }
     const now = Date.now();
-    try {
-      await env.DB.prepare(
-        'DELETE FROM sessions WHERE token_hash IN (SELECT token_hash FROM sessions WHERE expires < ?1 LIMIT ?2)',
-      )
-        .bind(now, SWEEP_BATCH)
-        .run();
-    } catch (err) {
-      console.error('session sweep failed', err);
-    }
-    try {
-      // Flagged rows (ok = 0) are kept indefinitely — they are the rare ones,
-      // and they are the entire reason the table exists.
-      await env.DB.prepare(
-        'DELETE FROM save_audit WHERE id IN (SELECT id FROM save_audit WHERE ok = 1 AND created < ?1 LIMIT ?2)',
-      )
-        .bind(now - AUDIT_RETENTION_MS, SWEEP_BATCH)
-        .run();
-    } catch (err) {
-      console.error('audit sweep failed', err);
-    }
-    try {
-      // Ad telemetry: trends matter, history doesn't — 90 days is plenty.
-      await env.DB.prepare(
-        'DELETE FROM ad_events WHERE id IN (SELECT id FROM ad_events WHERE created < ?1 LIMIT ?2)',
-      )
-        .bind(now - AD_EVENTS_RETENTION_MS, SWEEP_BATCH)
-        .run();
-    } catch (err) {
-      console.error('ad_events sweep failed', err);
-    }
+    await sweep(
+      env,
+      'session',
+      'DELETE FROM sessions WHERE token_hash IN (SELECT token_hash FROM sessions WHERE expires < ?1 LIMIT ?2)',
+      now,
+    );
+    // Flagged rows (ok = 0) are kept indefinitely — they are the rare ones,
+    // and they are the entire reason the table exists.
+    await sweep(
+      env,
+      'audit',
+      'DELETE FROM save_audit WHERE id IN (SELECT id FROM save_audit WHERE ok = 1 AND created < ?1 LIMIT ?2)',
+      now - AUDIT_RETENTION_MS,
+    );
+    // Ad telemetry: trends matter, history doesn't — 90 days is plenty.
+    await sweep(
+      env,
+      'ad_events',
+      'DELETE FROM ad_events WHERE id IN (SELECT id FROM ad_events WHERE created < ?1 LIMIT ?2)',
+      now - AD_EVENTS_RETENTION_MS,
+    );
+    // Daily activity: one row per player per day, so it grows slowly — but
+    // it grows forever, and the dashboard only ever reads the last 30 days.
+    // `day` is 'YYYY-MM-DD' (UTC), which orders correctly as a string.
+    const activityCutoff = new Date(now - ACTIVITY_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    await sweep(
+      env,
+      'activity',
+      'DELETE FROM activity WHERE rowid IN (SELECT rowid FROM activity WHERE day < ?1 LIMIT ?2)',
+      activityCutoff,
+    );
   },
 };
+
+/**
+ * One bounded, self-repeating DELETE: runs the batched statement again while
+ * every round removes a FULL batch (meaning more rows are visibly waiting),
+ * up to SWEEP_MAX_BATCHES rounds. Errors are logged and swallowed — a missing
+ * table (the owner deploys code and schema separately, by hand) or a transient
+ * D1 failure must never take housekeeping down with it.
+ */
+async function sweep(env: Env, label: string, sql: string, cutoff: number | string): Promise<void> {
+  try {
+    for (let round = 0; round < SWEEP_MAX_BATCHES; round++) {
+      const res = await env.DB.prepare(sql).bind(cutoff, SWEEP_BATCH).run();
+      if ((res.meta?.changes ?? 0) < SWEEP_BATCH) return;
+    }
+  } catch (err) {
+    console.error(`${label} sweep failed`, err);
+  }
+}
 
 // ════════════════════════════════════════════════════════════════════════
 // Auth (PR 3a)

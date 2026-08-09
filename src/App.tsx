@@ -70,9 +70,16 @@ export function App() {
 
   // Unlock the AudioContext on the first interaction (browser autoplay policy),
   // so jingles scheduled slightly later (e.g. after the egg shake) still play.
+  // A muted player's tap is skipped — resuming would spin up the audio thread
+  // for nothing (battery) — so the listener stays armed until the first
+  // UNMUTED interaction actually unlocks.
   useEffect(() => {
-    const unlock = () => unlockAudio();
-    window.addEventListener('pointerdown', unlock, { once: true });
+    const unlock = () => {
+      if (useGame.getState().muted) return;
+      unlockAudio();
+      window.removeEventListener('pointerdown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock);
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 

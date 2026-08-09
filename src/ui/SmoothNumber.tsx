@@ -9,6 +9,7 @@
 // caught up, so an idle screen animates nothing.
 
 import { useEffect, useRef, useState } from 'react';
+import { usePowerSaver } from './powerSaver';
 import { useReducedMotion } from './useReducedMotion';
 
 interface Props {
@@ -24,11 +25,17 @@ const halfLifeSeconds = 0.09;
 
 export function SmoothNumber({ value, format }: Props) {
   const reduced = useReducedMotion();
+  // Battery saver: on an idle phone the glide loop IS the cost — two of these
+  // (hero + exact counter) kept rAF awake continuously while passive income
+  // trickled. In saver mode the number snaps at tick rate instead, exactly
+  // like reduced-motion; the first tap restores the glide.
+  const saving = usePowerSaver();
+  const snap = reduced || saving;
   const [shown, setShown] = useState(value);
   const shownRef = useRef(value);
 
   useEffect(() => {
-    if (reduced) {
+    if (snap) {
       shownRef.current = value;
       setShown(value);
       return;
@@ -54,7 +61,7 @@ export function SmoothNumber({ value, format }: Props) {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [value, reduced]);
+  }, [value, snap]);
 
-  return <>{format(reduced ? value : shown)}</>;
+  return <>{format(snap ? value : shown)}</>;
 }
