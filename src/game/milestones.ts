@@ -3,9 +3,9 @@
 // giant, abstract number suddenly *means* something ("that's the distance to
 // the Moon in metres!"). Data only, pure. Sorted ascending by `goo`.
 //
-// Facts are kept accurate and deliberately vivid. Wealth / market-cap figures do
-// name real people and companies, but those numbers are approximate and swing
-// constantly — they were last verified July 2026, so revisit them occasionally.
+// Facts are kept accurate and deliberately vivid. The population, atom-count and
+// astronomy figures are real but approximate (and a few, like world population,
+// drift over time) — they were re-verified August 2026, so revisit occasionally.
 
 export interface Milestone {
   goo: number;
@@ -24,7 +24,7 @@ export const milestones: Milestone[] = [
   {
     goo: 10_000_000,
     titleHe: 'עֲשָׂרָה מִילְיוֹן!',
-    factHe: 'בערך מספר הצעדים שאדם צועד בארבע שנים של הליכה.',
+    factHe: 'בערך מספר הצעדים שאדם צועד בשלוש עד ארבע שנים של הליכה.',
     emoji: '🚶',
   },
   {
@@ -60,7 +60,7 @@ export const milestones: Milestone[] = [
   {
     goo: 8_000_000_000,
     titleHe: 'כָּל בְּנֵי הָאָדָם!',
-    factHe: 'יש לך יותר גּוּ מכל האנשים שחיים על כדור הארץ (שמונה מיליארד)!',
+    factHe: 'בערך כמספר כל האנשים שחיים על כדור הארץ כרגע — מעל שמונה מיליארד!',
     emoji: '👨‍👩‍👧‍👦',
   },
   {
@@ -130,13 +130,17 @@ export const milestones: Milestone[] = [
     emoji: '💧',
   },
   {
-    goo: 1e27,
+    // ~7×10²⁷ atoms in a human body — the milestone sits on the real figure so
+    // the "all the atoms in your body" claim is literally true (was 1e27, ~7× low).
+    goo: 7e27,
     titleHe: 'כָּל הָאָטוֹמִים בַּגּוּף!',
     factHe: 'בערך מספר האטומים הזעירים שמרכיבים את כל הגוף שלך!',
     emoji: '⚛️',
   },
   {
-    goo: 1e30,
+    // ~5×10³⁰ bacteria on Earth (Whitman et al.) — sit the milestone on the real
+    // figure so "all the bacteria in the world" is accurate (was 1e30, ~5× low).
+    goo: 5e30,
     titleHe: 'כָּל הַחַיְדַּקִּים בָּעוֹלָם!',
     factHe: 'בערך מספר כל החיידקים הקטנטנים שחיים על כדור הארץ כולו!',
     emoji: '🦠',
@@ -155,7 +159,7 @@ export const milestones: Milestone[] = [
   {
     goo: 1e40,
     titleHe: 'מֵעֵבֶר לַדִּמְיוֹן!',
-    factHe: 'עָבַרְתָּ אֶת כָּל הַמְּסְפָּרִים שֶׁיֵּשׁ לָהֶם שֵׁם רָגִיל. עַכְשָׁיו מַתְחִיל הֶחָלָל הָאֲמִתִּי! 🌌',
+    factHe: 'מִסְפָּר כָּל כָּךְ עֲנָק שֶׁקָּשֶׁה בִּכְלָל לְדַמְיֵן אוֹתוֹ — מִכָּאן מַתְחִיל הֶחָלָל הָאֲמִתִּי! 🌌',
     emoji: '🌌',
   },
   {
