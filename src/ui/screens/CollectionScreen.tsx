@@ -445,6 +445,11 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
   const levelCost = creatureLevelCost(def.rarity, held, costM, costRate, im);
   const affordLevel = goo >= levelCost;
   const affordN = affordableCreatureLevels(def.rarity, held, costM, goo, costRate, im);
+  // What the batch button will actually SPEND. The "buy max affordable" action
+  // can drain most of the bank in one tap, and the button used to show only a
+  // count (which then dropped to 0) with no price — so a player tapped it and
+  // watched their goo vanish. Show the total cost, like the single-level button.
+  const batchCost = levelUpToCost(def.rarity, held, held.level + affordN, costM, costRate, im);
   const nextIncome = creatureContribution(def.rarity, { ...held, level: held.level + 1 }, m, im);
   const levelGain = nextIncome - income;
 
@@ -720,15 +725,16 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
           <button
             type="button"
             onClick={onLevelMax}
-            className="btn mt-2 w-full bg-cy/90 py-2 text-sm text-void"
+            className="btn mt-2 flex w-full flex-col items-center bg-cy/90 py-2 text-void"
           >
-            {/* Show the REAL number this buys. It used to clamp the label to
-                "×99" while onLevelMax actually purchased up to affordableCreature
-                Levels' 999 — so one tap could add ~999 levels (near-free at high
-                wealth), which read to players as the level "climbing on its own".
-                affordN already caps at 999, and it's the same value the action
-                spends against, so the button now never promises less than it does. */}
-            שַׁדְרֵג ×{affordN} בְּבַת אַחַת
+            {/* Count AND price. affordN is the real number this buys (it caps at
+                999 and is the same value the action spends against, so the button
+                never promises less than it does). The price line is the fix for
+                the "I pressed and my goo became 0" report: "buy max" can spend
+                almost the whole bank in one tap, so the player must see the cost
+                BEFORE tapping — exactly like the single-level button above. */}
+            <span className="text-sm">⬆️ שַׁדְרֵג ×{affordN} בְּבַת אַחַת</span>
+            <span className="text-xs tabular">{formatGoo(batchCost)} גּוּ</span>
           </button>
         )}
 
