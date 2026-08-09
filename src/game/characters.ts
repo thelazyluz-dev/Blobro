@@ -233,7 +233,7 @@ export const characters: CharacterDef[] = [
     nameLatin: 'Baraku',
     descHe: 'בָּרָק חַי שֶׁרָץ בִּמְהִירוּת הָאוֹר',
     rarity: 'legendary',
-    unlockClicks: 200_000,
+    unlockClicks: 150_000,
     sound: {
       waveform: 'sawtooth',
       notes: [1200, 400, 1600, 800, 2000],
@@ -248,7 +248,7 @@ export const characters: CharacterDef[] = [
     nameLatin: 'Idanosau',
     descHe: 'הַדִּינוֹזָאוּר הֲכִי מַגְנִיב בַּיְּקוּם',
     rarity: 'legendary',
-    unlockClicks: 500_000,
+    unlockClicks: 200_000,
     sound: {
       waveform: 'square',
       notes: [196, 262, 330, 392, 523, 659],

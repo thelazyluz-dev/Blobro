@@ -492,6 +492,24 @@ export function ClickScreen() {
 
   return (
     <div className="anim-tab-in relative flex h-full flex-col items-center justify-between overflow-hidden px-6 py-8">
+      {/* The WHOLE screen is a tap target (owner request — it's more fun than
+          hunting for the blob). A transparent surface sits ABOVE the blob and
+          all the empty space but BELOW every real control: a tap anywhere that
+          isn't a button routes here and runs the exact same handler the blob
+          uses, so the blob still squashes and spits particles wherever you
+          tap. Everything interactive — rain drops, the golden bonus and the
+          bottom buttons (all z ≥ 10) plus the top bar and nav (separate
+          layers) — sits above it and keeps its own tap. The blob <button>
+          stays for accessibility/labelling; it just no longer needs to be hit
+          directly. Skipped during a speed test, which brings its own
+          full-screen tap surface (SpeedFocusOverlay). */}
+      {!speedActive && (
+        <div
+          className="absolute inset-0 z-[5] touch-none select-none"
+          onPointerDown={handleClick}
+          aria-hidden
+        />
+      )}
       {frenzyActive && !reduced && (
         <div
           className="anim-vignette pointer-events-none absolute inset-0 z-0"
@@ -747,9 +765,11 @@ export function ClickScreen() {
           overlaps it: what you earn per second (creatures + robot, with the
           active bonuses as small badges) and what a tap is worth. Tapping the
           rate opens the stats panel for the full breakdown. */}
-      <div className="mb-3 flex w-full flex-col items-center gap-1.5">
+      {/* z-10 lifts this whole row above the full-screen tap surface (z-5) so
+          the bonus/info/speed buttons keep their own taps. */}
+      <div className="relative z-10 mb-3 flex w-full flex-col items-center gap-1.5">
         {clicks < 100 && (
-          <p className="text-center text-sm text-bone/55">לוֹחֲצִים עַל הַבְּלוֹב — צוֹבְרִים גּוּ!</p>
+          <p className="text-center text-sm text-bone/55">לוֹחֲצִים בְּכָל מָקוֹם — צוֹבְרִים גּוּ!</p>
         )}
         {/* One flow row: the bonus button and a compact info button holding the
             two numbers that matter. Tapping the info button opens the full

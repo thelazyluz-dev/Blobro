@@ -243,7 +243,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     kind: 'background',
     nameHe: 'סֻכָּרִיָּה',
     cost: 60_000_000_000_000,
-    requiresClicks: 250_000,
+    requiresClicks: 100_000,
     incomeBonus: 0.4,
     gradient:
       'conic-gradient(from 20deg at 50% 40%, rgba(255,46,136,0.34), rgba(0,229,255,0.34), rgba(255,216,77,0.34), rgba(163,255,18,0.34), rgba(155,93,229,0.34), rgba(255,46,136,0.34)),' +
@@ -254,7 +254,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     kind: 'background',
     nameHe: 'לָבָה',
     cost: 9_000_000_000_000_000,
-    requiresClicks: 600_000,
+    requiresClicks: 200_000,
     incomeBonus: 0.5,
     gradient:
       'radial-gradient(98% 55% at 50% 106%, rgba(255,110,0,0.58), transparent 60%),' +
@@ -282,7 +282,7 @@ export const backgroundSkins: BackgroundSkin[] = [
     kind: 'background',
     nameHe: 'יַהֲלוֹם',
     cost: 300_000_000_000_000,
-    requiresClicks: 350_000,
+    requiresClicks: 150_000,
     incomeBonus: 0.46,
     gradient:
       'repeating-linear-gradient(60deg, rgba(190,249,255,0.10) 0 2px, transparent 2px 26px),' +
