@@ -722,7 +722,13 @@ function DetailModal({ id, onClose }: { id: CharId; onClose: () => void }) {
             onClick={onLevelMax}
             className="btn mt-2 w-full bg-cy/90 py-2 text-sm text-void"
           >
-            שַׁדְרֵג ×{affordN > 99 ? '99' : affordN} בְּבַת אַחַת
+            {/* Show the REAL number this buys. It used to clamp the label to
+                "×99" while onLevelMax actually purchased up to affordableCreature
+                Levels' 999 — so one tap could add ~999 levels (near-free at high
+                wealth), which read to players as the level "climbing on its own".
+                affordN already caps at 999, and it's the same value the action
+                spends against, so the button now never promises less than it does. */}
+            שַׁדְרֵג ×{affordN} בְּבַת אַחַת
           </button>
         )}
 
