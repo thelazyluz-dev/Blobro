@@ -312,7 +312,11 @@ export function GroupsContent({ active }: { active: boolean }) {
       {/* ---- Member of at least one group: picker + board + invite. ---- */}
       {backend && hasGroups && selected && (
         <>
-          {groups.length > 1 && (
+          {/* The group's name must always be visible on its board. With several
+              groups the picker chips already name each one (selected highlighted);
+              with a single group there were no chips, so the name appeared
+              nowhere (owner report) — show it as a title instead. */}
+          {groups.length > 1 ? (
             <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
               {groups.map((g) => (
                 <button
@@ -327,6 +331,8 @@ export function GroupsContent({ active }: { active: boolean }) {
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="mt-2 truncate text-center font-display text-lg text-cy">👥 {selected.name}</div>
           )}
 
           {/* Metric toggle — same three boards as the global leaderboard. */}
