@@ -2785,6 +2785,16 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
             await env.DB.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1')
               .bind(ref.referrer_id)
               .run();
+            // Proactively tell the REFERRER a friend just joined — reaches their
+            // phone even with the game closed. Opt-in and a graceful no-op when
+            // they have no push subscription (or VAPID isn't configured), and it
+            // fires at most once per referee (guarded by qualified = 0 above), so
+            // it can never become spam. Never blocks the save on failure.
+            await pushToUser(env, ref.referrer_id, {
+              title: 'חבר הצטרף דרכך! 🎉',
+              body: 'מישהו נכנס לבלורבו מהקישור שלך והתחיל לשחק. כל הכבוד!',
+              tag: 'referral-joined',
+            });
           }
         }
       }
