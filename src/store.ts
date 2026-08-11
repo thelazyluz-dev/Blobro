@@ -1580,13 +1580,15 @@ export const useGame = create<GameState>((set, get) => {
     setAuthUser: (user) => set({ authUser: user, authChecked: true }),
 
     syncReferral: async () => {
-      // Claim a pending invite exactly once (one-shot: cleared whatever the
-      // outcome — an unknown/already/self code will never succeed on a retry
-      // anyway, and a friend can always re-share on a genuine network miss).
+      // Claim a pending invite — but clear it only on a DEFINITE server answer
+      // (bound / already / self / unknown / invalid). A null is a transient miss
+      // (network error, or a 401 before the fresh session cookie is readable) —
+      // keep the code and retry on the next sign-in, or a real invite would be
+      // silently lost to a flaky first load (the "joined but not counted" bug).
       const ref = pendingRef();
       if (ref) {
-        await claimReferral(ref);
-        clearPendingRef();
+        const r = await claimReferral(ref);
+        if (r && r.definite) clearPendingRef();
       }
       // Join a pending group invite exactly once — but only clear it on a
       // DEFINITE answer (joined / already / named refusal). A null network miss
@@ -1603,6 +1605,36 @@ export const useGame = create<GameState>((set, get) => {
       }
       const info = await fetchReferralMe();
       if (!info) return;
+      // Tell the referrer, proactively, when a friend actually joins (the count
+      // goes up — a friend joined AND started playing, see REFERRAL_QUALIFY_GOO).
+      // The count is baselined SILENTLY the first time we ever see it, so we
+      // never celebrate joins that already happened before this shipped; from
+      // then on any increase pops a toast + confetti (owner: "tell me someone
+      // came through my link"). localStorage keyed, so it survives reloads and
+      // is per-device (a fresh device re-baselines and won't spam old news).
+      try {
+        const KEY = 'blorbo.refCountSeen';
+        const raw = localStorage.getItem(KEY);
+        if (raw === null) {
+          localStorage.setItem(KEY, String(info.count)); // baseline, no toast
+        } else if (info.count > Number(raw)) {
+          const delta = info.count - Number(raw);
+          get().pushToast({
+            text:
+              delta === 1
+                ? 'חָבֵר הִצְטָרֵף דֶּרֶךְ הַקִּישּׁוּר שֶׁלְּךָ! 🎉'
+                : `${delta} חֲבֵרִים הִצְטָרְפוּ דֶּרֶךְ הַקִּישּׁוּר שֶׁלְּךָ! 🎉`,
+            icon: '👥',
+            tone: 'star',
+          });
+          get().triggerConfetti('confetti');
+          localStorage.setItem(KEY, String(info.count));
+        } else {
+          localStorage.setItem(KEY, String(info.count));
+        }
+      } catch {
+        /* localStorage blocked — just skip the celebration, never the sync */
+      }
       // Rewards are no longer auto-granted — the player collects each earned tier
       // by tapping it (claimReferralTier). We just surface code/count/claimed so
       // the UI can light up what's ready.

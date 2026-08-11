@@ -110,9 +110,24 @@ export async function claimReferralReward(tier: number): Promise<ClaimRewardResu
   }
 }
 
-/** POST /referral/claim — bind this account to the referrer behind `ref`. */
-export async function claimReferral(ref: string): Promise<boolean> {
-  if (!hasReferralBackend() || !REF_RE.test(ref)) return false;
+export interface ClaimReferralResult {
+  /** The server gave a real answer — safe to stop retrying (clear the pending
+   * code). A network miss / 401-before-the-session-cookie-lands returns null
+   * instead, so the claim retries on the next sign-in rather than being lost. */
+  definite: boolean;
+  ok: boolean; // the bind took (or was already in place)
+  reason?: string; // 'already' | 'self' | 'unknown' when ok is false
+}
+
+/**
+ * POST /referral/claim — bind this account to the referrer behind `ref`.
+ * Returns null on a TRANSIENT failure (network error, or a non-200 such as a
+ * 401 before the session cookie is readable) so the caller keeps the code and
+ * retries; returns a result object once the server has actually answered.
+ */
+export async function claimReferral(ref: string): Promise<ClaimReferralResult | null> {
+  if (!hasReferralBackend()) return null; // backend not configured — keep and retry
+  if (!REF_RE.test(ref)) return { definite: true, ok: false, reason: 'invalid' }; // garbage code — drop it
   try {
     const res = await fetch(`${BASE()}/referral/claim`, {
       method: 'POST',
@@ -120,11 +135,11 @@ export async function claimReferral(ref: string): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ref }),
     });
-    if (!res.ok) return false;
-    const d = (await res.json()) as { ok?: unknown };
-    return d.ok === true;
+    if (!res.ok) return null; // transient (401/5xx) — retry on the next sign-in
+    const d = (await res.json()) as { ok?: unknown; reason?: unknown };
+    return { definite: true, ok: d.ok === true, reason: typeof d.reason === 'string' ? d.reason : undefined };
   } catch {
-    return false;
+    return null; // network miss — keep and retry
   }
 }
 
