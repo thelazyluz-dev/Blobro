@@ -4,7 +4,7 @@
 // - Hashed build assets are cache-first (their URL changes when they change).
 // - Everything is same-origin and local: no third-party requests, ever.
 
-const CACHE = 'blorbo-v217';
+const CACHE = 'blorbo-v218';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -91,7 +91,10 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     icon: './icon-192.png',
-    badge: './icon-192.png',
+    // The status-bar SMALL icon must be monochrome: Android keeps only the
+    // alpha and paints a white silhouette, so a full-colour icon showed as a
+    // white square. badge-96.png is a white blob silhouette on transparent.
+    badge: './badge-96.png',
     tag: data.tag, // same tag replaces an older notification of the same kind
     data: { url: data.url || './' },
   };
