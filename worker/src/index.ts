@@ -281,6 +281,7 @@ export default {
       url.pathname === '/admin/barred' ||
       url.pathname === '/admin/release' ||
       url.pathname === '/admin/edit' ||
+      url.pathname === '/admin/fake-referral' ||
       url.pathname === '/referral/claim' ||
       url.pathname === '/referral/claim-reward' ||
       url.pathname === '/referral/me' ||
@@ -410,6 +411,11 @@ export default {
     // A testing convenience: overwrite a player's held goo / clicks by nickname.
     if (url.pathname === '/admin/edit' && request.method === 'POST') {
       return handleAdminEdit(request, env);
+    }
+    // A testing convenience: fake a friend joining through a player (bump their
+    // count + fire the "someone joined" push) to verify the referral flow.
+    if (url.pathname === '/admin/fake-referral' && request.method === 'POST') {
+      return handleAdminFakeReferral(request, env);
     }
 
     // ── Auth (PR 3a — identity only, no game logic here) ──────────────────
@@ -2139,6 +2145,51 @@ async function handleAdminRelease(request: Request, env: Env): Promise<Response>
 // ≥ the held goo (monotonic — an edit can never look like a rewound save, so it
 // can't corrupt an account or trip the audit). Nickname → account resolves via
 // the scores.code = de-hyphenated user_id relation (leaderboardCodeFor).
+// POST /admin/fake-referral { nickname, count? } — a TESTING convenience:
+// simulate a friend (or `count` of them) joining THROUGH the named player.
+// Bumps their referral_count exactly like a real qualified referee would AND
+// fires the same "someone joined through you" push, so the whole celebration
+// (the toast on the player's next open + the push right now) can be verified
+// end-to-end without minting a second real account. Admin-only, like /admin/edit.
+async function handleAdminFakeReferral(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get('Origin');
+  if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);
+  const body = await readJsonObject(request);
+  const nickname = typeof body?.nickname === 'string' ? body.nickname.trim() : '';
+  if (!nickname) return authJson({ error: 'bad-nickname' }, 400, origin);
+  const n =
+    typeof body?.count === 'number' && Number.isFinite(body.count)
+      ? Math.max(1, Math.min(20, Math.floor(body.count)))
+      : 1;
+  try {
+    // nickname → account, via the same scores.code = de-hyphenated user_id link.
+    const row = await env.DB.prepare(
+      `SELECT u.id AS userId FROM users u JOIN scores sc ON sc.code = REPLACE(u.id, '-', '') WHERE sc.name = ?1 LIMIT 1`,
+    )
+      .bind(nickname)
+      .first<{ userId: string }>();
+    if (!row) return authJson({ error: 'not-found' }, 404, origin);
+
+    await env.DB.prepare('UPDATE users SET referral_count = referral_count + ?2 WHERE id = ?1')
+      .bind(row.userId, n)
+      .run();
+    const after = await env.DB.prepare('SELECT referral_count FROM users WHERE id = ?1')
+      .bind(row.userId)
+      .first<{ referral_count: number }>();
+
+    // Exercise the real push path too (no-op if they have no subscription).
+    await pushToUser(env, row.userId, {
+      title: 'חבר הצטרף דרכך! 🎉',
+      body: 'מישהו נכנס לבלורבו מהקישור שלך והתחיל לשחק. כל הכבוד!',
+      tag: 'referral-joined',
+    });
+
+    return authJson({ ok: true, nickname, added: n, count: after?.referral_count ?? null }, 200, origin);
+  } catch {
+    return authJson({ error: 'db' }, 500, origin);
+  }
+}
+
 async function handleAdminEdit(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get('Origin');
   if (!isAdmin(request, env)) return authJson({ error: 'unauthorized' }, 401, origin);

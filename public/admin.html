@@ -217,6 +217,17 @@
               <div class="full ok" id="edMsg"></div>
             </div>
           </div>
+
+          <h2 style="margin-top:20px;">👥 בְּדִיקַת הַזְמָנוֹת <span class="pill">לבדיקות בלבד</span></h2>
+          <div class="card">
+            <div class="sub" style="margin-bottom:10px;">הוסף "חבר מדומה" שהצטרף דרך השחקן — מעלה את מונה החברים ושולח את התראת הדחיפה מיד. הטוסט "מישהו הצטרף דרכך" יופיע אצל השחקן ברענון הבא. (שים כאן את הכינוי שלך כדי לבדוק על עצמך.)</div>
+            <div class="edit-grid">
+              <div class="full"><label for="frNick">כינוי</label><input id="frNick" placeholder="הכינוי בטבלה (למשל שלך)" /></div>
+              <div><label for="frCount">כמה</label><input id="frCount" type="number" inputmode="numeric" placeholder="1" /></div>
+              <div class="full"><button class="primary" id="frSend">➕ הוסף חבר מדומה</button></div>
+              <div class="full ok" id="frMsg"></div>
+            </div>
+          </div>
         </div>
 
         <div class="foot" id="foot"></div>
@@ -459,6 +470,34 @@
         }
       }
 
+      async function saveFakeReferral() {
+        if (!sessionStorage.getItem(KEY)) return showLogin();
+        const nickname = $('frNick').value.trim();
+        const countRaw = $('frCount').value.trim();
+        $('frMsg').style.color = 'var(--hot)';
+        if (!nickname) { $('frMsg').textContent = 'צריך כינוי'; return; }
+        const body = { nickname };
+        if (countRaw !== '') body.count = Number(countRaw);
+        $('frMsg').style.color = 'var(--muted)';
+        $('frMsg').textContent = 'שולח…';
+        try {
+          const res = await fetch(`${API}/admin/fake-referral`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${sessionStorage.getItem(KEY)}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (res.status === 404) { $('frMsg').style.color = 'var(--hot)'; $('frMsg').textContent = 'לא נמצא שחקן עם הכינוי הזה (רק מי שכבר בטבלה)'; return; }
+          if (!res.ok) { $('frMsg').style.color = 'var(--hot)'; $('frMsg').textContent = 'שגיאה (' + res.status + ')'; return; }
+          $('frMsg').style.color = 'var(--goo)';
+          $('frMsg').innerHTML = `✓ נוספו ${d.added} ל${esc(nickname)} — סה״כ ${d.count} חברים. פוש נשלח; הטוסט יופיע ברענון הבא של השחקן.`;
+          refresh();
+        } catch (e) {
+          $('frMsg').style.color = 'var(--hot)';
+          $('frMsg').textContent = 'לא ניתן להתחבר לשרת';
+        }
+      }
+
       async function saveEdit() {
         if (!sessionStorage.getItem(KEY)) return showLogin();
         const nickname = $('edNick').value.trim();
@@ -532,6 +571,7 @@
       $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('enter').click(); });
       $('refresh').onclick = refresh;
       $('edSave').onclick = saveEdit;
+      $('frSend').onclick = saveFakeReferral;
       $('bcSend').onclick = sendBroadcast;
       $('logout').onclick = () => { sessionStorage.removeItem(KEY); showLogin(); };
 
