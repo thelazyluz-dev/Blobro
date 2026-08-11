@@ -24,12 +24,19 @@ import { MainBlob } from '../MainBlob';
 
 export function ShopScreen() {
   const goo = useGame((s) => s.goo);
+  const ownedCosmetics = useGame((s) => s.ownedCosmetics);
 
   // Always display each category cheapest → dearest, regardless of data order.
   const byPrice = <T extends { cost: number }>(list: T[]) => [...list].sort((a, b) => a.cost - b.cost);
-  // Exclusive accessories (the referral medals) are awarded, never sold — keep
-  // them out of the shop grid entirely.
-  const sortedAccessories = byPrice(accessories.filter((a) => !a.exclusive));
+  // Exclusive accessories (the referral medals, the champion crown) are AWARDED,
+  // never sold. They were filtered out of the grid entirely — which meant an
+  // EARNED medal/crown had nowhere to be worn ("no medal in the shop"). Show
+  // them here once owned, up front, as equip-only cards (cost 0, never for sale);
+  // the purchasable accessories follow cheapest → dearest.
+  const sortedAccessories = [
+    ...accessories.filter((a) => a.exclusive && ownedCosmetics.includes(a.id)),
+    ...byPrice(accessories.filter((a) => !a.exclusive)),
+  ];
   const sortedBackgrounds = byPrice(backgroundSkins);
   const sortedSounds = byPrice(soundSkins);
 
