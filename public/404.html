@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>בלורבו</title>
+    <!-- GitHub Pages serves this for any path it can't find. Its real job here
+         is to RESCUE invite links: a referral/group link is bl-or-bo.com/?ref=CODE,
+         but out in the wild the "?" gets dropped (old links, a mistype, an app
+         that mangles the URL) → bl-or-bo.com/ref=CODE, which Pages 404s. Rather
+         than lose that new player, pull any ref/group out of the path OR the
+         query — however it arrived — and bounce to /?ref=…&group=… so the app
+         captures it. Anything with no code just shows a friendly way back in
+         (we deliberately do NOT auto-redirect those, so a genuinely missing
+         page — e.g. a mistyped admin.html — is still visible, not masked). -->
+    <script>
+      (function () {
+        try {
+          var loc = window.location;
+          var raw = (loc.pathname + loc.search + loc.hash).replace(/^\/+/, '');
+          function grab(k) {
+            var m = raw.match(new RegExp('(?:^|[?&/#])' + k + '=([^?&/#]+)'));
+            return m ? m[1] : null;
+          }
+          var ref = grab('ref');
+          var group = grab('group');
+          var qs = [];
+          if (ref) qs.push('ref=' + encodeURIComponent(decodeURIComponent(ref)));
+          if (group) qs.push('group=' + encodeURIComponent(decodeURIComponent(group)));
+          if (qs.length) loc.replace('/?' + qs.join('&'));
+        } catch (e) {
+          /* fall through to the friendly page below */
+        }
+      })();
+    </script>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px;
+        background: #1a0b2e;
+        color: #fff4e0;
+        font-family: system-ui, -apple-system, "Segoe UI", Rubik, Arial, sans-serif;
+      }
+      h1 { color: #a3ff12; margin: 0.2em 0; }
+      .btn {
+        display: inline-block;
+        margin-top: 16px;
+        background: #a3ff12;
+        color: #1a0b2e;
+        padding: 12px 24px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: bold;
+      }
+      .muted { color: rgba(255, 244, 224, 0.6); font-size: 0.9rem; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div style="font-size: 56px">🫧</div>
+      <h1>בלורבו</h1>
+      <p>הַדַּף לֹא נִמְצָא — אֲבָל הַמִּשְׂחָק כָּאן! 🎮</p>
+      <a class="btn" href="/">לַמִּשְׂחָק ←</a>
+      <p class="muted">אִם הִגַּעְתֶּם מִקִּישּׁוּר הַזְמָנָה — הַהַזְמָנָה תִּישָׁמֵר.</p>
+    </main>
+  </body>
+</html>
