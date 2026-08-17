@@ -244,12 +244,14 @@ describe('GET /admin/stats — owner dashboard, bearer-gated & aggregate-only', 
 
   it('reflects fresh save progress without a new /submit (reads the saves table)', async () => {
     const cookie = await signUp();
-    // Join the board once — scores.goo is now 1,111.
-    await putSave(cookie, 0, save({ goo: 1_111, lifetimeGoo: 9_999_999 }));
+    // Join with a CLEAN first save — under the first-save goo cap (armed
+    // 2026-08-16). A >1e6 first save would bar the account, leaving no scores
+    // row to carry the nickname the dashboard LEFT JOINs on. scores.goo = 1,111.
+    await putSave(cookie, 0, save({ goo: 1_111, lifetimeGoo: 900_000 }));
     await submit(cookie, { name: 'פְרֶשׁ' });
     // Keep playing: the 60s checkpoint save updates, but the player never reopens
     // the leaderboard, so /submit is NOT called again.
-    await putSave(cookie, 1, save({ goo: 7_654_321, lifetimeGoo: 9_999_999 }));
+    await putSave(cookie, 1, save({ goo: 7_654_321, lifetimeGoo: 7_654_321 }));
 
     const res = await stats('test-admin-token');
     const body = (await res.json()) as { topGoo: Array<{ name: string | null; score: number }> };
@@ -311,6 +313,51 @@ describe('GET /top stays public', () => {
     expect(res.status).toBe(200);
     // Short browser-side cache: reopening the board within 30s costs nothing.
     expect(res.headers.get('Cache-Control')).toBe('public, max-age=30');
+  });
+});
+
+// The public board used to freeze at each player's last /submit (last time THEY
+// opened their leaderboard): a rival could earn goo for an hour and still show
+// everyone their old number, so a watcher's "did I overtake him yet?" refresh
+// never resolved. A checkpoint /save now also refreshes that account's board row.
+describe('GET /top follows live play (a checkpoint refreshes the board)', () => {
+  const topGoo = async () =>
+    ((await (await call('/top?by=goo&limit=50')).json()) as { entries: Array<{ name: string; score: number }> }).entries;
+
+  it('a checkpoint save updates the goo board with no new /submit', async () => {
+    const cookie = await signUp();
+    // Join with a clean first save — scores.goo is 100.
+    await putSave(cookie, 0, save({ goo: 100, lifetimeGoo: 100 }));
+    await submit(cookie, { name: 'רַעֲנָן' });
+    // Keep playing: a 60s checkpoint lands (an honest gain, within the audit's
+    // grace so it isn't flagged), but the board is never reopened — /submit is
+    // NOT called again. Before the fix this stayed frozen at 100 for everyone.
+    await putSave(cookie, 1, save({ goo: 9_000, lifetimeGoo: 9_000 }));
+
+    const row = (await topGoo()).find((e) => e.name === 'רַעֲנָן');
+    expect(row?.score).toBe(9_000); // fresh held goo, not the stale 100
+  });
+
+  it('goo held may FALL on the board (spent on creatures), not only ratchet up', async () => {
+    const cookie = await signUp();
+    // Clean first save (under the first-save cap): 500k held.
+    await putSave(cookie, 0, save({ goo: 500_000, lifetimeGoo: 900_000 }));
+    await submit(cookie, { name: 'קוֹנֶה' });
+    // Spends most of it on an upgrade — a DECREASE (no rate flag). The board
+    // must show the lower balance, not ratchet-hold the old high.
+    await putSave(cookie, 1, save({ goo: 12_000, lifetimeGoo: 900_000 }));
+
+    const row = (await topGoo()).find((e) => e.name === 'קוֹנֶה');
+    expect(row?.score).toBe(12_000);
+  });
+
+  it('a save from a player who never joined creates NO board row', async () => {
+    const cookie = await signUp();
+    // A full checkpoint, but /submit is never called → no nickname, no board row.
+    await putSave(cookie, 0, save({ goo: 4_242, lifetimeGoo: 9_999 }));
+
+    const rank = (await (await call('/rank?by=goo', { headers: { Cookie: cookie } })).json()) as { rank: number | null };
+    expect(rank.rank).toBeNull(); // UPDATE-only: a nameless save never fabricates a row
   });
 });
 
@@ -465,7 +512,12 @@ describe('the cpm board and the held-goo board', () => {
 
   it('an impossible bestCpm in the save is clamped to the physical ceiling, not published', async () => {
     const cookie = await signUp();
-    await putSave(cookie, 0, save({ bestCpm: 99_999 }));
+    // Join with a clean first save: a huge cpm on the FIRST save trips the
+    // first-save cpm cap (armed 2026-08-16) and bars the account before the
+    // clamp can be observed. cpm has no delta audit, so a huge value on a LATER
+    // save is only ever clamped to the ceiling — never a barring flag.
+    await putSave(cookie, 0, save({ bestCpm: 100, goo: 100, lifetimeGoo: 100, clicks: 10 }));
+    await putSave(cookie, 1, save({ bestCpm: 99_999, goo: 100, lifetimeGoo: 100, clicks: 10 }));
     const res = await submit(cookie, { name: 'רן' });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { cpm: { best: number } };
@@ -528,10 +580,13 @@ describe('GET /rank — approximate ranks from the score histogram', () => {
   };
 
   it('orders well-separated goo scores 1, 2, 3 and reports a plausible total', async () => {
+    // Well-separated but each UNDER the first-save goo cap (armed 2026-08-16),
+    // so all three join the board cleanly on their first save. A full decade
+    // apart puts each in its own histogram bucket, where approxRank is exact.
     const specs = [
       { goo: 5_000, name: 'נָמוּךְ' },
-      { goo: 5_000_000, name: 'אֶמְצַע' },
-      { goo: 5_000_000_000, name: 'גָּבוֹהַּ' },
+      { goo: 50_000, name: 'אֶמְצַע' },
+      { goo: 500_000, name: 'גָּבוֹהַּ' },
     ];
     const cookies: string[] = [];
     for (const s of specs) {
@@ -545,7 +600,7 @@ describe('GET /rank — approximate ranks from the score histogram', () => {
     const mid = await rankOf(cookies[1]);
     const low = await rankOf(cookies[0]);
 
-    expect(high.score).toBe(5_000_000_000);
+    expect(high.score).toBe(500_000);
     expect(high.rank).toBe(1);
     expect(mid.rank).toBe(2);
     expect(low.rank).toBe(3);

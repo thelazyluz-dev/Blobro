@@ -2893,6 +2893,46 @@ async function savePut(request: Request, env: Env, origin: string | null): Promi
       console.error('champion record failed', err);
     }
 
+    // ── Keep the public board fresh as the player plays ───────────────────
+    // The `scores` table is otherwise written ONLY when a player opens their
+    // OWN leaderboard (/submit). That froze a rival's board score at their last
+    // board-open: they could earn goo for an hour and still show everyone their
+    // old number, so the "did I overtake him yet?" refresh loop never resolved
+    // — the watcher re-submitted THEIR score, which never moves the rival's row.
+    // Now each checkpoint also refreshes THIS account's board row, so the board
+    // follows live play without anyone needing to open it. goo tracks the
+    // CURRENT balance (may fall — the owner's rule), clicks/cpm only ratchet up.
+    //
+    // Guards that keep the anti-cheat guarantee intact:
+    //  - UPDATE only, never INSERT: a save carries no nickname, so it must not
+    //    fabricate a board row. A player joins (and picks a name) through
+    //    /submit; only once that row exists does /save keep it current.
+    //  - isBarredFromBoard: a flagged account is frozen out here exactly as in
+    //    /submit, so /save can't become a backdoor around the rate audit.
+    //  - Values come from `sanitized` (the same migrate() /submit trusts), which
+    //    caps goo ≤ lifetimeGoo and cpm to the physical ceiling.
+    // No displacement push here (that stays on /submit): the top-11 before/after
+    // reads it needs are too costly to run on every checkpoint. Best-effort — a
+    // failure never affects the save the player just made.
+    try {
+      const code = leaderboardCodeFor(user.id);
+      const onBoard = await env.DB.prepare('SELECT 1 AS x FROM scores WHERE code = ?1')
+        .bind(code)
+        .first<{ x: number }>();
+      if (onBoard && !(await isBarredFromBoard(env.DB, user.id))) {
+        const goo = clamp(Number(sanitized.goo) || 0, 0, MAX_GOO);
+        const clicks = clamp(Math.floor(Number(sanitized.clicks) || 0), 0, MAX_CLICKS);
+        const cpm = clamp(Math.floor(Number(sanitized.bestCpm) || 0), 0, maxCpm);
+        await env.DB.prepare(
+          'UPDATE scores SET goo = ?2, clicks = MAX(clicks, ?3), cpm = MAX(cpm, ?4), updated = ?5 WHERE code = ?1',
+        )
+          .bind(code, goo, clicks, cpm, now)
+          .run();
+      }
+    } catch (err) {
+      console.error('board refresh failed', err);
+    }
+
     return authJson({ rev: newRev, updated: now }, 200, origin);
   } catch {
     return authJson({ error: 'db' }, 500, origin);
